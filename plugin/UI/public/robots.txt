@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://your-domain.com/sitemap.xmloglebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: *
+Allow: /

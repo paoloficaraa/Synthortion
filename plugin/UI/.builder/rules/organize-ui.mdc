@@ -1,0 +1,44 @@
+# Organize UI Rules
+
+## Code Organization Principles
+- Keep components in logical groupings
+- Separate UI components from business logic
+- Use consistent naming conventions
+- Remove unused imports and dependencies
+
+## File Structure Rules
+```
+client/
+├── components/
+│   ├── ui/           # Reusable UI components
+│   └── ...           # Feature-specific components
+├── hooks/            # Custom React hooks
+├── lib/              # Utility functions
+└── pages/            # Page components
+```
+
+## Component Guidelines
+- Each component should have a single responsibility
+- Use TypeScript for type safety
+- Follow React best practices
+- Include proper prop validation
+- Export components with meaningful names
+
+## Dependencies Management
+- Remove unused dependencies from package.json
+- Keep dev dependencies separate from runtime dependencies
+- Use exact versions for critical dependencies
+- Regularly audit and update dependencies
+
+## Code Quality Rules
+- Use consistent code formatting (Prettier)
+- Follow ESLint rules
+- Write meaningful commit messages
+- Include documentation for complex components
+- Use meaningful variable and function names
+
+## Performance Considerations
+- Optimize bundle size by removing unused code
+- Use React.memo for expensive components
+- Implement proper error boundaries
+- Lazy load components when appropriate
