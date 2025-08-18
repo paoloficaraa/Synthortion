@@ -46,7 +46,7 @@ export default function VSTInterface() {
 
   return (
     <div
-      className="relative w-full max-w-5xl bg-gradient-to-br from-gray-800 via-gray-900 to-black rounded-3xl shadow-2xl border border-gray-700"
+      className="relative w-full max-w-5xl bg-gradient-to-br from-gray-800 via-gray-900 to-black shadow-2xl border border-gray-700"
       style={{ minHeight: "650px", height: "auto" }}
     >
       {/* Main container with metallic frame effect */}

@@ -7,6 +7,7 @@ juce_add_plugin(Synthortion
     PLUGIN_CODE P729
     FORMATS AU VST3 Standalone
     NEEDS_WEBVIEW2 TRUE
+    COPY_PLUGIN_AFTER_BUILD TRUE
 )
 
 target_sources(Synthortion 
