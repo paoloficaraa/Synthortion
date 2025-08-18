@@ -1,11 +1,11 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 
 interface KnobProps {
   value: number;
   onChange: (value: number) => void;
   min?: number;
   max?: number;
-  size?: "small" | "medium" | "large";
+  size?: "small" | "medium" | "large" | "tiny";
   label?: string;
   className?: string;
 }

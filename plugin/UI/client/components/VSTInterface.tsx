@@ -18,10 +18,10 @@ interface PluginParameters {
 export default function VSTInterface() {
   // Plugin parameter states with default values
   const [parameters, setParameters] = useState<PluginParameters>({
-    color: 50,
-    delay: 30,
-    chorus: 45,
-    dryWet: 50,
+    color: 0,
+    delay: 0,
+    chorus: 0,
+    dryWet: 100,
     inputGain: 0,
     outputGain: 0,
   });

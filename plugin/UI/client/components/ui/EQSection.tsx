@@ -2,14 +2,16 @@ import { useState } from "react";
 import Knob from "./Knob";
 
 export default function EQSection() {
-  const [lowCut, setLowCut] = useState(25);
+  const [lowCut, setLowCut] = useState(0);
   const [lowMid, setLowMid] = useState(40);
   const [highMid, setHighMid] = useState(60);
-  const [highCut, setHighCut] = useState(35);
-  const [q1, setQ1] = useState(30);
-  const [q2, setQ2] = useState(45);
-  const [q3, setQ3] = useState(55);
-  const [q4, setQ4] = useState(40);
+  const [highCut, setHighCut] = useState(100);
+  const [q1, setQ1] = useState(50);
+  const [q2, setQ2] = useState(50);
+  const [q3, setQ3] = useState(50);
+  const [q4, setQ4] = useState(50);
+  const [lowMidGain, setLowMidGain] = useState(50);
+  const [highMidGain, setHighMidGain] = useState(50);
 
   // Functions to convert knob values (0-100) to frequency ranges
   const getLowCutFreq = (value: number) => {
@@ -43,9 +45,6 @@ export default function EQSection() {
         <div className="bg-orange-500 px-2 py-1 rounded text-xs font-bold text-black">
           EQ / FILTER
         </div>
-        <select className="bg-gray-800 text-white text-xs px-2 py-1 rounded border border-gray-600">
-          <option>EQ PLOT & SPECTROGRAM</option>
-        </select>
       </div>
 
       {/* EQ Controls */}
@@ -74,14 +73,21 @@ export default function EQSection() {
             <div className="text-orange-400">{getLowMidFreq(lowMid)}</div>
           </div>
           <Knob value={lowMid} onChange={setLowMid} size="tiny" label="" />
-          <div className="text-xs text-gray-400 mt-1">Q (Hz)</div>
-          <Knob
-            value={q2}
-            onChange={setQ2}
-            size="tiny"
-            label=""
-            className="mt-1"
-          />
+          <div className="flex gap-2 mt-1">
+            <div className="flex flex-col items-center">
+              <div className="text-xs text-gray-400">Gain</div>
+              <Knob
+                value={lowMidGain}
+                onChange={setLowMidGain}
+                size="tiny"
+                label=""
+              />
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="text-xs text-gray-400">Q</div>
+              <Knob value={q2} onChange={setQ2} size="tiny" label="" />
+            </div>
+          </div>
         </div>
 
         {/* High Mid */}
@@ -91,14 +97,21 @@ export default function EQSection() {
             <div className="text-orange-400">{getHighMidFreq(highMid)}</div>
           </div>
           <Knob value={highMid} onChange={setHighMid} size="tiny" label="" />
-          <div className="text-xs text-gray-400 mt-1">Q (Hz)</div>
-          <Knob
-            value={q3}
-            onChange={setQ3}
-            size="tiny"
-            label=""
-            className="mt-1"
-          />
+          <div className="flex gap-2 mt-1">
+            <div className="flex flex-col items-center">
+              <div className="text-xs text-gray-400">Gain</div>
+              <Knob
+                value={highMidGain}
+                onChange={setHighMidGain}
+                size="tiny"
+                label=""
+              />
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="text-xs text-gray-400">Q</div>
+              <Knob value={q3} onChange={setQ3} size="tiny" label="" />
+            </div>
+          </div>
         </div>
 
         {/* High Cut */}
