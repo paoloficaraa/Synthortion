@@ -6,6 +6,13 @@
 class WarmDistortion
 {
 public:
+    enum class SaturationType
+    {
+        SMOOTH,
+        TUBE,
+        TAPE
+    };
+
     WarmDistortion();
     ~WarmDistortion() = default;
 
@@ -15,20 +22,25 @@ public:
 
     void setDrive(float drive); // 0.0 - 1.0
     void setMix(float mix);     // 0.0 - 1.0 (dry/wet)
+    void setSaturationType(SaturationType type);
 
     void process(juce::AudioBuffer<float> &buffer);
 
 private:
     float applySaturation(float input, float drive);
-    float tanhSaturation(float input, float drive);
+    float smoothSaturation(float input, float drive);
+    float tubeSaturation(float input, float drive);
+    float tapeSaturation(float input, float drive);
+    float applyBitCrush(float input);
 
     void addDenormalizationNoise(float &sample);
 
+    // Main parameters
     float driveAmount = 0.5f;
     float mixAmount = 1.0f;
+    SaturationType saturationType = SaturationType::SMOOTH;
 
     double sampleRate = 44100.0;
-
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
     int oversamplingFactor = 3; // 2^3 = 8x oversampling
 

@@ -42,6 +42,11 @@ void WarmDistortion::setMix(float newMix)
     mixAmount = juce::jlimit(0.0f, 1.0f, newMix);
 }
 
+void WarmDistortion::setSaturationType(SaturationType type)
+{
+    saturationType = type;
+}
+
 void WarmDistortion::process(juce::AudioBuffer<float> &buffer)
 {
     const int numChannels = buffer.getNumChannels();
@@ -63,7 +68,12 @@ void WarmDistortion::process(juce::AudioBuffer<float> &buffer)
         {
             float inputSample = channelData[sample];
             addDenormalizationNoise(inputSample);
-            channelData[sample] = applySaturation(inputSample, driveAmount);
+
+            // Apply saturation
+            float saturatedSample = applySaturation(inputSample, driveAmount);
+
+            // Apply bit crush effect
+            channelData[sample] = applyBitCrush(saturatedSample);
         }
     }
 
@@ -83,16 +93,81 @@ void WarmDistortion::process(juce::AudioBuffer<float> &buffer)
 
 float WarmDistortion::applySaturation(float input, float drive)
 {
-    return tanhSaturation(input, drive);
+    switch (saturationType)
+    {
+    case SaturationType::SMOOTH:
+        return smoothSaturation(input, drive);
+    case SaturationType::TUBE:
+        return tubeSaturation(input, drive);
+    case SaturationType::TAPE:
+        return tapeSaturation(input, drive);
+    default:
+        return smoothSaturation(input, drive);
+    }
 }
 
-float WarmDistortion::tanhSaturation(float input, float drive)
+float WarmDistortion::smoothSaturation(float input, float drive)
 {
+    // Smooth tanh saturation (original behavior)
     float driveMapped = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 20.0f);
     float driven = input * driveMapped;
     return std::tanh(driven);
 }
 
+float WarmDistortion::tubeSaturation(float input, float drive)
+{
+    // Tube-style saturation with asymmetric clipping
+    float driveMapped = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 15.0f);
+    float driven = input * driveMapped;
+
+    // Asymmetric saturation mimicking tube behavior
+    if (driven > 0.0f)
+    {
+        // Softer saturation for positive signals
+        return std::tanh(driven * 0.7f) * 1.2f;
+    }
+    else
+    {
+        // Harder clipping for negative signals
+        return juce::jmax(-0.9f, driven * 0.9f);
+    }
+}
+
+float WarmDistortion::tapeSaturation(float input, float drive)
+{
+    // Tape-style saturation with soft knee compression
+    float driveMapped = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 8.0f);
+    float driven = input * driveMapped;
+
+    // Soft knee saturation characteristic of tape
+    float abs_driven = std::abs(driven);
+    if (abs_driven < 0.5f)
+    {
+        return driven;
+    }
+    else
+    {
+        float sign = (driven > 0.0f) ? 1.0f : -1.0f;
+        float compressed = 0.5f + (abs_driven - 0.5f) / (1.0f + (abs_driven - 0.5f) * 2.0f);
+        return sign * compressed;
+    }
+}
+
+float WarmDistortion::applyBitCrush(float input)
+{
+    // Applica un leggero bit-crush fisso (14-bit con mix al 15%)
+    const float fixedBits = 14.0f;
+    const float fixedMix = 0.15f;
+
+    // Calculate quantization levels
+    float levels = std::pow(2.0f, fixedBits) - 1.0f;
+
+    // Quantize the signal
+    float crushed = std::round(input * levels) / levels;
+
+    // Mix with original signal
+    return input * (1.0f - fixedMix) + crushed * fixedMix;
+}
 void WarmDistortion::addDenormalizationNoise(float &sample)
 {
     if (std::abs(sample) < 1.0e-15f)

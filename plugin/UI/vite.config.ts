@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
 
 export default defineConfig({
   plugins: [react()],
@@ -8,15 +8,19 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./client"),
       "~": path.resolve(__dirname, "./"),
+      juce: path.resolve(
+        __dirname,
+        "../../libs/juce/modules/juce_gui_extra/native/javascript"
+      ),
     },
   },
-  root: '.',
+  root: ".",
   build: {
-    outDir: 'dist',
+    outDir: "dist",
     emptyOutDir: true,
   },
   server: {
     port: 5173,
     host: true,
-  }
-})
+  },
+});

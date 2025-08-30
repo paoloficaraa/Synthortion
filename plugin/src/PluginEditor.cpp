@@ -1,28 +1,40 @@
 #include "Synthortion/PluginProcessor.h"
 #include "Synthortion/PluginEditor.h"
+#include <optional>
 
 namespace synthortion
 {
-    //==============================================================================
     AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor(AudioPluginAudioProcessor &p)
-        : AudioProcessorEditor(&p), processorRef(p),
+        : AudioProcessorEditor(&p),
+          processorRef(p),
+          driveRelay("DRIVE"),
+          mixRelay("MIX"),
+          saturationTypeRelay("SATURATION_TYPE"),
           webView{juce::WebBrowserComponent::Options{}
                       .withBackend(juce::WebBrowserComponent::Options::Backend::webview2)
                       .withWinWebView2Options(juce::WebBrowserComponent::Options::WinWebView2{}
                                                   .withUserDataFolder(juce::File::getSpecialLocation(juce::File::tempDirectory))
-                                                  .withBackgroundColour(juce::Colours::transparentBlack))}
+                                                  .withBackgroundColour(juce::Colours::transparentBlack))
+                      .withNativeIntegrationEnabled()
+                      .withResourceProvider([this](const auto &url)
+                                            { return getResource(url); })
+                      .withOptionsFrom(driveRelay)
+                      .withOptionsFrom(mixRelay)
+                      .withOptionsFrom(saturationTypeRelay)},
+          driveAttachment{*processorRef.apvts.getParameter("DRIVE"), driveRelay, nullptr},
+          mixAttachment{*processorRef.apvts.getParameter("MIX"), mixRelay, nullptr},
+          saturationTypeAttachment{*processorRef.apvts.getParameter("SATURATION_TYPE"), saturationTypeRelay, nullptr}
     {
-        juce::ignoreUnused(processorRef);
+        DBG("AudioPluginAudioProcessorEditor constructor called");
 
         addAndMakeVisible(webView);
 
+        // Navigate to localhost in debug mode
 #if JUCE_DEBUG
         webView.goToURL("http://localhost:5173");
+        DBG("WebView navigating to localhost:5173");
 #else
-        // In a production build, you would likely serve the UI from bundled resources.
-        // For now, this is left as an exercise for the developer.
-        // A simple approach would be to go to a blank page.
-        webView.goToURL("about:blank");
+        webView.goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
 #endif
 
         setResizable(false, false);
@@ -35,8 +47,14 @@ namespace synthortion
 
     void AudioPluginAudioProcessorEditor::resized()
     {
-        // This is generally where you'll want to lay out the positions of any
-        // subcomponents in your editor..
         webView.setBounds(getLocalBounds());
+    }
+
+    auto AudioPluginAudioProcessorEditor::getResource(const juce::String &url) const -> std::optional<Resource>
+    {
+        DBG("Resource requested: " + url);
+
+        // For development, return empty to allow localhost navigation
+        return std::nullopt;
     }
 }

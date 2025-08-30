@@ -39,43 +39,48 @@ export default function EQSection() {
   };
 
   return (
-    <div className="bg-gradient-to-b from-gray-700 to-gray-800 rounded-lg border border-gray-600 p-2">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="bg-orange-500 px-2 py-1 rounded text-xs font-bold text-black">
-          EQ / FILTER
-        </div>
-      </div>
-
+    <div className="bg-gradient-to-b from-gray-700 to-gray-800 rounded-lg border border-gray-600 p-4 h-full flex flex-col">
       {/* EQ Controls */}
-      <div className="grid grid-cols-4 gap-1">
+      <div className="grid grid-cols-4 gap-3 flex-1">
         {/* Low Cut */}
-        <div className="flex flex-col items-center">
-          <div className="text-xs text-gray-300 mb-1 text-center">
-            <div className="font-bold">Low Cut (Hz)</div>
-            <div className="text-orange-400">{getLowCutFreq(lowCut)}</div>
+        <div className="flex flex-col items-center justify-center space-y-2">
+          <div className="text-xs text-gray-300 text-center">
+            <div className="font-bold text-gray-200">Low Cut</div>
+            <div className="text-orange-400 font-mono">
+              {getLowCutFreq(lowCut)} Hz
+            </div>
           </div>
-          <Knob value={lowCut} onChange={setLowCut} size="tiny" label="" />
-          <div className="text-xs text-gray-400 mt-1">Q (Hz)</div>
           <Knob
-            value={q1}
-            onChange={setQ1}
+            value={lowCut}
+            onChange={setLowCut}
             size="tiny"
             label=""
-            className="mt-1"
+            className="mb-2"
           />
+          <div className="text-xs text-gray-400 font-semibold">Q</div>
+          <Knob value={q1} onChange={setQ1} size="tiny" label="" />
         </div>
 
         {/* Low Mid */}
-        <div className="flex flex-col items-center">
-          <div className="text-xs text-gray-300 mb-1 text-center">
-            <div className="font-bold">Low Mid (Hz)</div>
-            <div className="text-orange-400">{getLowMidFreq(lowMid)}</div>
+        <div className="flex flex-col items-center justify-center space-y-2">
+          <div className="text-xs text-gray-300 text-center">
+            <div className="font-bold text-gray-200">Low Mid</div>
+            <div className="text-orange-400 font-mono">
+              {getLowMidFreq(lowMid)} Hz
+            </div>
           </div>
-          <Knob value={lowMid} onChange={setLowMid} size="tiny" label="" />
-          <div className="flex gap-2 mt-1">
+          <Knob
+            value={lowMid}
+            onChange={setLowMid}
+            size="tiny"
+            label=""
+            className="mb-2"
+          />
+          <div className="flex gap-3">
             <div className="flex flex-col items-center">
-              <div className="text-xs text-gray-400">Gain</div>
+              <div className="text-xs text-gray-400 font-semibold mb-1">
+                Gain
+              </div>
               <Knob
                 value={lowMidGain}
                 onChange={setLowMidGain}
@@ -84,22 +89,32 @@ export default function EQSection() {
               />
             </div>
             <div className="flex flex-col items-center">
-              <div className="text-xs text-gray-400">Q</div>
+              <div className="text-xs text-gray-400 font-semibold mb-1">Q</div>
               <Knob value={q2} onChange={setQ2} size="tiny" label="" />
             </div>
           </div>
         </div>
 
         {/* High Mid */}
-        <div className="flex flex-col items-center">
-          <div className="text-xs text-gray-300 mb-1 text-center">
-            <div className="font-bold">High Mid (Hz)</div>
-            <div className="text-orange-400">{getHighMidFreq(highMid)}</div>
+        <div className="flex flex-col items-center justify-center space-y-2">
+          <div className="text-xs text-gray-300 text-center">
+            <div className="font-bold text-gray-200">High Mid</div>
+            <div className="text-orange-400 font-mono">
+              {getHighMidFreq(highMid)}
+            </div>
           </div>
-          <Knob value={highMid} onChange={setHighMid} size="tiny" label="" />
-          <div className="flex gap-2 mt-1">
+          <Knob
+            value={highMid}
+            onChange={setHighMid}
+            size="tiny"
+            label=""
+            className="mb-2"
+          />
+          <div className="flex gap-3">
             <div className="flex flex-col items-center">
-              <div className="text-xs text-gray-400">Gain</div>
+              <div className="text-xs text-gray-400 font-semibold mb-1">
+                Gain
+              </div>
               <Knob
                 value={highMidGain}
                 onChange={setHighMidGain}
@@ -108,27 +123,29 @@ export default function EQSection() {
               />
             </div>
             <div className="flex flex-col items-center">
-              <div className="text-xs text-gray-400">Q</div>
+              <div className="text-xs text-gray-400 font-semibold mb-1">Q</div>
               <Knob value={q3} onChange={setQ3} size="tiny" label="" />
             </div>
           </div>
         </div>
 
         {/* High Cut */}
-        <div className="flex flex-col items-center">
-          <div className="text-xs text-gray-300 mb-1 text-center">
-            <div className="font-bold">High Cut (Hz)</div>
-            <div className="text-orange-400">{getHighCutFreq(highCut)}</div>
+        <div className="flex flex-col items-center justify-center space-y-2">
+          <div className="text-xs text-gray-300 text-center">
+            <div className="font-bold text-gray-200">High Cut</div>
+            <div className="text-orange-400 font-mono">
+              {getHighCutFreq(highCut)}
+            </div>
           </div>
-          <Knob value={highCut} onChange={setHighCut} size="tiny" label="" />
-          <div className="text-xs text-gray-400 mt-1">Q (Hz)</div>
           <Knob
-            value={q4}
-            onChange={setQ4}
+            value={highCut}
+            onChange={setHighCut}
             size="tiny"
             label=""
-            className="mt-1"
+            className="mb-2"
           />
+          <div className="text-xs text-gray-400 font-semibold">Q</div>
+          <Knob value={q4} onChange={setQ4} size="tiny" label="" />
         </div>
       </div>
     </div>

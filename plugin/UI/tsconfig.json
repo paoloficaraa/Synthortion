@@ -17,9 +17,11 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./client/*"]
-    }
+      "@/*": ["./client/*"],
+      "juce/*": ["../../libs/juce/modules/juce_gui_extra/native/javascript/*"]
+    },
+    "typeRoots": ["./client/types", "./node_modules/@types"]
   },
-  "include": ["client"],
+  "include": ["client", "client/types"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

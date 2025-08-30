@@ -7,7 +7,8 @@
 class EQBand
 {
 public:
-    enum FilterType {
+    enum FilterType
+    {
         LowCut = 0,
         LowShelf,
         Peak,
@@ -18,39 +19,39 @@ public:
 
     EQBand() = default;
 
-    void prepare (const juce::dsp::ProcessSpec& spec);
+    void prepare(const juce::dsp::ProcessSpec &spec);
     void reset();
-    void updateCoefficients (double sampleRate);
+    void updateCoefficients(double sampleRate);
 
     template <typename ProcessContext>
-    void process (const ProcessContext& context)
+    void process(const ProcessContext &context)
     {
         // Usa ProcessorDuplicator per gestire automaticamente i canali multipli
-        duplicatedFilter.process (context);
+        duplicatedFilter.process(context);
     }
 
     // Setters per i parametri
-    void setFrequency (float frequency)
+    void setFrequency(float frequency)
     {
         this->frequency = frequency;
         needsUpdate = true;
     }
-    void setGain (float gainDb)
+    void setGain(float gainDb)
     {
         this->gain = gainDb;
         needsUpdate = true;
     }
-    void setQ (float q)
+    void setQ(float q)
     {
         this->quality = q;
         needsUpdate = true;
     }
-    void setFilterType (FilterType type)
+    void setFilterType(FilterType type)
     {
         this->filterType = type;
         needsUpdate = true;
     }
-    void setEnabled (bool enabled) { this->enabled = enabled; }
+    void setEnabled(bool enabled) { this->enabled = enabled; }
 
     // Getters
     float getFrequency() const { return frequency; }
@@ -69,7 +70,7 @@ private:
     bool enabled = true;
     bool needsUpdate = true;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EQBand)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EQBand)
 };
 
 //==============================================================================
@@ -79,24 +80,24 @@ private:
 class ParametricEQ
 {
 public:
-    static constexpr int NumBands = 6;
+    static constexpr int NumBands = 4;
 
     ParametricEQ();
 
-    void prepare (const juce::dsp::ProcessSpec& spec);
+    void prepare(const juce::dsp::ProcessSpec &spec);
     void reset();
-    void process (juce::AudioBuffer<float>& buffer);
+    void process(juce::AudioBuffer<float> &buffer);
 
     // Accesso alle bande
-    EQBand& getBand (int bandIndex)
+    EQBand &getBand(int bandIndex)
     {
-        jassert (bandIndex >= 0 && bandIndex < NumBands);
+        jassert(bandIndex >= 0 && bandIndex < NumBands);
         return bands[bandIndex];
     }
 
-    const EQBand& getBand (int bandIndex) const
+    const EQBand &getBand(int bandIndex) const
     {
-        jassert (bandIndex >= 0 && bandIndex < NumBands);
+        jassert(bandIndex >= 0 && bandIndex < NumBands);
         return bands[bandIndex];
     }
 
@@ -104,7 +105,7 @@ public:
     void setDefaultBandConfiguration();
 
     // Analisi per il display dello spettrogramma (opzionale)
-    void setAnalysisEnabled (bool enabled) { analysisEnabled = enabled; }
+    void setAnalysisEnabled(bool enabled) { analysisEnabled = enabled; }
     bool isAnalysisEnabled() const { return analysisEnabled; }
 
 private:
@@ -112,5 +113,5 @@ private:
     double currentSampleRate = 44100.0;
     bool analysisEnabled = false;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ParametricEQ)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ParametricEQ)
 };

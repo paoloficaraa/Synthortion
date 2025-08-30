@@ -6,6 +6,7 @@ juce_add_plugin(Synthortion
     PLUGIN_MANUFACTURER_CODE MACP
     PLUGIN_CODE P729
     FORMATS AU VST3 Standalone
+    NEEDS_WEB_BROWSER TRUE
     NEEDS_WEBVIEW2 TRUE
     COPY_PLUGIN_AFTER_BUILD TRUE
 )
@@ -14,6 +15,8 @@ target_sources(Synthortion
 PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
+    src/WarmDistortion.cpp
+    src/ParametricEQ.cpp
 )
 
 target_include_directories(Synthortion
@@ -24,6 +27,9 @@ PRIVATE
 target_link_libraries(Synthortion
 PRIVATE
     juce::juce_audio_utils
+    juce::juce_audio_processors
+    juce::juce_gui_extra
+    juce::juce_dsp
 PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags

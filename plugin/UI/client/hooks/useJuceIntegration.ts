@@ -1,106 +1,82 @@
 import { useState, useEffect, useCallback } from "react";
 
-// Hook for integrating with JUCE WebBrowserComponent
-export function useJuceIntegration() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [parameters, setParameters] = useState<{ [key: string]: number }>({});
-  const [postDistortionFFT, setPostDistortionFFT] =
-    useState<Float32Array | null>(null);
-  const [inputLevel, setInputLevel] = useState(0);
-  const [outputLevel, setOutputLevel] = useState(0);
+// Define the structure of a parameter
+interface Parameter {
+  id: string;
+  value: number;
+}
 
-  // Send parameter change to JUCE
-  const setParameter = useCallback((paramId: string, value: number) => {
-    if (window.juce && window.juce.setParameter) {
-      window.juce.setParameter(paramId, value);
+// Define the structure of the message from the JUCE backend
+interface JuceMessage {
+  type: string;
+  payload: Parameter;
+}
+
+// Custom hook for JUCE integration
+export function useJuceIntegration() {
+  const [parameters, setParameters] = useState<Record<string, number>>({});
+
+  const handleJuceMessage = useCallback((event: MessageEvent) => {
+    if (
+      typeof event.data === "object" &&
+      event.data.type === "parameterChanged"
+    ) {
+      const { id, value } = (event.data as JuceMessage).payload;
+      setParameters((prevParams) => ({
+        ...prevParams,
+        [id]: value,
+      }));
     }
-    setParameters((prev) => ({
-      ...prev,
-      [paramId]: value,
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("message", handleJuceMessage);
+    return () => {
+      window.removeEventListener("message", handleJuceMessage);
+    };
+  }, [handleJuceMessage]);
+
+  const setParameterValue = useCallback((id: string, value: number) => {
+    console.log(`[TS] About to set parameter ${id} to ${value}`);
+
+    // Usa il sistema di navigazione URL per comunicare con JUCE
+    try {
+      // Crea un URL speciale che il C++ può intercettare
+      const paramUrl = `juce://setParameter?id=${encodeURIComponent(
+        id
+      )}&value=${value}`;
+
+      console.log(`[TS] Creating navigation URL: ${paramUrl}`);
+
+      // Crea un iframe temporaneo per innescare la navigazione
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = paramUrl;
+      document.body.appendChild(iframe);
+
+      console.log(`[TS] Iframe created and added to DOM`);
+
+      // Rimuovi l'iframe dopo un breve delay
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+          console.log(`[TS] Iframe removed from DOM`);
+        }
+      }, 100);
+
+      console.log(`Parameter ${id} set to ${value}`);
+    } catch (error) {
+      console.error("Error setting parameter:", error);
+    }
+
+    // Aggiornamento ottimistico dell'UI
+    setParameters((prevParams) => ({
+      ...prevParams,
+      [id]: value,
     }));
   }, []);
 
-  // Listen for parameter updates from JUCE
-  useEffect(() => {
-    const handleParameterUpdate = (event: CustomEvent) => {
-      const { paramId, value } = event.detail;
-      setParameters((prev) => ({
-        ...prev,
-        [paramId]: value,
-      }));
-    };
-
-    // Handle post-distortion FFT data from JUCE
-    const handleFFTUpdate = (event: CustomEvent) => {
-      const { fftData } = event.detail;
-      if (fftData instanceof Float32Array) {
-        setPostDistortionFFT(fftData);
-      }
-    };
-
-    // Handle level meters update
-    const handleLevelsUpdate = (event: CustomEvent) => {
-      const { inputLevel, outputLevel } = event.detail;
-      setInputLevel(inputLevel || 0);
-      setOutputLevel(outputLevel || 0);
-    };
-
-    // Check if JUCE bridge is available
-    const checkJuceConnection = () => {
-      if (window.juce) {
-        setIsConnected(true);
-        // Setup event listeners
-        window.addEventListener(
-          "juceParameterUpdate",
-          handleParameterUpdate as EventListener
-        );
-        window.addEventListener(
-          "jucePostDistortionFFT",
-          handleFFTUpdate as EventListener
-        );
-        window.addEventListener(
-          "juceLevelsUpdate",
-          handleLevelsUpdate as EventListener
-        );
-      } else {
-        setIsConnected(false);
-        // Reset to null/zero values when disconnected
-        setPostDistortionFFT(null);
-        setInputLevel(0);
-        setOutputLevel(0);
-      }
-    };
-
-    checkJuceConnection();
-
-    // Recheck connection periodically
-    const connectionCheck = setInterval(checkJuceConnection, 1000);
-
-    return () => {
-      clearInterval(connectionCheck);
-      window.removeEventListener(
-        "juceParameterUpdate",
-        handleParameterUpdate as EventListener
-      );
-      window.removeEventListener(
-        "jucePostDistortionFFT",
-        handleFFTUpdate as EventListener
-      );
-      window.removeEventListener(
-        "juceLevelsUpdate",
-        handleLevelsUpdate as EventListener
-      );
-    };
-  }, []);
-
-  return {
-    isConnected,
-    parameters,
-    setParameter,
-    postDistortionFFT,
-    inputLevel,
-    outputLevel,
-  };
+  return { parameters, setParameterValue };
 }
 
 // Extend window interface for JUCE bridge
