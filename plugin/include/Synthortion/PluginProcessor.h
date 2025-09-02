@@ -1,7 +1,9 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <functional>
 #include "Synthortion/WarmDistortion.h"
+#include "Synthortion/InteractiveEQ.h"
 
 namespace synthortion
 {
@@ -47,10 +49,21 @@ namespace synthortion
 
         juce::AudioProcessorValueTreeState apvts;
 
+        // Spectrum analyzer callback
+        std::function<void(float)> spectrumAnalyzerCallback;
+        void setSpectrumAnalyzerCallback(std::function<void(float)> callback)
+        {
+            spectrumAnalyzerCallback = std::move(callback);
+        }
+
+        // EQ access for UI
+        InteractiveEQ &getEQ() { return interactiveEQ; }
+
     private:
         //==============================================================================
         juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
         WarmDistortion warmDistortion;
+        InteractiveEQ interactiveEQ;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessor)
     };

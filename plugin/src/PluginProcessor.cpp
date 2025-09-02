@@ -90,6 +90,7 @@ namespace synthortion
     {
         juce::dsp::ProcessSpec spec{sampleRate, (juce::uint32)samplesPerBlock, (juce::uint32)getTotalNumInputChannels()};
         warmDistortion.prepare(spec);
+        interactiveEQ.prepare(spec);
     }
 
     void AudioPluginAudioProcessor::releaseResources()
@@ -142,6 +143,36 @@ namespace synthortion
         warmDistortion.setMix(mixValue);
         warmDistortion.setSaturationType(static_cast<WarmDistortion::SaturationType>(static_cast<int>(saturationTypeValue))); // Process the audio through the distortion effect
         warmDistortion.process(buffer);
+
+        // Update EQ parameters from APVTS
+        auto lowCutFreq = apvts.getRawParameterValue("LOW_CUT_FREQ")->load();
+        auto lowCutQ = apvts.getRawParameterValue("LOW_CUT_Q")->load();
+        auto lowMidFreq = apvts.getRawParameterValue("LOW_MID_FREQ")->load();
+        auto lowMidGain = apvts.getRawParameterValue("LOW_MID_GAIN")->load();
+        auto lowMidQ = apvts.getRawParameterValue("LOW_MID_Q")->load();
+        auto highMidFreq = apvts.getRawParameterValue("HIGH_MID_FREQ")->load();
+        auto highMidGain = apvts.getRawParameterValue("HIGH_MID_GAIN")->load();
+        auto highMidQ = apvts.getRawParameterValue("HIGH_MID_Q")->load();
+        auto highCutFreq = apvts.getRawParameterValue("HIGH_CUT_FREQ")->load();
+        auto highCutQ = apvts.getRawParameterValue("HIGH_CUT_Q")->load();
+
+        interactiveEQ.setLowCut(lowCutFreq, lowCutQ);
+        interactiveEQ.setLowMid(lowMidFreq, lowMidGain, lowMidQ);
+        interactiveEQ.setHighMid(highMidFreq, highMidGain, highMidQ);
+        interactiveEQ.setHighCut(highCutFreq, highCutQ);
+
+        // Apply EQ post-distortion
+        interactiveEQ.process(buffer);
+
+        // Send audio data to spectrum analyzer (post-EQ)
+        if (spectrumAnalyzerCallback && buffer.getNumChannels() > 0)
+        {
+            auto *channelData = buffer.getReadPointer(0);
+            for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+            {
+                spectrumAnalyzerCallback(channelData[sample]);
+            }
+        }
     }
 
     //==============================================================================
@@ -177,10 +208,29 @@ namespace synthortion
 
         layout.add(std::make_unique<juce::AudioParameterFloat>("DRIVE", "Drive", 0.0f, 1.0f, 0.3f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("MIX", "Mix", 0.0f, 1.0f, 1.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("INPUT_GAIN", "Input Gain", -24.0f, 24.0f, 0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("OUTPUT_GAIN", "Output Gain", -24.0f, 24.0f, 0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("DELAY", "Delay", 0.0f, 1.0f, 0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("CHORUS", "Chorus", 0.0f, 1.0f, 0.0f));
 
         // Saturation type parameter (0 = SMOOTH, 1 = TUBE, 2 = TAPE)
         layout.add(std::make_unique<juce::AudioParameterChoice>("SATURATION_TYPE", "Saturation Type",
                                                                 juce::StringArray{"Smooth", "Tube", "Tape"}, 0));
+
+        // EQ Parameters
+        layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_CUT_FREQ", "Low Cut Freq", 20.0f, 1000.0f, 20.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_CUT_Q", "Low Cut Q", 0.1f, 10.0f, 0.7f));
+
+        layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_MID_FREQ", "Low Mid Freq", 100.0f, 2000.0f, 350.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_MID_GAIN", "Low Mid Gain", -15.0f, 15.0f, 0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_MID_Q", "Low Mid Q", 0.1f, 10.0f, 1.0f));
+
+        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_MID_FREQ", "High Mid Freq", 1000.0f, 8000.0f, 3800.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_MID_GAIN", "High Mid Gain", -15.0f, 15.0f, 0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_MID_Q", "High Mid Q", 0.1f, 10.0f, 1.0f));
+
+        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_CUT_FREQ", "High Cut Freq", 5000.0f, 20000.0f, 20000.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_CUT_Q", "High Cut Q", 0.1f, 10.0f, 0.7f));
 
         return layout;
     }
