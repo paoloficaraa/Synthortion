@@ -90,7 +90,13 @@ namespace synthortion
     {
         juce::dsp::ProcessSpec spec{sampleRate, (juce::uint32)samplesPerBlock, (juce::uint32)getTotalNumInputChannels()};
         warmDistortion.prepare(spec);
-        interactiveEQ.prepare(spec);
+        parametricEQ.prepare(spec);
+
+        // Initialize RMS level smoothing
+        inputRmsLevel.reset(sampleRate, 0.1); // 100ms smoothing
+        outputRmsLevel.reset(sampleRate, 0.1);
+        inputRmsLevel.setCurrentAndTargetValue(-60.0f);
+        outputRmsLevel.setCurrentAndTargetValue(-60.0f);
     }
 
     void AudioPluginAudioProcessor::releaseResources()
@@ -134,10 +140,23 @@ namespace synthortion
         for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
             buffer.clear(i, 0, buffer.getNumSamples());
 
+        // Skip RMS processing ahead
+        inputRmsLevel.skip(buffer.getNumSamples());
+        outputRmsLevel.skip(buffer.getNumSamples());
+
         // Update distortion parameters from APVTS
         auto driveValue = apvts.getRawParameterValue("DRIVE")->load();
         auto mixValue = apvts.getRawParameterValue("MIX")->load();
         auto saturationTypeValue = apvts.getRawParameterValue("SATURATION_TYPE")->load();
+
+        // Calculate input RMS level
+        float inputRms = 0.0f;
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+        {
+            inputRms += buffer.getRMSLevel(channel, 0, buffer.getNumSamples());
+        }
+        inputRms /= static_cast<float>(buffer.getNumChannels());
+        inputRmsLevel.setTargetValue(juce::Decibels::gainToDecibels(inputRms, -60.0f));
 
         warmDistortion.setDrive(driveValue);
         warmDistortion.setMix(mixValue);
@@ -156,13 +175,22 @@ namespace synthortion
         auto highCutFreq = apvts.getRawParameterValue("HIGH_CUT_FREQ")->load();
         auto highCutQ = apvts.getRawParameterValue("HIGH_CUT_Q")->load();
 
-        interactiveEQ.setLowCut(lowCutFreq, lowCutQ);
-        interactiveEQ.setLowMid(lowMidFreq, lowMidGain, lowMidQ);
-        interactiveEQ.setHighMid(highMidFreq, highMidGain, highMidQ);
-        interactiveEQ.setHighCut(highCutFreq, highCutQ);
+        parametricEQ.setLowCut(lowCutFreq, lowCutQ);
+        parametricEQ.setLowMid(lowMidFreq, lowMidGain, lowMidQ);
+        parametricEQ.setHighMid(highMidFreq, highMidGain, highMidQ);
+        parametricEQ.setHighCut(highCutFreq, highCutQ);
 
         // Apply EQ post-distortion
-        interactiveEQ.process(buffer);
+        parametricEQ.process(buffer);
+
+        // Calculate output RMS level
+        float outputRms = 0.0f;
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+        {
+            outputRms += buffer.getRMSLevel(channel, 0, buffer.getNumSamples());
+        }
+        outputRms /= static_cast<float>(buffer.getNumChannels());
+        outputRmsLevel.setTargetValue(juce::Decibels::gainToDecibels(outputRms, -60.0f));
 
         // Send audio data to spectrum analyzer (post-EQ)
         if (spectrumAnalyzerCallback && buffer.getNumChannels() > 0)

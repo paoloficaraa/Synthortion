@@ -2,14 +2,14 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-// Fire-inspired color constants
-const juce::Colour FIRE_PRIMARY = juce::Colour(255, 165, 0);     // Orange primary
-const juce::Colour FIRE_ACCENT = juce::Colour(255, 69, 0);       // Red-orange accent
-const juce::Colour FIRE_DARK = juce::Colour(25, 25, 25);         // Dark background
-const juce::Colour FIRE_MID = juce::Colour(40, 40, 40);          // Mid-tone
-const juce::Colour FIRE_LIGHT = juce::Colour(200, 200, 200);     // Light text
-const juce::Colour FIRE_SHADOW = juce::Colour(10, 10, 10);       // Shadow color
-const juce::Colour FIRE_HIGHLIGHT = juce::Colour(255, 200, 100); // Highlight
+// color constants
+const juce::Colour BLACK = juce::Colour::fromString("#FF121212");
+const juce::Colour DARK_GREY = juce::Colour::fromString("#FF1D1D1D");
+const juce::Colour MID_GREY = juce::Colour::fromString("#FF2C2C2C");
+const juce::Colour LIGHT_GREY = juce::Colour::fromString("#FFB4B4B4");
+const juce::Colour PURPLE = juce::Colour::fromString("#8f00ff");
+const juce::Colour PURPLE_DARK = juce::Colour::fromString("#7014b8");
+const juce::Colour WHITE = juce::Colour::fromString("#FFDEDEDE");
 
 class SynthortionLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -34,12 +34,16 @@ public:
                               bool shouldDrawButtonAsDown) override;
 
     void drawPopupMenuBackground(juce::Graphics &g, int width, int height) override;
+    void drawPopupMenuItem(juce::Graphics &g, const juce::Rectangle<int> &area,
+                           bool isSeparator, bool isActive, bool isHighlighted, bool isTicked, bool hasSubMenu,
+                           const juce::String &text, const juce::String &shortcutKeyText,
+                           const juce::Drawable *icon, const juce::Colour *textColour) override;
 
     juce::Font getLabelFont(juce::Label &label) override;
     juce::Font getComboBoxFont(juce::ComboBox &box) override;
     juce::Font getPopupMenuFont() override;
 
-    // Fire-inspired helper methods
+    // Helper methods for stylised drawing
     void drawInnerShadow(juce::Graphics &g, const juce::Rectangle<float> &bounds,
                          float cornerRadius, float shadowSize = 2.0f);
     void drawGlowEffect(juce::Graphics &g, const juce::Rectangle<float> &bounds,
@@ -47,13 +51,21 @@ public:
     void drawGradientKnob(juce::Graphics &g, const juce::Rectangle<float> &bounds,
                           float angle, bool isMouseOver, bool isMouseDown);
 
+    // Section panels (rounded card-like panels with subtle border and bevel)
+    void drawSectionPanel(juce::Graphics &g, const juce::Rectangle<float> &bounds,
+                          float cornerRadius = 10.0f) const;
+
+    // Small caption chip (e.g., "EQ / FILTER")
+    void drawFrameLabel(juce::Graphics &g, const juce::Rectangle<float> &bounds,
+                        const juce::String &text) const;
+
     // Scale factor for responsive design
     float scale = 1.0f;
 
 private:
-    juce::Colour baseColour = juce::Colour::fromFloatRGBA(0.1f, 0.12f, 0.16f, 1.0f);
-    juce::Colour highlightColour = juce::Colour::fromFloatRGBA(0.2f, 0.22f, 0.26f, 1.0f);
-    juce::Colour accentColour = juce::Colours::orange;
+    juce::Colour baseCol;
+    juce::Colour highlightCol;
+    juce::Colour accentColour = PURPLE;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SynthortionLookAndFeel)
 };

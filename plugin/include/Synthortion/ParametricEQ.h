@@ -3,11 +3,11 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 
-class InteractiveEQ
+class ParametricEQ
 {
 public:
-    InteractiveEQ();
-    ~InteractiveEQ();
+    ParametricEQ();
+    ~ParametricEQ();
 
     void prepare(const juce::dsp::ProcessSpec &spec);
     void process(juce::AudioBuffer<float> &buffer);
@@ -40,5 +40,5 @@ private:
     float highMidFreq = 3800.0f, highMidGain = 0.0f, highMidQ = 1.0f;
     float highCutFreq = 20000.0f, highCutQ = 0.7f;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(InteractiveEQ)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ParametricEQ)
 };

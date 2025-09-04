@@ -2,30 +2,30 @@
 
 SynthortionLookAndFeel::SynthortionLookAndFeel()
 {
-    // Set Fire-inspired color scheme
-    setColour(juce::ResizableWindow::backgroundColourId, FIRE_DARK);
-    setColour(juce::DocumentWindow::backgroundColourId, FIRE_DARK);
-    setColour(juce::DialogWindow::backgroundColourId, FIRE_DARK);
+    // Set Alkane-inspired color scheme
+    setColour(juce::ResizableWindow::backgroundColourId, BLACK);
+    setColour(juce::DocumentWindow::backgroundColourId, BLACK);
+    setColour(juce::DialogWindow::backgroundColourId, BLACK);
 
-    setColour(juce::Slider::backgroundColourId, FIRE_MID);
-    setColour(juce::Slider::thumbColourId, FIRE_PRIMARY);
-    setColour(juce::Slider::trackColourId, FIRE_ACCENT);
-    setColour(juce::Slider::rotarySliderFillColourId, FIRE_PRIMARY);
-    setColour(juce::Slider::rotarySliderOutlineColourId, FIRE_MID);
+    setColour(juce::Slider::backgroundColourId, MID_GREY);
+    setColour(juce::Slider::thumbColourId, PURPLE);
+    setColour(juce::Slider::trackColourId, PURPLE_DARK);
+    setColour(juce::Slider::rotarySliderFillColourId, PURPLE);
+    setColour(juce::Slider::rotarySliderOutlineColourId, MID_GREY);
 
-    setColour(juce::TextButton::buttonColourId, FIRE_MID);
-    setColour(juce::TextButton::buttonOnColourId, FIRE_PRIMARY);
-    setColour(juce::TextButton::textColourOffId, FIRE_LIGHT);
-    setColour(juce::TextButton::textColourOnId, FIRE_DARK);
+    setColour(juce::TextButton::buttonColourId, MID_GREY);
+    setColour(juce::TextButton::buttonOnColourId, PURPLE);
+    setColour(juce::TextButton::textColourOffId, LIGHT_GREY);
+    setColour(juce::TextButton::textColourOnId, BLACK);
 
-    setColour(juce::Label::textColourId, FIRE_LIGHT);
+    setColour(juce::Label::textColourId, LIGHT_GREY);
     setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
 
-    setColour(juce::ComboBox::backgroundColourId, FIRE_MID);
-    setColour(juce::ComboBox::textColourId, FIRE_LIGHT);
-    setColour(juce::ComboBox::outlineColourId, FIRE_PRIMARY);
-    setColour(juce::ComboBox::buttonColourId, FIRE_PRIMARY);
-    setColour(juce::ComboBox::arrowColourId, FIRE_DARK);
+    setColour(juce::ComboBox::backgroundColourId, MID_GREY);
+    setColour(juce::ComboBox::textColourId, LIGHT_GREY);
+    setColour(juce::ComboBox::outlineColourId, DARK_GREY);
+    setColour(juce::ComboBox::buttonColourId, DARK_GREY);
+    setColour(juce::ComboBox::arrowColourId, LIGHT_GREY);
 }
 
 SynthortionLookAndFeel::~SynthortionLookAndFeel()
@@ -36,17 +36,15 @@ void SynthortionLookAndFeel::drawRotarySlider(juce::Graphics &g, int x, int y, i
                                               float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
                                               juce::Slider &slider)
 {
-    auto bounds = juce::Rectangle<float>(x, y, width, height).reduced(2);
-    auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) / 2.0f;
-    auto toAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
-    auto centreX = bounds.getCentreX();
-    auto centreY = bounds.getCentreY();
+    // Build an explicit float rect to avoid implicit int->float narrowing warnings
+    auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(2.0f);
+    const float knobAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
 
     bool isMouseOver = slider.isMouseOverOrDragging();
     bool isMouseDown = slider.isMouseButtonDown();
 
-    // Draw the knob using Fire-inspired gradient
-    drawGradientKnob(g, bounds, toAngle, isMouseOver, isMouseDown);
+    // Draw the knob using Alkane-inspired style
+    drawGradientKnob(g, bounds, knobAngle, isMouseOver, isMouseDown);
 }
 
 void SynthortionLookAndFeel::drawLabel(juce::Graphics &g, juce::Label &label)
@@ -69,8 +67,9 @@ void SynthortionLookAndFeel::drawComboBox(juce::Graphics &g, int width, int heig
                                           int buttonX, int buttonY, int buttonW, int buttonH,
                                           juce::ComboBox &box)
 {
+    juce::ignoreUnused(isButtonDown);
     auto cornerSize = 3.0f;
-    auto bounds = juce::Rectangle<int>(0, 0, width, height).toFloat();
+    auto bounds = juce::Rectangle<float>(0.0f, 0.0f, (float)width, (float)height);
 
     // Background
     g.setColour(box.findColour(juce::ComboBox::backgroundColourId));
@@ -116,137 +115,228 @@ void SynthortionLookAndFeel::drawButtonBackground(juce::Graphics &g, juce::Butto
     auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
     auto cornerSize = 3.0f;
 
-    auto baseColour = backgroundColour.withMultipliedSaturation(button.hasKeyboardFocus(true) ? 1.3f : 0.9f)
-                          .withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f);
+    auto btnColour = shouldDrawButtonAsDown ? PURPLE_DARK : MID_GREY.interpolatedWith(backgroundColour, 0.15f);
+    if (shouldDrawButtonAsHighlighted)
+        btnColour = btnColour.brighter(0.2f);
 
-    if (shouldDrawButtonAsDown || shouldDrawButtonAsHighlighted)
-        baseColour = baseColour.contrasting(shouldDrawButtonAsDown ? 0.2f : 0.05f);
-
-    // Fire gradient effect
-    juce::ColourGradient gradient(FIRE_PRIMARY.brighter(0.3f), bounds.getX(), bounds.getY(),
-                                  FIRE_ACCENT.darker(0.2f), bounds.getRight(), bounds.getBottom(), false);
-    g.setGradientFill(gradient);
+    g.setColour(btnColour);
     g.fillRoundedRectangle(bounds, cornerSize);
 
-    // Inner shadow for depth
-    drawInnerShadow(g, bounds, cornerSize);
-
-    // Highlight when pressed or hovered
-    if (shouldDrawButtonAsHighlighted)
-    {
-        drawGlowEffect(g, bounds, FIRE_HIGHLIGHT, 0.3f);
-    }
-
-    // Outline
-    g.setColour(FIRE_ACCENT);
+    g.setColour(BLACK.withAlpha(0.5f));
     g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
 }
 
 void SynthortionLookAndFeel::drawPopupMenuBackground(juce::Graphics &g, int width, int height)
 {
-    auto background = FIRE_DARK.darker(0.1f);
-    g.fillAll(background);
-
-    // Subtle border
-    g.setColour(FIRE_PRIMARY.withAlpha(0.5f));
+    g.fillAll(DARK_GREY);
+    g.setColour(PURPLE.withAlpha(0.5f));
     g.drawRect(0, 0, width, height, 1);
+}
+
+void SynthortionLookAndFeel::drawPopupMenuItem(juce::Graphics &g, const juce::Rectangle<int> &area,
+                                               bool isSeparator, bool isActive, bool isHighlighted, bool isTicked, bool hasSubMenu,
+                                               const juce::String &text, const juce::String &shortcutKeyText,
+                                               const juce::Drawable *icon, const juce::Colour *textColour)
+{
+    juce::ignoreUnused(icon, hasSubMenu);
+
+    auto r = area.toFloat();
+
+    if (isSeparator)
+    {
+        g.setColour(BLACK.withAlpha(0.4f));
+        g.fillRect(r.withHeight(1.0f));
+        return;
+    }
+
+    // Row background
+    if (isHighlighted)
+    {
+        g.setColour(PURPLE.withAlpha(0.18f));
+        g.fillRoundedRectangle(r.reduced(2.0f), 4.0f);
+        g.setColour(PURPLE.withAlpha(0.35f));
+        g.drawRoundedRectangle(r.reduced(2.0f), 4.0f, 1.0f);
+    }
+
+    // Tick mark
+    if (isTicked)
+    {
+        g.setColour(PURPLE);
+        g.fillEllipse(r.removeFromLeft(14.0f).reduced(4.0f));
+        r.removeFromLeft(4.0f);
+    }
+
+    // Text
+    {
+        juce::Font f;
+        f.setHeight(11.0f);
+        f.setBold(false);
+        g.setFont(f);
+    }
+    auto col = textColour != nullptr ? *textColour : (isActive ? LIGHT_GREY : LIGHT_GREY.withAlpha(0.5f));
+    g.setColour(col);
+
+    auto textArea = r.reduced(10.0f, 0.0f).toNearestInt();
+    g.drawFittedText(text, textArea, juce::Justification::centredLeft, 1);
+
+    if (shortcutKeyText.isNotEmpty())
+    {
+        g.setColour(LIGHT_GREY.withAlpha(isActive ? 0.6f : 0.3f));
+        g.drawText(shortcutKeyText, textArea, juce::Justification::centredRight, true);
+    }
 }
 
 juce::Font SynthortionLookAndFeel::getLabelFont(juce::Label &label)
 {
-    return juce::Font(12.0f, juce::Font::plain).withExtraKerningFactor(0.1f);
+    juce::ignoreUnused(label);
+    juce::Font f;
+    f.setHeight(12.0f);
+    f.setBold(false);
+    f.setExtraKerningFactor(0.1f);
+    return f;
 }
 
 juce::Font SynthortionLookAndFeel::getComboBoxFont(juce::ComboBox &box)
 {
-    return juce::Font(11.0f, juce::Font::plain);
+    juce::ignoreUnused(box);
+    juce::Font f;
+    f.setHeight(11.0f);
+    f.setBold(false);
+    return f;
 }
 
 juce::Font SynthortionLookAndFeel::getPopupMenuFont()
 {
-    return juce::Font(11.0f, juce::Font::plain);
+    juce::Font f;
+    f.setHeight(11.0f);
+    f.setBold(false);
+    return f;
 }
 
 void SynthortionLookAndFeel::drawInnerShadow(juce::Graphics &g, const juce::Rectangle<float> &bounds,
                                              float cornerRadius, float shadowSize)
 {
     auto shadowBounds = bounds.reduced(1.0f);
+    auto shadowColour = BLACK.withAlpha(0.7f);
 
-    // Create inner shadow using a gradient
-    juce::ColourGradient shadow(FIRE_SHADOW.withAlpha(0.8f), shadowBounds.getX(), shadowBounds.getY(),
-                                FIRE_SHADOW.withAlpha(0.0f), shadowBounds.getX() + shadowSize,
-                                shadowBounds.getY() + shadowSize, false);
+    juce::Path path;
+    path.addRoundedRectangle(shadowBounds, cornerRadius);
 
-    g.setGradientFill(shadow);
-    g.fillRoundedRectangle(shadowBounds.getX(), shadowBounds.getY(), shadowSize * 2, shadowSize * 2, cornerRadius);
+    g.setColour(shadowColour);
+    g.strokePath(path, juce::PathStrokeType(shadowSize, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
 void SynthortionLookAndFeel::drawGlowEffect(juce::Graphics &g, const juce::Rectangle<float> &bounds,
                                             const juce::Colour &glowColour, float intensity)
 {
-    auto glowBounds = bounds.expanded(2.0f);
+    const int numSteps = 10;
+    const float stepSize = bounds.getWidth() * 0.1f;
 
-    // Outer glow
-    juce::ColourGradient glow(glowColour.withAlpha(intensity), bounds.getCentreX(), bounds.getCentreY(),
-                              glowColour.withAlpha(0.0f), glowBounds.getRight(), glowBounds.getBottom(), true);
+    g.setColour(glowColour.withAlpha(intensity / numSteps));
 
-    g.setGradientFill(glow);
-    g.fillEllipse(glowBounds);
+    for (int i = 1; i <= numSteps; ++i)
+    {
+        g.drawEllipse(bounds.expanded(stepSize * i), 1.5f);
+    }
 }
 
 void SynthortionLookAndFeel::drawGradientKnob(juce::Graphics &g, const juce::Rectangle<float> &bounds,
                                               float angle, bool isMouseOver, bool isMouseDown)
 {
-    auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) / 2.0f;
-    auto centreX = bounds.getCentreX();
-    auto centreY = bounds.getCentreY();
-    auto rx = centreX - radius;
-    auto ry = centreY - radius;
-    auto rw = radius * 2.0f;
+    const float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) / 2.0f;
+    const float centreX = bounds.getCentreX();
+    const float centreY = bounds.getCentreY();
+    const float rx = centreX - radius;
+    const float ry = centreY - radius;
+    const float rw = radius * 2.0f;
     auto knobBounds = juce::Rectangle<float>(rx, ry, rw, rw);
 
-    // Main knob gradient
-    juce::ColourGradient gradient(FIRE_PRIMARY.brighter(0.4f), centreX, ry,
-                                  FIRE_ACCENT.darker(0.3f), centreX, ry + rw, false);
-
-    if (isMouseDown)
-    {
-        gradient = juce::ColourGradient(FIRE_ACCENT, centreX, ry,
-                                        FIRE_PRIMARY.darker(0.4f), centreX, ry + rw, false);
-    }
-    else if (isMouseOver)
-    {
-        gradient = juce::ColourGradient(FIRE_PRIMARY.brighter(0.6f), centreX, ry,
-                                        FIRE_ACCENT.darker(0.1f), centreX, ry + rw, false);
-    }
-
-    g.setGradientFill(gradient);
+    // Main knob background
+    g.setColour(BLACK);
     g.fillEllipse(knobBounds);
 
-    // Inner shadow
-    drawInnerShadow(g, knobBounds, radius, 1.5f);
+    // Knob face with gradient
+    juce::ColourGradient gradient(MID_GREY.brighter(0.1f), juce::Point<float>(knobBounds.getX(), knobBounds.getY()),
+                                  DARK_GREY, juce::Point<float>(knobBounds.getRight(), knobBounds.getBottom()), false);
+    g.setGradientFill(gradient);
+    g.fillEllipse(knobBounds.reduced(1.5f));
 
-    // Glow effect when interacting
-    if (isMouseOver || isMouseDown)
+    // Tick ring around the edge
+    const int numTicks = 24;
+    const float tickLen = 3.0f;
+    const float tickStart = radius - 2.0f;
+    g.setColour(LIGHT_GREY.withAlpha(0.3f));
+    for (int i = 0; i < numTicks; ++i)
     {
-        drawGlowEffect(g, knobBounds, FIRE_HIGHLIGHT, isMouseDown ? 0.6f : 0.4f);
+        const float tickAngle = juce::MathConstants<float>::twoPi * (static_cast<float>(i) / static_cast<float>(numTicks));
+        const juce::Point<float> start(centreX + tickStart * std::cos(tickAngle), centreY + tickStart * std::sin(tickAngle));
+        const juce::Point<float> end(centreX + (tickStart - tickLen) * std::cos(tickAngle), centreY + (tickStart - tickLen) * std::sin(tickAngle));
+        g.drawLine(start.x, start.y, end.x, end.y, 1.0f);
     }
 
-    // Outline
-    g.setColour(FIRE_ACCENT.darker(0.2f));
-    g.drawEllipse(knobBounds.reduced(1.0f), 2.0f);
+    // Value pointer - line from center to edge, properly positioned
+    const float pointerLength = radius * 0.7f; // 70% of radius
+    const float pointerThickness = 2.8f;
 
-    // Pointer/indicator
-    juce::Path pointer;
-    auto pointerLength = radius * 0.6f;
-    auto pointerThickness = 2.0f;
+    // Calculate pointer endpoint based on angle
+    const float endX = centreX + pointerLength * std::cos(angle - juce::MathConstants<float>::halfPi);
+    const float endY = centreY + pointerLength * std::sin(angle - juce::MathConstants<float>::halfPi);
 
-    pointer.addRectangle(-pointerThickness * 0.5f, -radius + 4.0f, pointerThickness, pointerLength);
+    // Draw pointer line from center
+    g.setColour(WHITE);
+    g.drawLine(centreX, centreY, endX, endY, pointerThickness);
 
-    g.setColour(FIRE_LIGHT);
-    g.fillPath(pointer, juce::AffineTransform::rotation(angle).translated(centreX, centreY));
+    // Small center dot
+    g.setColour(WHITE);
+    g.fillEllipse(centreX - 2.0f, centreY - 2.0f, 4.0f, 4.0f);
 
-    // Pointer shadow for depth
-    g.setColour(FIRE_SHADOW.withAlpha(0.5f));
-    g.fillPath(pointer, juce::AffineTransform::rotation(angle).translated(centreX + 1, centreY + 1));
+    // Highlight
+    if (isMouseOver || isMouseDown)
+    {
+        g.setColour(PURPLE.withAlpha(isMouseDown ? 0.4f : 0.2f));
+        g.fillEllipse(knobBounds.reduced(1.0f));
+    }
+}
+
+// Section panels and labels
+void SynthortionLookAndFeel::drawSectionPanel(juce::Graphics &g, const juce::Rectangle<float> &b, float r) const
+{
+    auto bounds = b;
+    // base fill
+    juce::ColourGradient grad(DARK_GREY, juce::Point<float>(bounds.getX(), bounds.getY()),
+                              MID_GREY.darker(0.2f), juce::Point<float>(bounds.getRight(), bounds.getBottom()), false);
+    g.setGradientFill(grad);
+    g.fillRoundedRectangle(bounds, r);
+
+    // inner bevel
+    g.setColour(BLACK.withAlpha(0.6f));
+    g.drawRoundedRectangle(bounds.reduced(0.5f), r, 1.0f);
+    g.setColour(LIGHT_GREY.withAlpha(0.05f));
+    g.drawRoundedRectangle(bounds.reduced(2.0f), r, 1.0f);
+}
+
+void SynthortionLookAndFeel::drawFrameLabel(juce::Graphics &g, const juce::Rectangle<float> &b, const juce::String &text) const
+{
+    auto labelBounds = b;
+    const float r = 4.f;
+    g.setColour(BLACK);
+    g.fillRoundedRectangle(labelBounds, r);
+    g.setColour(PURPLE);
+    g.drawRoundedRectangle(labelBounds, r, 1.0f);
+
+    // Small LED chip on the left
+    auto led = labelBounds.removeFromLeft(14.0f).reduced(3.0f);
+    g.setColour(PURPLE.withAlpha(0.9f));
+    g.fillEllipse(led);
+    g.setColour(PURPLE_DARK);
+    g.drawEllipse(led, 1.0f);
+
+    g.setColour(LIGHT_GREY);
+    {
+        juce::Font f;
+        f.setHeight(11.0f);
+        f.setBold(true);
+        g.setFont(f);
+    }
+    g.drawFittedText(text, labelBounds.toNearestInt(), juce::Justification::centred, 1);
 }

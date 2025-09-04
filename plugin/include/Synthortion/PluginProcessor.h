@@ -3,7 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <functional>
 #include "Synthortion/WarmDistortion.h"
-#include "Synthortion/InteractiveEQ.h"
+#include "Synthortion/ParametricEQ.h"
 
 namespace synthortion
 {
@@ -57,13 +57,21 @@ namespace synthortion
         }
 
         // EQ access for UI
-        InteractiveEQ &getEQ() { return interactiveEQ; }
+        ParametricEQ &getEQ() { return parametricEQ; }
+
+        // RMS level access for meters
+        float getInputRmsLevel() const { return inputRmsLevel.getCurrentValue(); }
+        float getOutputRmsLevel() const { return outputRmsLevel.getCurrentValue(); }
 
     private:
         //==============================================================================
         juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
         WarmDistortion warmDistortion;
-        InteractiveEQ interactiveEQ;
+        ParametricEQ parametricEQ;
+
+        // RMS level tracking
+        juce::LinearSmoothedValue<float> inputRmsLevel{-60.0f};
+        juce::LinearSmoothedValue<float> outputRmsLevel{-60.0f};
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessor)
     };

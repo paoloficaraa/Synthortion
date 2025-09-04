@@ -1,16 +1,16 @@
-#include "Synthortion/InteractiveEQ.h"
+#include "Synthortion/ParametricEQ.h"
 #include <algorithm>
 
-InteractiveEQ::InteractiveEQ()
+ParametricEQ::ParametricEQ()
     : sampleRate(44100.0), lowCutFreq(100.0f), lowCutQ(0.707f), lowMidFreq(500.0f), lowMidQ(0.707f), lowMidGain(0.0f), highMidFreq(2000.0f), highMidQ(0.707f), highMidGain(0.0f), highCutFreq(8000.0f), highCutQ(0.707f), isPrepared(false)
 {
 }
 
-InteractiveEQ::~InteractiveEQ()
+ParametricEQ::~ParametricEQ()
 {
 }
 
-void InteractiveEQ::prepare(const juce::dsp::ProcessSpec &spec)
+void ParametricEQ::prepare(const juce::dsp::ProcessSpec &spec)
 {
     sampleRate = spec.sampleRate;
 
@@ -23,7 +23,7 @@ void InteractiveEQ::prepare(const juce::dsp::ProcessSpec &spec)
     isPrepared = true;
 }
 
-void InteractiveEQ::process(juce::AudioBuffer<float> &buffer)
+void ParametricEQ::process(juce::AudioBuffer<float> &buffer)
 {
     if (!isPrepared)
         return;
@@ -37,14 +37,14 @@ void InteractiveEQ::process(juce::AudioBuffer<float> &buffer)
     highCutFilter.process(context);
 }
 
-void InteractiveEQ::setLowCut(float frequency, float q)
+void ParametricEQ::setLowCut(float frequency, float q)
 {
     lowCutFreq = frequency;
     lowCutQ = q;
     updateFilters();
 }
 
-void InteractiveEQ::setLowMid(float frequency, float gain, float q)
+void ParametricEQ::setLowMid(float frequency, float gain, float q)
 {
     lowMidFreq = frequency;
     lowMidGain = gain;
@@ -52,7 +52,7 @@ void InteractiveEQ::setLowMid(float frequency, float gain, float q)
     updateFilters();
 }
 
-void InteractiveEQ::setHighMid(float frequency, float gain, float q)
+void ParametricEQ::setHighMid(float frequency, float gain, float q)
 {
     highMidFreq = frequency;
     highMidGain = gain;
@@ -60,14 +60,14 @@ void InteractiveEQ::setHighMid(float frequency, float gain, float q)
     updateFilters();
 }
 
-void InteractiveEQ::setHighCut(float frequency, float q)
+void ParametricEQ::setHighCut(float frequency, float q)
 {
     highCutFreq = frequency;
     highCutQ = q;
     updateFilters();
 }
 
-void InteractiveEQ::updateFilters()
+void ParametricEQ::updateFilters()
 {
     if (!isPrepared || sampleRate <= 0.0)
         return;
@@ -98,7 +98,7 @@ void InteractiveEQ::updateFilters()
     *highCutFilter.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, validHighCutFreq, validHighCutQ);
 }
 
-std::vector<float> InteractiveEQ::getFrequencyResponse(const std::vector<float> &frequencies)
+std::vector<float> ParametricEQ::getFrequencyResponse(const std::vector<float> &frequencies)
 {
     std::vector<float> response;
     response.reserve(frequencies.size());

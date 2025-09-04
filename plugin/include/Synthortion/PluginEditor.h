@@ -3,6 +3,7 @@
 #include "Synthortion/PluginProcessor.h"
 #include "Synthortion/SynthortionLookAndFeel.h"
 #include "Synthortion/SpectrumAnalyzer.h"
+#include "Synthortion/VerticalDiscreteMeter.h"
 #include <juce_gui_extra/juce_gui_extra.h>
 
 namespace synthortion
@@ -19,6 +20,7 @@ namespace synthortion
 
     private:
         void setupEQControls();
+        void updateMeters();
 
         // This reference is provided as a quick way for your editor to
         // access the processor object that created it.
@@ -28,10 +30,18 @@ namespace synthortion
 
         SpectrumAnalyzer spectrumAnalyzer;
 
+        // Main Controls (matching image layout)
         juce::Slider driveKnob;
-        juce::Slider mixKnob;
-        juce::Slider outputGainKnob;
+        juce::Slider inputGainKnob;  // Left side with meter
+        juce::Slider outputGainKnob; // Right side with meter
+        juce::Slider mixKnob;        // DRY/WET knob
+        juce::Slider delayKnob;      // Delay knob
+        juce::Slider chorusKnob;     // Chorus knob
         juce::ComboBox saturationTypeSelector;
+
+        // Vertical meters for input/output
+        synthortion::Gui::VerticalDiscreteMeter inputMeter;
+        synthortion::Gui::VerticalDiscreteMeter outputMeter;
 
         // EQ Controls
         juce::Slider lowCutFreqKnob;
@@ -47,8 +57,11 @@ namespace synthortion
 
         // Labels
         juce::Label driveLabel;
-        juce::Label mixLabel;
+        juce::Label inputGainLabel;
         juce::Label outputGainLabel;
+        juce::Label mixLabel;
+        juce::Label delayLabel;
+        juce::Label chorusLabel;
         juce::Label saturationTypeLabel;
 
         // EQ Labels
@@ -63,13 +76,22 @@ namespace synthortion
         juce::Label highCutFreqLabel;
         juce::Label highCutQLabel;
 
+        // EQ Section Titles
+        juce::Label lowCutTitle;
+        juce::Label lowMidTitle;
+        juce::Label highMidTitle;
+        juce::Label highCutTitle;
+
         using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
         using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
         // Distortion Attachments
         std::unique_ptr<SliderAttachment> driveAttachment;
-        std::unique_ptr<SliderAttachment> mixAttachment;
+        std::unique_ptr<SliderAttachment> inputGainAttachment;
         std::unique_ptr<SliderAttachment> outputGainAttachment;
+        std::unique_ptr<SliderAttachment> mixAttachment;
+        std::unique_ptr<SliderAttachment> delayAttachment;
+        std::unique_ptr<SliderAttachment> chorusAttachment;
         std::unique_ptr<ComboBoxAttachment> saturationTypeAttachment;
 
         // EQ Attachments

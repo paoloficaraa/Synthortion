@@ -16,7 +16,7 @@ PRIVATE
     src/WarmDistortion.cpp
     src/SynthortionLookAndFeel.cpp
     src/SpectrumAnalyzer.cpp
-    src/InteractiveEQ.cpp
+    src/ParametricEQ.cpp
 )
 
 target_include_directories(Synthortion
