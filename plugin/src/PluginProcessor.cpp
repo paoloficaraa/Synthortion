@@ -18,6 +18,8 @@ namespace synthortion
 
     AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
     {
+        // Clear any callbacks to prevent dangling references
+        spectrumAnalyzerCallback = nullptr;
     }
 
     //==============================================================================
@@ -133,10 +135,18 @@ namespace synthortion
     {
         juce::ignoreUnused(midiMessages);
 
+        // Early validation checks
+        if (buffer.getNumSamples() == 0 || buffer.getNumChannels() == 0)
+            return;
+
+        if (getSampleRate() <= 0.0)
+            return;
+
         juce::ScopedNoDenormals noDenormals;
         auto totalNumInputChannels = getTotalNumInputChannels();
         auto totalNumOutputChannels = getTotalNumOutputChannels();
 
+        // Clear unused output channels
         for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
             buffer.clear(i, 0, buffer.getNumSamples());
 
@@ -193,12 +203,14 @@ namespace synthortion
         outputRmsLevel.setTargetValue(juce::Decibels::gainToDecibels(outputRms, -60.0f));
 
         // Send audio data to spectrum analyzer (post-EQ)
-        if (spectrumAnalyzerCallback && buffer.getNumChannels() > 0)
+        // Use local copy to avoid race conditions with callback destruction
+        auto callback = spectrumAnalyzerCallback;
+        if (callback && buffer.getNumChannels() > 0)
         {
             auto *channelData = buffer.getReadPointer(0);
             for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
             {
-                spectrumAnalyzerCallback(channelData[sample]);
+                callback(channelData[sample]);
             }
         }
     }

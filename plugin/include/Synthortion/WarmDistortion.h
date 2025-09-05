@@ -3,14 +3,20 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
 
+/**
+ * @brief High-quality warm distortion processor with multiple saturation algorithms
+ *
+ * Features 8x oversampling, multiple saturation types, and bit crushing effects.
+ * Designed for musical distortion with minimal aliasing artifacts.
+ */
 class WarmDistortion
 {
 public:
     enum class SaturationType
     {
-        SMOOTH,
-        TUBE,
-        TAPE
+        SMOOTH, ///< Smooth tanh-based saturation
+        TUBE,   ///< Asymmetric tube-style saturation
+        TAPE    ///< Soft-knee tape-style compression
     };
 
     WarmDistortion();
@@ -20,30 +26,104 @@ public:
     void reset();
     void prepare(const juce::dsp::ProcessSpec &spec);
 
+    /**
+     * @brief Set drive amount for saturation intensity
+     * @param drive Drive amount [0.0 - 1.0] where 0 = clean, 1 = maximum saturation
+     */
     void setDrive(float drive); // 0.0 - 1.0
-    void setMix(float mix);     // 0.0 - 1.0 (dry/wet)
+
+    /**
+     * @brief Set dry/wet mix ratio
+     * @param mix Mix amount [0.0 - 1.0] where 0 = fully dry, 1 = fully wet
+     */
+    void setMix(float mix); // 0.0 - 1.0 (dry/wet)
+
+    /**
+     * @brief Set saturation algorithm type
+     * @param type Saturation algorithm (SMOOTH/TUBE/TAPE)
+     */
     void setSaturationType(SaturationType type);
 
+    /**
+     * @brief Process audio buffer with warm distortion
+     * @param buffer Input/output audio buffer to process
+     */
     void process(juce::AudioBuffer<float> &buffer);
 
 private:
+    // Audio processing methods
     float applySaturation(float input, float drive);
+
+    /**
+     * @brief Smooth tanh-based saturation
+     * @param input Input sample [-1.0, 1.0]
+     * @param drive Drive amount [0.0, 1.0]
+     * @return Processed sample with smooth saturation characteristics
+     */
     float smoothSaturation(float input, float drive);
+
+    /**
+     * @brief Tube-style asymmetric saturation
+     * @param input Input sample [-1.0, 1.0]
+     * @param drive Drive amount [0.0, 1.0]
+     * @return Processed sample with tube characteristics
+     */
     float tubeSaturation(float input, float drive);
+
+    /**
+     * @brief Tape-style soft-knee saturation
+     * @param input Input sample [-1.0, 1.0]
+     * @param drive Drive amount [0.0, 1.0]
+     * @return Processed sample with tape characteristics
+     */
     float tapeSaturation(float input, float drive);
+
+    /**
+     * @brief Apply subtle bit crushing effect
+     * @param input Input sample
+     * @return Bit-crushed sample with 14-bit quantization at 15% mix
+     */
     float applyBitCrush(float input);
 
+    /**
+     * @brief Add denormalization noise to prevent CPU spikes
+     * @param sample Reference to sample to modify
+     */
     void addDenormalizationNoise(float &sample);
+
+    // Constants for saturation algorithms
+    static constexpr float SMOOTH_DRIVE_MIN = 1.0f;
+    static constexpr float SMOOTH_DRIVE_MAX = 20.0f;
+    static constexpr float TUBE_POSITIVE_FACTOR = 0.7f;
+    static constexpr float TUBE_POSITIVE_GAIN = 1.2f;
+    static constexpr float TUBE_NEGATIVE_FACTOR = 0.9f;
+    static constexpr float TUBE_NEGATIVE_CLAMP = -0.9f;
+    static constexpr float TUBE_DRIVE_MIN = 1.0f;
+    static constexpr float TUBE_DRIVE_MAX = 15.0f;
+    static constexpr float TAPE_DRIVE_MIN = 1.0f;
+    static constexpr float TAPE_DRIVE_MAX = 8.0f;
+    static constexpr float TAPE_KNEE_THRESHOLD = 0.5f;
+    static constexpr float TAPE_COMPRESSION_FACTOR = 2.0f;
+
+    // Bit crush constants
+    static constexpr float BITCRUSH_BITS = 14.0f;
+    static constexpr float BITCRUSH_MIX = 0.15f;
+
+    // Denormalization constants
+    static constexpr float DENORM_THRESHOLD = 1.0e-15f;
+    static constexpr float DENORM_NOISE_LEVEL = 1.0e-30f;
 
     // Main parameters
     float driveAmount = 0.5f;
     float mixAmount = 1.0f;
     SaturationType saturationType = SaturationType::SMOOTH;
 
+    // Audio processing setup
     double sampleRate = 44100.0;
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
-    int oversamplingFactor = 3; // 2^3 = 8x oversampling
+    static constexpr int OVERSAMPLING_FACTOR = 3; // 2^3 = 8x oversampling
 
+    // Noise generator for denormalization
     juce::Random noiseGenerator;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WarmDistortion)

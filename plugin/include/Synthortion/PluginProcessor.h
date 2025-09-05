@@ -7,7 +7,16 @@
 
 namespace synthortion
 {
-    //==============================================================================
+    /**
+     * @brief Main audio processor for the Synthortion distortion plugin
+     *
+     * Features:
+     * - High-quality warm distortion with multiple saturation types
+     * - 4-band parametric equalizer
+     * - Real-time spectrum analysis
+     * - Input/output level metering
+     * - Full parameter automation support
+     */
     class AudioPluginAudioProcessor final : public juce::AudioProcessor
     {
     public:
@@ -47,31 +56,54 @@ namespace synthortion
         void getStateInformation(juce::MemoryBlock &destData) override;
         void setStateInformation(const void *data, int sizeInBytes) override;
 
+        // Parameter tree for automation and preset management
         juce::AudioProcessorValueTreeState apvts;
 
-        // Spectrum analyzer callback
+        // Spectrum analyzer callback for real-time visualization
         std::function<void(float)> spectrumAnalyzerCallback;
+
+        /**
+         * @brief Set callback function for spectrum analyzer
+         * @param callback Function to receive audio samples for analysis
+         */
         void setSpectrumAnalyzerCallback(std::function<void(float)> callback)
         {
             spectrumAnalyzerCallback = std::move(callback);
         }
 
-        // EQ access for UI
+        /**
+         * @brief Get reference to EQ for UI control
+         * @return Reference to the internal ParametricEQ instance
+         */
         ParametricEQ &getEQ() { return parametricEQ; }
 
-        // RMS level access for meters
+        /**
+         * @brief Get current input RMS level in dB
+         * @return Input level [-60.0 to 0.0] dB
+         */
         float getInputRmsLevel() const { return inputRmsLevel.getCurrentValue(); }
+
+        /**
+         * @brief Get current output RMS level in dB
+         * @return Output level [-60.0 to 0.0] dB
+         */
         float getOutputRmsLevel() const { return outputRmsLevel.getCurrentValue(); }
 
     private:
         //==============================================================================
+        /**
+         * @brief Create parameter layout for APVTS
+         * @return Parameter layout with all plugin parameters
+         */
         juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
-        WarmDistortion warmDistortion;
-        ParametricEQ parametricEQ;
 
-        // RMS level tracking
-        juce::LinearSmoothedValue<float> inputRmsLevel{-60.0f};
-        juce::LinearSmoothedValue<float> outputRmsLevel{-60.0f};
+        // Audio processing components
+        WarmDistortion warmDistortion; ///< Main distortion processor
+        ParametricEQ parametricEQ;     ///< 4-band equalizer
+
+        // RMS level tracking for meters (smoothed values in dB)
+        juce::LinearSmoothedValue<float> inputRmsLevel{-60.0f};  ///< Input level meter
+        juce::LinearSmoothedValue<float> outputRmsLevel{-60.0f}; ///< Output level meter
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessor)
     };

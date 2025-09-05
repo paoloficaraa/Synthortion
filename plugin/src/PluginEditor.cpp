@@ -114,6 +114,8 @@ namespace synthortion
         addAndMakeVisible(spectrumAnalyzer);
 
         // Connect spectrum analyzer to audio processor
+        // IMPORTANT: This creates a callback that captures 'this'.
+        // The callback MUST be cleared in the destructor to prevent crashes.
         processorRef.setSpectrumAnalyzerCallback([this](float sample)
                                                  { spectrumAnalyzer.pushNextSampleIntoFifo(sample); });
 
@@ -123,6 +125,10 @@ namespace synthortion
 
     AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
     {
+        // CRITICAL: Clear the spectrum analyzer callback to prevent crashes
+        // when the editor is destroyed while audio is still processing
+        processorRef.setSpectrumAnalyzerCallback(nullptr);
+
         setLookAndFeel(nullptr);
     }
 
@@ -147,18 +153,18 @@ namespace synthortion
         auto spectrumSection = rightSection.removeFromTop(350.f); // Spectrum ingrandito
         auto eqSection = rightSection;                            // EQ prende tutto il resto
 
-        // Panels per meter 
+        // Panels per meter
         lookAndFeel.drawSectionPanel(g, inputMeterArea.reduced(3.f), 6.f);
         lookAndFeel.drawFrameLabel(g, inputMeterArea.reduced(5.f).removeFromTop(18.f), "INPUT");
 
         lookAndFeel.drawSectionPanel(g, outputMeterArea.reduced(3.f), 6.f);
         lookAndFeel.drawFrameLabel(g, outputMeterArea.reduced(5.f).removeFromTop(18.f), "OUTPUT");
 
-        // Drive + Type 
+        // Drive + Type
         lookAndFeel.drawSectionPanel(g, leftTop.reduced(6.f), 10.f);
         lookAndFeel.drawFrameLabel(g, leftTop.reduced(10.f).removeFromTop(20.f).withWidth(120.f), "COLOR");
 
-        // Effects section 
+        // Effects section
         lookAndFeel.drawSectionPanel(g, leftBottom.reduced(6.f), 8.f);
         lookAndFeel.drawFrameLabel(g, leftBottom.reduced(10.f).removeFromTop(18.f).withWidth(100.f), "EFFECTS");
 
@@ -188,8 +194,8 @@ namespace synthortion
         auto leftBottom = leftSection;                 // Area per effects (ridotta)
 
         // RIGHT SECTION - spectrum e EQ più grandi per colmare lo spazio vuoto
-        auto spectrumSection = rightSection.removeFromTop(350); 
-        auto eqSection = rightSection;                         
+        auto spectrumSection = rightSection.removeFromTop(350);
+        auto eqSection = rightSection;
 
         // INPUT METER + KNOB
         {
