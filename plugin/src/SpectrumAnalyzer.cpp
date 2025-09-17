@@ -32,12 +32,14 @@ void SpectrumAnalyzer::paint(juce::Graphics &g)
     // Grid and axes: Frequency (X) and Gain (Y)
     g.setColour(juce::Colour(0xff2a3441).withAlpha(0.5f));
 
-    // Log-spaced frequency grid lines
+    // Log-spaced frequency grid lines (limit to Nyquist)
+    const float nyquist = (float)(sampleRate * 0.5);
     const float freqs[] = {20.f, 50.f, 100.f, 200.f, 500.f, 1000.f, 2000.f, 5000.f, 10000.f, 20000.f};
     const int numFreqs = (int)(sizeof(freqs) / sizeof(freqs[0]));
     auto freqToX = [&](float f)
     {
-        float norm = (std::log10(f) - std::log10(20.f)) / (std::log10(20000.f) - std::log10(20.f));
+        f = juce::jlimit(20.0f, nyquist, f);
+        float norm = (std::log10(f) - std::log10(20.f)) / (std::log10(nyquist) - std::log10(20.f));
         return plot.getX() + norm * plot.getWidth();
     };
 
@@ -132,17 +134,19 @@ void SpectrumAnalyzer::drawNextFrameOfSpectrum()
     window.multiplyWithWindowingTable(fftData, fftSize);
     forwardFFT.performFrequencyOnlyForwardTransform(fftData);
 
-    auto mindB = -100.0f;
-    auto maxdB = 0.0f;
+    const float mindB = -100.0f;
+    const float maxdB = 0.0f;
+    const float scale = 2.0f / (float)fftSize; // Correct normalization for JUCE FFT
 
     for (int i = 0; i < scopeSize; ++i)
     {
-        auto skewedProportionX = 1.0f - std::exp(std::log(1.0f - (float)i / (float)scopeSize) * 0.2f);
-        auto fftDataIndex = juce::jlimit(0, fftSize / 2, (int)(skewedProportionX * (float)fftSize * 0.5f));
-        auto level = juce::jmap(juce::jlimit(mindB, maxdB,
-                                             juce::Decibels::gainToDecibels(fftData[fftDataIndex]) -
-                                                 juce::Decibels::gainToDecibels((float)fftSize)),
-                                mindB, maxdB, 0.0f, 1.0f);
+        // Map scope index to FFT bin index linearly
+        const float proportion = (float)i / (float)scopeSize;
+        const int fftIndex = juce::jlimit(0, fftSize / 2, (int)(proportion * (float)fftSize * 0.5f));
+
+        float mag = fftData[fftIndex] * scale;
+        float dB = juce::Decibels::gainToDecibels(juce::jmax(mag, 1.0e-9f));
+        float level = juce::jlimit(0.0f, 1.0f, juce::jmap(dB, mindB, maxdB, 0.0f, 1.0f));
         scopeData[i] = level;
     }
 }
@@ -153,16 +157,24 @@ void SpectrumAnalyzer::drawFrame(juce::Graphics &g)
     auto width = bounds.getWidth();
     auto height = bounds.getHeight();
 
-    // Draw spectrum
+    const float nyquist = (float)sampleRate * 0.5f;
+
+    // Function to map a normalized linear position (0-1) to a log-scaled X coordinate
+    auto mapX = [&](float linearPos)
+    {
+        float freq = linearPos * nyquist;
+        freq = juce::jmax(20.0f, freq); // Clamp to min frequency
+        float logPos = (std::log10(freq) - std::log10(20.0f)) / (std::log10(nyquist) - std::log10(20.0f));
+        return bounds.getX() + logPos * width;
+    };
+
     juce::Path spectrumPath;
     bool started = false;
 
     for (int i = 1; i < scopeSize; ++i)
     {
-        // Use the same skew mapping as used when populating scopeData[]
-        const float normI = (float)i / (float)scopeSize;
-        const float skewed = 1.0f - std::exp(std::log(1.0f - normI) * 0.2f);
-        auto x = bounds.getX() + skewed * width;
+        const float linearProportion = (float)i / (float)scopeSize;
+        auto x = mapX(linearProportion);
         auto y = bounds.getBottom() - juce::jmap(scopeData[i], 0.0f, 1.0f, 0.0f, height);
 
         if (!started)

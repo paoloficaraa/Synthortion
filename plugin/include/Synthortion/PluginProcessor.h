@@ -4,6 +4,7 @@
 #include <functional>
 #include "Synthortion/WarmDistortion.h"
 #include "Synthortion/ParametricEQ.h"
+#include <juce_dsp/juce_dsp.h>
 
 namespace synthortion
 {
@@ -100,6 +101,9 @@ namespace synthortion
         // Audio processing components
         WarmDistortion warmDistortion; ///< Main distortion processor
         ParametricEQ parametricEQ;     ///< 4-band equalizer
+
+        // Global dry/wet mixer (applied at end of chain)
+        juce::dsp::DryWetMixer<float> globalDryWet;
 
         // RMS level tracking for meters (smoothed values in dB)
         juce::LinearSmoothedValue<float> inputRmsLevel{-60.0f};  ///< Input level meter

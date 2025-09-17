@@ -31,12 +31,9 @@ public:
      * @param drive Drive amount [0.0 - 1.0] where 0 = clean, 1 = maximum saturation
      */
     void setDrive(float drive); // 0.0 - 1.0
-
-    /**
-     * @brief Set dry/wet mix ratio
-     * @param mix Mix amount [0.0 - 1.0] where 0 = fully dry, 1 = fully wet
-     */
-    void setMix(float mix); // 0.0 - 1.0 (dry/wet)
+    // Mix is handled globally at the processor level to avoid phase issues.
+    // Kept for backward compatibility; has no effect.
+    void setMix(float mix); // deprecated
 
     /**
      * @brief Set saturation algorithm type
@@ -49,6 +46,12 @@ public:
      * @param buffer Input/output audio buffer to process
      */
     void process(juce::AudioBuffer<float> &buffer);
+
+    /**
+     * @brief Get processing latency in samples due to oversampling filters
+     * @return Estimated latency (samples) for aligning dry/wet paths
+     */
+    int getLatencySamples() const { return oversampler ? static_cast<int>(oversampler->getLatencyInSamples()) : 0; }
 
 private:
     // Audio processing methods
@@ -115,7 +118,7 @@ private:
 
     // Main parameters
     float driveAmount = 0.5f;
-    float mixAmount = 1.0f;
+    // Internal mix removed; always process 100% wet, mix later globally
     SaturationType saturationType = SaturationType::SMOOTH;
 
     // Audio processing setup

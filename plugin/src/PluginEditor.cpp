@@ -110,8 +110,34 @@ namespace synthortion
         // EQ Controls
         setupEQControls();
 
+        // EQ Section Titles
+        lowCutTitle.setText("LOW CUT", juce::dontSendNotification);
+        lowCutTitle.setJustificationType(juce::Justification::centred);
+        lowCutTitle.setFont(juce::Font(11.0f, juce::Font::bold));
+        lowCutTitle.setColour(juce::Label::textColourId, juce::Colour(0xffB4B4B4));
+        addAndMakeVisible(lowCutTitle);
+
+        lowMidTitle.setText("LOW MID", juce::dontSendNotification);
+        lowMidTitle.setJustificationType(juce::Justification::centred);
+        lowMidTitle.setFont(juce::Font(11.0f, juce::Font::bold));
+        lowMidTitle.setColour(juce::Label::textColourId, juce::Colour(0xffB4B4B4));
+        addAndMakeVisible(lowMidTitle);
+
+        highMidTitle.setText("HIGH MID", juce::dontSendNotification);
+        highMidTitle.setJustificationType(juce::Justification::centred);
+        highMidTitle.setFont(juce::Font(11.0f, juce::Font::bold));
+        highMidTitle.setColour(juce::Label::textColourId, juce::Colour(0xffB4B4B4));
+        addAndMakeVisible(highMidTitle);
+
+        highCutTitle.setText("HIGH CUT", juce::dontSendNotification);
+        highCutTitle.setJustificationType(juce::Justification::centred);
+        highCutTitle.setFont(juce::Font(11.0f, juce::Font::bold));
+        highCutTitle.setColour(juce::Label::textColourId, juce::Colour(0xffB4B4B4));
+        addAndMakeVisible(highCutTitle);
+
         // Add spectrum analyzer
         addAndMakeVisible(spectrumAnalyzer);
+        spectrumAnalyzer.setSampleRate(processorRef.getSampleRate());
 
         // Connect spectrum analyzer to audio processor
         // IMPORTANT: This creates a callback that captures 'this'.
@@ -167,10 +193,6 @@ namespace synthortion
         // Effects section
         lookAndFeel.drawSectionPanel(g, leftBottom.reduced(6.f), 8.f);
         lookAndFeel.drawFrameLabel(g, leftBottom.reduced(10.f).removeFromTop(18.f).withWidth(100.f), "EFFECTS");
-
-        // Spectrum section
-        lookAndFeel.drawSectionPanel(g, spectrumSection.reduced(6.f), 10.f);
-        lookAndFeel.drawFrameLabel(g, spectrumSection.reduced(10.f).removeFromTop(18.f).withWidth(150.f), "SPECTRUM");
 
         // EQ section
         lookAndFeel.drawSectionPanel(g, eqSection.reduced(6.f), 10.f);
@@ -297,44 +319,117 @@ namespace synthortion
         // SPECTRUM SECTION (right top) - più grande per colmare spazio vuoto
         spectrumAnalyzer.setBounds(spectrumSection.reduced(10));
 
-        // EQ SECTION (right bottom) - più grande, prende tutto lo spazio rimanente
-        auto eqBandWidth = eqSection.getWidth() / 4;
+        // EQ SECTION (right bottom) - layout aggiornato: freq knobs più grandi e distanziati,
+        // riempiono meglio l'area; Gain/Q con etichette più basse per migliore leggibilità.
+        {
+            auto area = eqSection.reduced(10);
 
-        // Low Cut (band 1)
-        auto lowCutArea = eqSection.removeFromLeft(eqBandWidth).reduced(8);
-        auto knobHeight = (lowCutArea.getHeight() - 30) / 2;
-        lowCutFreqKnob.setBounds(lowCutArea.removeFromTop(knobHeight).withSizeKeepingCentre(50, 50));
-        lowCutFreqLabel.setBounds(lowCutArea.removeFromTop(18));
-        lowCutQKnob.setBounds(lowCutArea.removeFromTop(knobHeight).withSizeKeepingCentre(50, 50));
-        lowCutQLabel.setBounds(lowCutArea.removeFromTop(18));
+            const int sectionHeaderOffset = 28;
+            const int bandCount = 4;
 
-        // Low Mid (band 2)
-        auto lowMidArea = eqSection.removeFromLeft(eqBandWidth).reduced(8);
-        auto lowMidKnobHeight = (lowMidArea.getHeight() - 54) / 3;
-        lowMidFreqKnob.setBounds(lowMidArea.removeFromTop(lowMidKnobHeight).withSizeKeepingCentre(48, 48));
-        lowMidFreqLabel.setBounds(lowMidArea.removeFromTop(18));
-        lowMidGainKnob.setBounds(lowMidArea.removeFromTop(lowMidKnobHeight).withSizeKeepingCentre(48, 48));
-        lowMidGainLabel.setBounds(lowMidArea.removeFromTop(18));
-        lowMidQKnob.setBounds(lowMidArea.removeFromTop(lowMidKnobHeight).withSizeKeepingCentre(48, 48));
-        lowMidQLabel.setBounds(lowMidArea.removeFromTop(18));
+            // Dimensioni maggiorate
+            const int freqKnobSize = juce::jmin(80, area.getWidth() / 9);
+            const int smallKnobSize = 48;
+            const int titleHeight = 18;
+            const int labelHeight = 16;
+            const int verticalGap = 30;   
+            const int smallKnobGap = 25; 
+            const int labelYOffset = 12;   
+            const int sidePadding = 60;   
+            const int bottomPadding = 10; 
 
-        // High Mid (band 3)
-        auto highMidArea = eqSection.removeFromLeft(eqBandWidth).reduced(8);
-        auto highMidKnobHeight = (highMidArea.getHeight() - 54) / 3;
-        highMidFreqKnob.setBounds(highMidArea.removeFromTop(highMidKnobHeight).withSizeKeepingCentre(48, 48));
-        highMidFreqLabel.setBounds(highMidArea.removeFromTop(18));
-        highMidGainKnob.setBounds(highMidArea.removeFromTop(highMidKnobHeight).withSizeKeepingCentre(48, 48));
-        highMidGainLabel.setBounds(highMidArea.removeFromTop(18));
-        highMidQKnob.setBounds(highMidArea.removeFromTop(highMidKnobHeight).withSizeKeepingCentre(48, 48));
-        highMidQLabel.setBounds(highMidArea.removeFromTop(18));
+            area.removeFromTop(sectionHeaderOffset);
+            area.removeFromBottom(bottomPadding);
 
-        // High Cut (band 4)
-        auto highCutArea = eqSection.reduced(8);
-        auto highCutKnobHeight = (highCutArea.getHeight() - 36) / 2;
-        highCutFreqKnob.setBounds(highCutArea.removeFromTop(highCutKnobHeight).withSizeKeepingCentre(50, 50));
-        highCutFreqLabel.setBounds(highCutArea.removeFromTop(18));
-        highCutQKnob.setBounds(highCutArea.removeFromTop(highCutKnobHeight).withSizeKeepingCentre(50, 50));
-        highCutQLabel.setBounds(highCutArea.removeFromTop(18));
+            // Centri orizzontali equidistanti
+            int usableWidth = area.getWidth() - sidePadding * 2;
+            double step = (bandCount > 1) ? (double)usableWidth / (bandCount - 1) : 0.0;
+
+            // Asse Y principale per i freq knobs - centrato verticalmente nell'area disponibile
+            int totalVerticalSpace = area.getHeight() - titleHeight - 4;
+            int knobsAreaHeight = freqKnobSize + verticalGap + smallKnobSize + labelYOffset + labelHeight;
+            int verticalCenterOffset = (totalVerticalSpace - knobsAreaHeight) / 2;
+
+            int centerYFreqRow = area.getY() + titleHeight + 4 + verticalCenterOffset + freqKnobSize / 2;
+            int secondRowY = centerYFreqRow + freqKnobSize / 2 + verticalGap + smallKnobSize / 2;
+
+            auto placeBand = [&](int bandIndex,
+                                 juce::Label &title,
+                                 juce::Slider &freqKnob, juce::Label &freqLabel,
+                                 juce::Slider *gainKnob, juce::Label *gainLabel,
+                                 juce::Slider *qKnob, juce::Label *qLabel)
+            {
+                int centerX = area.getX() + sidePadding + (int)std::round(step * bandIndex);
+
+                // Titolo
+                title.setBounds(centerX - 60, area.getY(), 120, titleHeight);
+
+                // Freq knob
+                juce::Rectangle<int> freqBounds(centerX - freqKnobSize / 2, centerYFreqRow - freqKnobSize / 2,
+                                                freqKnobSize, freqKnobSize);
+                freqKnob.setBounds(freqBounds);
+                // Label freq (vuota) posizionata ma più in basso nel caso futuro di display
+                freqLabel.setBounds(freqBounds.withY(freqBounds.getBottom() + labelYOffset).withHeight(labelHeight));
+
+                // Gain/Q riga sotto
+                if (gainKnob || qKnob)
+                {
+                    int pairTotalWidth = (gainKnob && qKnob) ? (smallKnobSize * 2 + smallKnobGap) : smallKnobSize;
+                    int startX = centerX - pairTotalWidth / 2;
+                    int currentX = startX;
+
+                    auto placeSmall = [&](juce::Slider *knob, juce::Label *lab)
+                    {
+                        if (!knob || !lab)
+                            return;
+                        juce::Rectangle<int> k(currentX, secondRowY - smallKnobSize / 2, smallKnobSize, smallKnobSize);
+                        knob->setBounds(k);
+                        lab->setBounds(k.withY(k.getBottom() + labelYOffset).withHeight(labelHeight));
+                        currentX += smallKnobSize + smallKnobGap;
+                    };
+
+                    if (gainKnob && gainLabel)
+                        placeSmall(gainKnob, gainLabel);
+                    if (qKnob && qLabel)
+                        placeSmall(qKnob, qLabel);
+                }
+                else if (qKnob && qLabel)
+                {
+                    // Solo Q
+                    juce::Rectangle<int> k(centerX - smallKnobSize / 2, secondRowY - smallKnobSize / 2, smallKnobSize, smallKnobSize);
+                    qKnob->setBounds(k);
+                    qLabel->setBounds(k.withY(k.getBottom() + labelYOffset).withHeight(labelHeight));
+                }
+            };
+
+            // Banda 0: Low Cut (freq + Q sotto)
+            placeBand(0,
+                      lowCutTitle,
+                      lowCutFreqKnob, lowCutFreqLabel,
+                      nullptr, nullptr,
+                      &lowCutQKnob, &lowCutQLabel);
+
+            // Banda 1: Low Mid (freq + Gain + Q)
+            placeBand(1,
+                      lowMidTitle,
+                      lowMidFreqKnob, lowMidFreqLabel,
+                      &lowMidGainKnob, &lowMidGainLabel,
+                      &lowMidQKnob, &lowMidQLabel);
+
+            // Banda 2: High Mid (freq + Gain + Q)
+            placeBand(2,
+                      highMidTitle,
+                      highMidFreqKnob, highMidFreqLabel,
+                      &highMidGainKnob, &highMidGainLabel,
+                      &highMidQKnob, &highMidQLabel);
+
+            // Banda 3: High Cut (freq + Q)
+            placeBand(3,
+                      highCutTitle,
+                      highCutFreqKnob, highCutFreqLabel,
+                      nullptr, nullptr,
+                      &highCutQKnob, &highCutQLabel);
+        }
     }
     void AudioPluginAudioProcessorEditor::setupEQControls()
     {

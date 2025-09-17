@@ -19,8 +19,8 @@ Synthortion is a professional-grade audio plugin that provides warm, musical dis
 ### 🎚️ **4-Band Parametric EQ**
 
 - **Low Cut**: High-pass filter (20Hz - 1kHz) with adjustable Q
-- **Low Mid**: Parametric band (100Hz - 2kHz) with ±15dB gain
-- **High Mid**: Parametric band (1kHz - 8kHz) with ±15dB gain
+- **Low Mid**: Parametric band (100Hz - 2kHz) with ±15dB gain and adjustable Q
+- **High Mid**: Parametric band (1kHz - 8kHz) with ±15dB gain and adjustable Q
 - **High Cut**: Low-pass filter (5kHz - 20kHz) with adjustable Q
 
 ### 📊 **Real-Time Analysis**
@@ -40,8 +40,8 @@ Synthortion is a professional-grade audio plugin that provides warm, musical dis
 - **Sample Rates**: 44.1kHz - 192kHz+
 - **Bit Depth**: 32-bit floating point processing
 - **Latency**: ~5ms (due to oversampling)
-- **Formats**: VST3, AU, Standalone
-- **Platforms**: Windows, macOS, Linux
+- **Formats**: VST3, AU
+- **Platforms**: Windows, macOS
 
 ## 🚀 **Installation**
 
@@ -142,12 +142,16 @@ Synthortion/
     │   ├── PluginEditor.h
     │   ├── WarmDistortion.h
     │   ├── ParametricEQ.h
-    │   └── ...
+    │   ├── SpectrumAnalyzer.h
+    |   ├── VerticalDiscreteMeter.h
+    |   └── SynthortionLookAndFeel.h
     └── src/                    # Implementation files
         ├── PluginProcessor.cpp
         ├── PluginEditor.cpp
         ├── WarmDistortion.cpp
-        └── ...
+        ├── ParametricEQ.cpp
+        ├── SpectrumAnalyzer.cpp
+        └── SynthortionLookAndFeel.cpp
 ```
 
 ### Code Style
@@ -161,10 +165,6 @@ Synthortion/
 ## 📝 **License**
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-## 🤝 **Contributing**
-
-Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting pull requests.
 
 ### Development Workflow
 
@@ -193,9 +193,3 @@ Found a bug? Please open an issue with:
 ## 📧 **Contact**
 
 **Paolo Ficara** - [@paoloficaraa](https://github.com/paoloficaraa)
-
-Project Link: [https://github.com/paoloficaraa/Synthortion](https://github.com/paoloficaraa/Synthortion)
-
----
-
-_Made with ❤️ for the audio production community_

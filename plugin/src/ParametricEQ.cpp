@@ -31,16 +31,24 @@ void ParametricEQ::process(juce::AudioBuffer<float> &buffer)
     juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::ProcessContextReplacing<float> context(block);
 
-    lowCutFilter.process(context);
-    lowMidFilter.process(context);
-    highMidFilter.process(context);
-    highCutFilter.process(context);
+    if (lowCutEnabled && lowCutFreq > 20.0f)
+        lowCutFilter.process(context);
+
+    if (std::abs(lowMidGain) > 0.001f)
+        lowMidFilter.process(context);
+
+    if (std::abs(highMidGain) > 0.001f)
+        highMidFilter.process(context);
+
+    if (highCutEnabled && highCutFreq > 20.0f)
+        highCutFilter.process(context);
 }
 
-void ParametricEQ::setLowCut(float frequency, float q)
+void ParametricEQ::setLowCut(float frequency, float q, bool enabled)
 {
     lowCutFreq = frequency;
     lowCutQ = q;
+    lowCutEnabled = enabled;
     updateFilters();
 }
 
@@ -60,10 +68,11 @@ void ParametricEQ::setHighMid(float frequency, float gain, float q)
     updateFilters();
 }
 
-void ParametricEQ::setHighCut(float frequency, float q)
+void ParametricEQ::setHighCut(float frequency, float q, bool enabled)
 {
     highCutFreq = frequency;
     highCutQ = q;
+    highCutEnabled = enabled;
     updateFilters();
 }
 
@@ -109,15 +118,18 @@ std::vector<float> ParametricEQ::getFrequencyResponse(const std::vector<float> &
 
         if (isPrepared)
         {
-            // Calculate combined response of all filters
-            auto omega = 2.0 * juce::MathConstants<double>::pi * freq / sampleRate;
-            std::complex<double> s(0, omega);
+            // Calcola risposta solo per filtri attivi
+            if (lowCutEnabled && lowCutFreq > 20.0f)
+                magnitude *= static_cast<float>(std::abs(lowCutFilter.state->getMagnitudeForFrequency(freq, sampleRate)));
 
-            // Combine all filter responses
-            magnitude *= static_cast<float>(std::abs(lowCutFilter.state->getMagnitudeForFrequency(freq, sampleRate)));
-            magnitude *= static_cast<float>(std::abs(lowMidFilter.state->getMagnitudeForFrequency(freq, sampleRate)));
-            magnitude *= static_cast<float>(std::abs(highMidFilter.state->getMagnitudeForFrequency(freq, sampleRate)));
-            magnitude *= static_cast<float>(std::abs(highCutFilter.state->getMagnitudeForFrequency(freq, sampleRate)));
+            if (std::abs(lowMidGain) > 0.001f)
+                magnitude *= static_cast<float>(std::abs(lowMidFilter.state->getMagnitudeForFrequency(freq, sampleRate)));
+
+            if (std::abs(highMidGain) > 0.001f)
+                magnitude *= static_cast<float>(std::abs(highMidFilter.state->getMagnitudeForFrequency(freq, sampleRate)));
+
+            if (highCutEnabled && highCutFreq > 20.0f)
+                magnitude *= static_cast<float>(std::abs(highCutFilter.state->getMagnitudeForFrequency(freq, sampleRate)));
         }
 
         response.push_back(juce::Decibels::gainToDecibels(magnitude));

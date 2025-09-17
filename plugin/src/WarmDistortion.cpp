@@ -39,7 +39,8 @@ void WarmDistortion::setDrive(float newDrive)
 
 void WarmDistortion::setMix(float newMix)
 {
-    mixAmount = juce::jlimit(0.0f, 1.0f, newMix);
+    // Deprecated: mix handled globally in the processor. Keep for backward compatibility but unused.
+    juce::ignoreUnused(newMix);
 }
 
 void WarmDistortion::setSaturationType(SaturationType type)
@@ -55,8 +56,7 @@ void WarmDistortion::process(juce::AudioBuffer<float> &buffer)
     if (numChannels == 0 || numSamples == 0 || !oversampler)
         return;
 
-    juce::AudioBuffer<float> dryBuffer;
-    dryBuffer.makeCopyOf(buffer);
+    // Process always 100% wet here; global dry/wet mix is applied in the processor
 
     juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::AudioBlock<float> oversampledBlock = oversampler->processSamplesUp(block);
@@ -79,16 +79,7 @@ void WarmDistortion::process(juce::AudioBuffer<float> &buffer)
 
     oversampler->processSamplesDown(block);
 
-    for (int channel = 0; channel < numChannels; ++channel)
-    {
-        float *channelData = buffer.getWritePointer(channel);
-        const float *dryData = dryBuffer.getReadPointer(channel);
-
-        for (int sample = 0; sample < numSamples; ++sample)
-        {
-            channelData[sample] = (channelData[sample] * mixAmount) + (dryData[sample] * (1.0f - mixAmount));
-        }
-    }
+    // No dry/wet mix here
 }
 
 float WarmDistortion::applySaturation(float input, float drive)

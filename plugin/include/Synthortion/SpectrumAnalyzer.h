@@ -17,6 +17,9 @@ public:
     void drawNextFrameOfSpectrum();
     void drawFrame(juce::Graphics &g);
 
+    // Configure analyzer with host sample rate for correct frequency axis
+    void setSampleRate(double newSampleRate) { sampleRate = newSampleRate; }
+
 private:
     enum
     {
@@ -33,6 +36,8 @@ private:
     int fifoIndex = 0;
     bool nextFFTBlockReady = false;
     float scopeData[scopeSize];
+    double sampleRate = 44100.0; // used for frequency mapping
+    static constexpr float minFreq = 20.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectrumAnalyzer)
 };

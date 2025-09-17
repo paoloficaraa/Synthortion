@@ -94,6 +94,17 @@ namespace synthortion
         warmDistortion.prepare(spec);
         parametricEQ.prepare(spec);
 
+        // Configure global dry/wet mixer with sufficient maximum latency
+        {
+            const int wetLatency = juce::jmax(1, warmDistortion.getLatencySamples());
+            globalDryWet = juce::dsp::DryWetMixer<float>(wetLatency);
+            globalDryWet.prepare(spec);
+            globalDryWet.reset();
+            globalDryWet.setWetLatency(static_cast<float>(wetLatency));
+            // Equal-power style crossfade for more musical blending
+            globalDryWet.setMixingRule(juce::dsp::DryWetMixer<float>::MixingRule::squareRoot3dB);
+        }
+
         // Initialize RMS level smoothing
         inputRmsLevel.reset(sampleRate, 0.1); // 100ms smoothing
         outputRmsLevel.reset(sampleRate, 0.1);
@@ -168,9 +179,35 @@ namespace synthortion
         inputRms /= static_cast<float>(buffer.getNumChannels());
         inputRmsLevel.setTargetValue(juce::Decibels::gainToDecibels(inputRms, -60.0f));
 
+        // Short-circuit paths for MIX extremes
+        const float eps = 1.0e-6f;
+
+        // Fully dry: leave buffer untouched and skip all processing/mixing
+        if (mixValue <= eps)
+        {
+            // Output RMS equals input in this case
+            outputRmsLevel.setTargetValue(inputRmsLevel.getTargetValue());
+
+            // Analyzer on dry
+            auto callbackDry = spectrumAnalyzerCallback;
+            if (callbackDry && buffer.getNumChannels() > 0)
+            {
+                auto *dryData = buffer.getReadPointer(0);
+                for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+                    callbackDry(dryData[sample]);
+            }
+            return;
+        }
+
         warmDistortion.setDrive(driveValue);
-        warmDistortion.setMix(mixValue);
-        warmDistortion.setSaturationType(static_cast<WarmDistortion::SaturationType>(static_cast<int>(saturationTypeValue))); // Process the audio through the distortion effect
+        warmDistortion.setSaturationType(static_cast<WarmDistortion::SaturationType>(static_cast<int>(saturationTypeValue)));
+
+        // For partially wet mixes, capture dry before processing
+        const bool isFullyWet = (mixValue >= 1.0f - eps);
+        if (!isFullyWet)
+            globalDryWet.pushDrySamples(juce::dsp::AudioBlock<const float>(buffer));
+
+        // Wet processing chain
         warmDistortion.process(buffer);
 
         // Update EQ parameters from APVTS
@@ -185,13 +222,22 @@ namespace synthortion
         auto highCutFreq = apvts.getRawParameterValue("HIGH_CUT_FREQ")->load();
         auto highCutQ = apvts.getRawParameterValue("HIGH_CUT_Q")->load();
 
-        parametricEQ.setLowCut(lowCutFreq, lowCutQ);
+        parametricEQ.setLowCut(lowCutFreq, lowCutQ, lowCutFreq > 0.0f);
         parametricEQ.setLowMid(lowMidFreq, lowMidGain, lowMidQ);
         parametricEQ.setHighMid(highMidFreq, highMidGain, highMidQ);
-        parametricEQ.setHighCut(highCutFreq, highCutQ);
+        parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq > 0.0f);
 
         // Apply EQ post-distortion
         parametricEQ.process(buffer);
+
+        // Apply global dry/wet mix at end (only if partially wet)
+        if (!isFullyWet)
+        {
+            globalDryWet.setWetMixProportion(juce::jlimit(0.0f, 1.0f, mixValue));
+            globalDryWet.mixWetSamples(juce::dsp::AudioBlock<float>(buffer));
+        }
+
+        // Done
 
         // Calculate output RMS level
         float outputRms = 0.0f;
@@ -258,7 +304,7 @@ namespace synthortion
                                                                 juce::StringArray{"Smooth", "Tube", "Tape"}, 0));
 
         // EQ Parameters
-        layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_CUT_FREQ", "Low Cut Freq", 20.0f, 1000.0f, 20.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_CUT_FREQ", "Low Cut Freq", 0.0f, 1000.0f, 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_CUT_Q", "Low Cut Q", 0.1f, 10.0f, 0.7f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_MID_FREQ", "Low Mid Freq", 100.0f, 2000.0f, 350.0f));
@@ -269,7 +315,7 @@ namespace synthortion
         layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_MID_GAIN", "High Mid Gain", -15.0f, 15.0f, 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_MID_Q", "High Mid Q", 0.1f, 10.0f, 1.0f));
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_CUT_FREQ", "High Cut Freq", 5000.0f, 20000.0f, 20000.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_CUT_FREQ", "High Cut Freq", 0.0f, 20000.0f, 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_CUT_Q", "High Cut Q", 0.1f, 10.0f, 0.7f));
 
         return layout;

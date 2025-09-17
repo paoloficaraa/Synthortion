@@ -36,7 +36,7 @@ public:
      * @param frequency Cutoff frequency in Hz [20-1000]
      * @param q Quality factor [0.1-10.0]
      */
-    void setLowCut(float frequency, float q);
+    void setLowCut(float frequency, float q, bool enabled = true);
 
     /**
      * @brief Set low-mid parametric band parameters
@@ -59,7 +59,7 @@ public:
      * @param frequency Cutoff frequency in Hz [5000-20000]
      * @param q Quality factor [0.1-10.0]
      */
-    void setHighCut(float frequency, float q);
+    void setHighCut(float frequency, float q, bool enabled = true);
 
     /**
      * @brief Get frequency response for visualization
@@ -91,6 +91,9 @@ private:
     float lowMidFreq = 350.0f, lowMidGain = 0.0f, lowMidQ = 1.0f;     ///< Low-mid: 350Hz, 0dB, Q=1.0
     float highMidFreq = 3800.0f, highMidGain = 0.0f, highMidQ = 1.0f; ///< High-mid: 3.8kHz, 0dB, Q=1.0
     float highCutFreq = 20000.0f, highCutQ = 0.7f;                    ///< High-cut: 20kHz, Q=0.7
+
+    bool lowCutEnabled = false;
+    bool highCutEnabled = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ParametricEQ)
 };
