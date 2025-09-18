@@ -5,6 +5,7 @@ namespace synthortion
 {
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+    using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
     AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor(AudioPluginAudioProcessor &p)
         : AudioProcessorEditor(&p), processorRef(p),
@@ -113,25 +114,25 @@ namespace synthortion
         // EQ Section Titles
         lowCutTitle.setText("LOW CUT", juce::dontSendNotification);
         lowCutTitle.setJustificationType(juce::Justification::centred);
-        lowCutTitle.setFont(juce::Font(11.0f, juce::Font::bold));
+        lowCutTitle.setFont(juce::Font(juce::FontOptions().withHeight(11.0f).withStyle("Bold")));
         lowCutTitle.setColour(juce::Label::textColourId, juce::Colour(0xffB4B4B4));
         addAndMakeVisible(lowCutTitle);
 
         lowMidTitle.setText("LOW MID", juce::dontSendNotification);
         lowMidTitle.setJustificationType(juce::Justification::centred);
-        lowMidTitle.setFont(juce::Font(11.0f, juce::Font::bold));
+        lowMidTitle.setFont(juce::Font(juce::FontOptions().withHeight(11.0f).withStyle("Bold")));
         lowMidTitle.setColour(juce::Label::textColourId, juce::Colour(0xffB4B4B4));
         addAndMakeVisible(lowMidTitle);
 
         highMidTitle.setText("HIGH MID", juce::dontSendNotification);
         highMidTitle.setJustificationType(juce::Justification::centred);
-        highMidTitle.setFont(juce::Font(11.0f, juce::Font::bold));
+        highMidTitle.setFont(juce::Font(juce::FontOptions().withHeight(11.0f).withStyle("Bold")));
         highMidTitle.setColour(juce::Label::textColourId, juce::Colour(0xffB4B4B4));
         addAndMakeVisible(highMidTitle);
 
         highCutTitle.setText("HIGH CUT", juce::dontSendNotification);
         highCutTitle.setJustificationType(juce::Justification::centred);
-        highCutTitle.setFont(juce::Font(11.0f, juce::Font::bold));
+        highCutTitle.setFont(juce::Font(juce::FontOptions().withHeight(11.0f).withStyle("Bold")));
         highCutTitle.setColour(juce::Label::textColourId, juce::Colour(0xffB4B4B4));
         addAndMakeVisible(highCutTitle);
 
@@ -147,6 +148,8 @@ namespace synthortion
 
         setResizable(false, false);
         setSize(1024, 700);
+
+        startTimerHz(60);
     }
 
     AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
@@ -197,6 +200,12 @@ namespace synthortion
         // EQ section
         lookAndFeel.drawSectionPanel(g, eqSection.reduced(6.f), 10.f);
         lookAndFeel.drawFrameLabel(g, eqSection.reduced(10.f).removeFromTop(18.f).withWidth(150.f), "EQ / FILTER");
+    }
+
+    void AudioPluginAudioProcessorEditor::timerCallback()
+    {
+        // I meter si aggiornano automaticamente tramite il loro timer interno
+        // Non è necessario chiamare update() manualmente
     }
 
     void AudioPluginAudioProcessorEditor::resized()
@@ -332,11 +341,11 @@ namespace synthortion
             const int smallKnobSize = 48;
             const int titleHeight = 18;
             const int labelHeight = 16;
-            const int verticalGap = 30;   
-            const int smallKnobGap = 25; 
-            const int labelYOffset = 12;   
-            const int sidePadding = 60;   
-            const int bottomPadding = 10; 
+            const int verticalGap = 30;
+            const int smallKnobGap = 25;
+            const int labelYOffset = 12;
+            const int sidePadding = 60;
+            const int bottomPadding = 10;
 
             area.removeFromTop(sectionHeaderOffset);
             area.removeFromBottom(bottomPadding);
@@ -429,6 +438,14 @@ namespace synthortion
                       highCutFreqKnob, highCutFreqLabel,
                       nullptr, nullptr,
                       &highCutQKnob, &highCutQLabel);
+
+            // Linear Phase button - centrally positioned below all EQ controls
+            const int buttonWidth = 120;
+            const int buttonHeight = 30;
+            const int buttonBottomMargin = -1;
+            auto buttonX = area.getCentreX() - buttonWidth / 2;
+            auto buttonY = area.getBottom() - buttonBottomMargin - buttonHeight;
+            linearPhaseButton.setBounds(buttonX, buttonY, buttonWidth, buttonHeight);
         }
     }
     void AudioPluginAudioProcessorEditor::setupEQControls()
@@ -556,5 +573,14 @@ namespace synthortion
         highCutQLabel.setText("Q", juce::dontSendNotification);
         highCutQLabel.setJustificationType(juce::Justification::centred);
         addAndMakeVisible(highCutQLabel);
+
+        // Linear Phase Toggle Button
+        linearPhaseButton.setButtonText("LINEAR PHASE");
+        linearPhaseButton.setClickingTogglesState(true); // Enable toggle behavior
+        linearPhaseButton.setColour(juce::ToggleButton::textColourId, LIGHT_GREY);
+        linearPhaseButton.setColour(juce::ToggleButton::tickColourId, PURPLE);
+        linearPhaseButton.setColour(juce::ToggleButton::tickDisabledColourId, MID_GREY);
+        addAndMakeVisible(linearPhaseButton);
+        linearPhaseAttachment = std::make_unique<ButtonAttachment>(processorRef.apvts, "LINEAR_PHASE", linearPhaseButton);
     }
 }

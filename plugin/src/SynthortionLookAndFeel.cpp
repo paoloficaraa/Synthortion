@@ -126,6 +126,47 @@ void SynthortionLookAndFeel::drawButtonBackground(juce::Graphics &g, juce::Butto
     g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
 }
 
+void SynthortionLookAndFeel::drawToggleButton(juce::Graphics &g, juce::ToggleButton &button,
+                                              bool shouldDrawButtonAsHighlighted,
+                                              bool shouldDrawButtonAsDown)
+{
+    auto bounds = button.getLocalBounds().toFloat().reduced(1.0f);
+    auto cornerSize = 4.0f;
+
+    // Determine button state and colors
+    auto isToggleOn = button.getToggleState();
+    auto btnColour = isToggleOn ? PURPLE : MID_GREY;
+    auto textColour = isToggleOn ? BLACK : LIGHT_GREY;
+
+    if (shouldDrawButtonAsHighlighted)
+        btnColour = btnColour.brighter(0.3f);
+    if (shouldDrawButtonAsDown)
+        btnColour = btnColour.darker(0.2f);
+
+    // Draw button background
+    g.setColour(btnColour);
+    g.fillRoundedRectangle(bounds, cornerSize);
+
+    // Draw border
+    g.setColour(isToggleOn ? PURPLE_DARK : DARK_GREY);
+    g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
+
+    // Draw text
+    g.setColour(textColour);
+    juce::Font font(11.0f);
+    font.setBold(true);
+    g.setFont(font);
+    g.drawFittedText(button.getButtonText(), bounds.toNearestInt(),
+                     juce::Justification::centred, 1);
+
+    // Add subtle glow when active
+    if (isToggleOn)
+    {
+        g.setColour(PURPLE.withAlpha(0.3f));
+        g.drawRoundedRectangle(bounds.expanded(1.0f), cornerSize + 1.0f, 2.0f);
+    }
+}
+
 void SynthortionLookAndFeel::drawPopupMenuBackground(juce::Graphics &g, int width, int height)
 {
     g.fillAll(DARK_GREY);
@@ -168,10 +209,7 @@ void SynthortionLookAndFeel::drawPopupMenuItem(juce::Graphics &g, const juce::Re
 
     // Text
     {
-        juce::Font f;
-        f.setHeight(11.0f);
-        f.setBold(false);
-        g.setFont(f);
+        g.setFont(juce::FontOptions().withHeight(11.0f));
     }
     auto col = textColour != nullptr ? *textColour : (isActive ? LIGHT_GREY : LIGHT_GREY.withAlpha(0.5f));
     g.setColour(col);
@@ -189,28 +227,20 @@ void SynthortionLookAndFeel::drawPopupMenuItem(juce::Graphics &g, const juce::Re
 juce::Font SynthortionLookAndFeel::getLabelFont(juce::Label &label)
 {
     juce::ignoreUnused(label);
-    juce::Font f;
-    f.setHeight(12.0f);
-    f.setBold(false);
-    f.setExtraKerningFactor(0.1f);
-    return f;
+    auto font = juce::Font(juce::FontOptions().withHeight(12.0f));
+    font.setExtraKerningFactor(0.1f);
+    return font;
 }
 
 juce::Font SynthortionLookAndFeel::getComboBoxFont(juce::ComboBox &box)
 {
     juce::ignoreUnused(box);
-    juce::Font f;
-    f.setHeight(11.0f);
-    f.setBold(false);
-    return f;
+    return juce::Font(juce::FontOptions().withHeight(11.0f));
 }
 
 juce::Font SynthortionLookAndFeel::getPopupMenuFont()
 {
-    juce::Font f;
-    f.setHeight(11.0f);
-    f.setBold(false);
-    return f;
+    return juce::Font(juce::FontOptions().withHeight(11.0f));
 }
 
 void SynthortionLookAndFeel::drawInnerShadow(juce::Graphics &g, const juce::Rectangle<float> &bounds,
@@ -332,11 +362,8 @@ void SynthortionLookAndFeel::drawFrameLabel(juce::Graphics &g, const juce::Recta
     g.drawEllipse(led, 1.0f);
 
     g.setColour(LIGHT_GREY);
-    {
-        juce::Font f;
-        f.setHeight(11.0f);
-        f.setBold(true);
-        g.setFont(f);
-    }
+    juce::Font boldFont(11.0f);
+    boldFont.setBold(true);
+    g.setFont(boldFont);
     g.drawFittedText(text, labelBounds.toNearestInt(), juce::Justification::centred, 1);
 }

@@ -8,7 +8,8 @@
 
 namespace synthortion
 {
-    class AudioPluginAudioProcessorEditor : public juce::AudioProcessorEditor
+    class AudioPluginAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                            public juce::Timer
     {
     public:
         explicit AudioPluginAudioProcessorEditor(AudioPluginAudioProcessor &);
@@ -18,9 +19,10 @@ namespace synthortion
         void paint(juce::Graphics &) override;
         void resized() override;
 
+        void timerCallback() override;
+
     private:
         void setupEQControls();
-        void updateMeters();
 
         // This reference is provided as a quick way for your editor to
         // access the processor object that created it.
@@ -55,6 +57,9 @@ namespace synthortion
         juce::Slider highCutFreqKnob;
         juce::Slider highCutQKnob;
 
+        // Linear Phase toggle button for EQ
+        juce::ToggleButton linearPhaseButton;
+
         // Labels
         juce::Label driveLabel;
         juce::Label inputGainLabel;
@@ -84,6 +89,7 @@ namespace synthortion
 
         using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
         using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+        using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
         // Distortion Attachments
         std::unique_ptr<SliderAttachment> driveAttachment;
@@ -105,6 +111,9 @@ namespace synthortion
         std::unique_ptr<SliderAttachment> highMidQAttachment;
         std::unique_ptr<SliderAttachment> highCutFreqAttachment;
         std::unique_ptr<SliderAttachment> highCutQAttachment;
+
+        // Linear Phase button attachment
+        std::unique_ptr<ButtonAttachment> linearPhaseAttachment;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessorEditor)
     };

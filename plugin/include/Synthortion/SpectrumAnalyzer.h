@@ -36,8 +36,11 @@ private:
     int fifoIndex = 0;
     bool nextFFTBlockReady = false;
     float scopeData[scopeSize];
-    double sampleRate = 44100.0; // used for frequency mapping
+    float smoothedScopeData[scopeSize];           // For temporal smoothing
+    juce::Array<juce::Point<float>> cachedPoints; // Cached points for performance
+    double sampleRate = 44100.0;                  // used for frequency mapping
     static constexpr float minFreq = 20.0f;
+    static constexpr float smoothingFactor = 0.8f; // Smoothing coefficient
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectrumAnalyzer)
 };

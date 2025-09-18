@@ -33,6 +33,10 @@ public:
                               bool shouldDrawButtonAsHighlighted,
                               bool shouldDrawButtonAsDown) override;
 
+    void drawToggleButton(juce::Graphics &g, juce::ToggleButton &button,
+                          bool shouldDrawButtonAsHighlighted,
+                          bool shouldDrawButtonAsDown) override;
+
     void drawPopupMenuBackground(juce::Graphics &g, int width, int height) override;
     void drawPopupMenuItem(juce::Graphics &g, const juce::Rectangle<int> &area,
                            bool isSeparator, bool isActive, bool isHighlighted, bool isTicked, bool hasSubMenu,

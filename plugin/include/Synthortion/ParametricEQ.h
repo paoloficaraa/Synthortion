@@ -4,11 +4,12 @@
 #include <juce_dsp/juce_dsp.h>
 
 /**
- * @brief 4-band parametric equalizer with high-quality IIR filters
+ * @brief 4-band parametric equalizer with high-quality IIR filters and optional linear phase
  *
  * Features:
  * - High-pass and low-pass filters with adjustable Q
  * - Two parametric mid-band filters with gain and Q control
+ * - Linear phase mode using FIR convolution
  * - Frequency response visualization support
  * - Real-time parameter updates
  */
@@ -26,9 +27,9 @@ public:
 
     /**
      * @brief Process audio buffer through the EQ
-     * @param buffer Input/output audio buffer
+     * @param context DSP processing context
      */
-    void process(juce::AudioBuffer<float> &buffer);
+    void process(const juce::dsp::ProcessContextReplacing<float> &context);
 
     // EQ Band setters
     /**
@@ -62,6 +63,24 @@ public:
     void setHighCut(float frequency, float q, bool enabled = true);
 
     /**
+     * @brief Enable or disable linear phase mode
+     * @param enabled True for linear phase (FIR), false for minimum phase (IIR)
+     */
+    void setLinearPhase(bool enabled);
+
+    /**
+     * @brief Check if linear phase mode is enabled
+     * @return True if linear phase mode is active
+     */
+    bool isLinearPhaseEnabled() const { return linearPhaseEnabled; }
+
+    /**
+     * @brief Get processing latency in samples
+     * @return Latency in samples (0 for IIR mode, FIR length/2 for linear phase)
+     */
+    int getLatencySamples() const;
+
+    /**
      * @brief Get frequency response for visualization
      * @param frequencies Vector of frequencies to evaluate
      * @return Vector of magnitude responses in dB
@@ -76,6 +95,13 @@ private:
     FilterType highMidFilter; ///< Parametric filter for high-mid frequencies
     FilterType highCutFilter; ///< Low-pass filter for high frequencies
 
+    // Linear phase FIR convolution
+    juce::dsp::Convolution convolution;
+    juce::AudioBuffer<float> firBuffer;
+    static constexpr int firLength = 2048; ///< FIR filter length for linear phase
+    bool linearPhaseEnabled = false;
+    bool firNeedsUpdate = true;
+
     // Processing state
     double sampleRate = 44100.0;
     bool isPrepared = false;
@@ -85,6 +111,12 @@ private:
      * Called automatically when parameters change
      */
     void updateFilters();
+
+    /**
+     * @brief Generate FIR impulse response for linear phase mode
+     * Creates an impulse response combining all EQ bands
+     */
+    void generateFIRResponse();
 
     // Filter parameters with sensible defaults
     float lowCutFreq = 20.0f, lowCutQ = 0.7f;                         ///< Low-cut: 20Hz, Q=0.7

@@ -88,7 +88,8 @@
     "xstring": "cpp",
     "xtr1common": "cpp",
     "xtree": "cpp",
-    "xutility": "cpp"
+    "xutility": "cpp",
+    "*.mm": "cpp"
   },
   "postman.settings.dotenv-detection-notification-visibility": false
 }

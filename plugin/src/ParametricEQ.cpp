@@ -2,8 +2,9 @@
 #include <algorithm>
 
 ParametricEQ::ParametricEQ()
-    : sampleRate(44100.0), lowCutFreq(100.0f), lowCutQ(0.707f), lowMidFreq(500.0f), lowMidQ(0.707f), lowMidGain(0.0f), highMidFreq(2000.0f), highMidQ(0.707f), highMidGain(0.0f), highCutFreq(8000.0f), highCutQ(0.707f), isPrepared(false)
+    : sampleRate(44100.0), lowCutFreq(100.0f), lowCutQ(0.707f), lowMidFreq(500.0f), lowMidQ(0.707f), lowMidGain(0.0f), highMidFreq(2000.0f), highMidQ(0.707f), highMidGain(0.0f), highCutFreq(8000.0f), highCutQ(0.707f), isPrepared(false), linearPhaseEnabled(false), firNeedsUpdate(true)
 {
+    firBuffer.setSize(1, firLength);
 }
 
 ParametricEQ::~ParametricEQ()
@@ -19,29 +20,46 @@ void ParametricEQ::prepare(const juce::dsp::ProcessSpec &spec)
     highMidFilter.prepare(spec);
     highCutFilter.prepare(spec);
 
+    // Prepare convolution for linear phase mode
+    convolution.prepare(spec);
+
+    // Ensure firBuffer has correct number of channels
+    firBuffer.setSize(static_cast<int>(spec.numChannels), firLength, false, true, true);
+
     updateFilters();
     isPrepared = true;
 }
 
-void ParametricEQ::process(juce::AudioBuffer<float> &buffer)
+void ParametricEQ::process(const juce::dsp::ProcessContextReplacing<float> &context)
 {
     if (!isPrepared)
         return;
 
-    juce::dsp::AudioBlock<float> block(buffer);
-    juce::dsp::ProcessContextReplacing<float> context(block);
+    if (linearPhaseEnabled)
+    {
+        // Use FIR convolution for linear phase
+        if (firNeedsUpdate)
+        {
+            generateFIRResponse();
+            firNeedsUpdate = false;
+        }
+        convolution.process(context);
+    }
+    else
+    {
+        // Use IIR filters for minimum phase (lower latency)
+        if (lowCutEnabled && lowCutFreq > 20.0f)
+            lowCutFilter.process(context);
 
-    if (lowCutEnabled && lowCutFreq > 20.0f)
-        lowCutFilter.process(context);
+        if (std::abs(lowMidGain) > 0.001f)
+            lowMidFilter.process(context);
 
-    if (std::abs(lowMidGain) > 0.001f)
-        lowMidFilter.process(context);
+        if (std::abs(highMidGain) > 0.001f)
+            highMidFilter.process(context);
 
-    if (std::abs(highMidGain) > 0.001f)
-        highMidFilter.process(context);
-
-    if (highCutEnabled && highCutFreq > 20.0f)
-        highCutFilter.process(context);
+        if (highCutEnabled && highCutFreq > 20.0f)
+            highCutFilter.process(context);
+    }
 }
 
 void ParametricEQ::setLowCut(float frequency, float q, bool enabled)
@@ -50,6 +68,7 @@ void ParametricEQ::setLowCut(float frequency, float q, bool enabled)
     lowCutQ = q;
     lowCutEnabled = enabled;
     updateFilters();
+    firNeedsUpdate = true;
 }
 
 void ParametricEQ::setLowMid(float frequency, float gain, float q)
@@ -58,6 +77,7 @@ void ParametricEQ::setLowMid(float frequency, float gain, float q)
     lowMidGain = gain;
     lowMidQ = q;
     updateFilters();
+    firNeedsUpdate = true;
 }
 
 void ParametricEQ::setHighMid(float frequency, float gain, float q)
@@ -66,6 +86,7 @@ void ParametricEQ::setHighMid(float frequency, float gain, float q)
     highMidGain = gain;
     highMidQ = q;
     updateFilters();
+    firNeedsUpdate = true;
 }
 
 void ParametricEQ::setHighCut(float frequency, float q, bool enabled)
@@ -74,6 +95,7 @@ void ParametricEQ::setHighCut(float frequency, float q, bool enabled)
     highCutQ = q;
     highCutEnabled = enabled;
     updateFilters();
+    firNeedsUpdate = true;
 }
 
 void ParametricEQ::updateFilters()
@@ -83,10 +105,10 @@ void ParametricEQ::updateFilters()
 
     // Validate frequencies - ensure they're within valid range
     float maxFreq = static_cast<float>(sampleRate * 0.45);
-    float validLowCutFreq = std::max(20.0f, std::min(maxFreq, lowCutFreq));
-    float validLowMidFreq = std::max(20.0f, std::min(maxFreq, lowMidFreq));
-    float validHighMidFreq = std::max(20.0f, std::min(maxFreq, highMidFreq));
-    float validHighCutFreq = std::max(20.0f, std::min(maxFreq, highCutFreq));
+    float validLowCutFreq = juce::jlimit(20.0f, maxFreq, lowCutFreq);
+    float validLowMidFreq = juce::jlimit(20.0f, maxFreq, lowMidFreq);
+    float validHighMidFreq = juce::jlimit(20.0f, maxFreq, highMidFreq);
+    float validHighCutFreq = juce::jlimit(20.0f, maxFreq, highCutFreq);
 
     // Validate Q values - ensure they're positive
     float validLowCutQ = juce::jmax(0.1f, lowCutQ);
@@ -136,4 +158,77 @@ std::vector<float> ParametricEQ::getFrequencyResponse(const std::vector<float> &
     }
 
     return response;
+}
+
+void ParametricEQ::setLinearPhase(bool enabled)
+{
+    if (linearPhaseEnabled != enabled)
+    {
+        linearPhaseEnabled = enabled;
+        firNeedsUpdate = true;
+
+        if (enabled && isPrepared)
+        {
+            generateFIRResponse();
+        }
+    }
+}
+
+int ParametricEQ::getLatencySamples() const
+{
+    return linearPhaseEnabled ? firLength / 2 : 0;
+}
+
+void ParametricEQ::generateFIRResponse()
+{
+    if (!isPrepared || !linearPhaseEnabled)
+        return;
+
+    // Clear all channels of the FIR buffer
+    for (int channel = 0; channel < firBuffer.getNumChannels(); ++channel)
+    {
+        juce::FloatVectorOperations::clear(firBuffer.getWritePointer(channel), firLength);
+        // Generate impulse response by creating an impulse and processing it through IIR filters
+        firBuffer.setSample(channel, firLength / 2, 1.0f); // Delta function at center
+    }
+
+    // Create temporary audio block for processing
+    juce::dsp::AudioBlock<float> block(firBuffer);
+    juce::dsp::ProcessContextReplacing<float> context(block);
+
+    // Apply each filter in sequence to generate the combined impulse response
+    if (lowCutEnabled && lowCutFreq > 20.0f)
+        lowCutFilter.process(context);
+
+    if (std::abs(lowMidGain) > 0.001f)
+        lowMidFilter.process(context);
+
+    if (std::abs(highMidGain) > 0.001f)
+        highMidFilter.process(context);
+
+    if (highCutEnabled && highCutFreq > 20.0f)
+        highCutFilter.process(context);
+
+    // Apply windowing to reduce artifacts using optimized operations
+    const float windowSize = static_cast<float>(firLength);
+
+    // Pre-calculate Hann window for all samples at once
+    std::vector<float> windowData(firLength);
+    for (int i = 0; i < firLength; ++i)
+    {
+        windowData[i] = 0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi * i / (windowSize - 1.0f)));
+    }
+
+    // Apply window to all channels
+    for (int channel = 0; channel < firBuffer.getNumChannels(); ++channel)
+    {
+        auto *firData = firBuffer.getWritePointer(channel);
+        juce::FloatVectorOperations::multiply(firData, windowData.data(), firLength);
+    }
+
+    // Load the FIR response into the convolution
+    convolution.loadImpulseResponse(std::move(firBuffer), sampleRate,
+                                    juce::dsp::Convolution::Stereo::yes,
+                                    juce::dsp::Convolution::Trim::no,
+                                    juce::dsp::Convolution::Normalise::no);
 }

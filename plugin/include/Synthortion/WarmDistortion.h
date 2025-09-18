@@ -30,10 +30,7 @@ public:
      * @brief Set drive amount for saturation intensity
      * @param drive Drive amount [0.0 - 1.0] where 0 = clean, 1 = maximum saturation
      */
-    void setDrive(float drive); // 0.0 - 1.0
-    // Mix is handled globally at the processor level to avoid phase issues.
-    // Kept for backward compatibility; has no effect.
-    void setMix(float mix); // deprecated
+    void setDrive(float drive);
 
     /**
      * @brief Set saturation algorithm type
@@ -42,10 +39,16 @@ public:
     void setSaturationType(SaturationType type);
 
     /**
-     * @brief Process audio buffer with warm distortion
-     * @param buffer Input/output audio buffer to process
+     * @brief Enable or disable automatic volume compensation
+     * @param enabled True to enable auto-compensation, false to disable
      */
-    void process(juce::AudioBuffer<float> &buffer);
+    void setVolumeCompensation(bool enabled) { volumeCompensationEnabled = enabled; }
+
+    /**
+     * @brief Process audio buffer with warm distortion
+     * @param context DSP processing context
+     */
+    void process(const juce::dsp::ProcessContextReplacing<float> &context);
 
     /**
      * @brief Get processing latency in samples due to oversampling filters
@@ -94,6 +97,14 @@ private:
      */
     void addDenormalizationNoise(float &sample);
 
+    /**
+     * @brief Calculate volume compensation factor based on drive and saturation type
+     * @param drive Current drive amount [0.0-1.0]
+     * @param type Current saturation type
+     * @return Compensation factor to apply to output
+     */
+    float calculateVolumeCompensation(float drive, SaturationType type) const;
+
     // Constants for saturation algorithms
     static constexpr float SMOOTH_DRIVE_MIN = 1.0f;
     static constexpr float SMOOTH_DRIVE_MAX = 20.0f;
@@ -120,6 +131,10 @@ private:
     float driveAmount = 0.5f;
     // Internal mix removed; always process 100% wet, mix later globally
     SaturationType saturationType = SaturationType::SMOOTH;
+    bool volumeCompensationEnabled = true;
+
+    // Volume compensation smoothing
+    juce::LinearSmoothedValue<float> compensationGain{1.0f};
 
     // Audio processing setup
     double sampleRate = 44100.0;

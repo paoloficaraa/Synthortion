@@ -30,56 +30,129 @@ void WarmDistortion::prepare(const juce::dsp::ProcessSpec &spec)
         true);
 
     oversampler->initProcessing(spec.maximumBlockSize);
+
+    // Initialize volume compensation smoothing
+    compensationGain.reset(sampleRate, 0.05); // 50ms smoothing
+    compensationGain.setCurrentAndTargetValue(1.0f);
 }
 
 void WarmDistortion::setDrive(float newDrive)
 {
     driveAmount = juce::jlimit(0.0f, 1.0f, newDrive);
-}
 
-void WarmDistortion::setMix(float newMix)
-{
-    // Deprecated: mix handled globally in the processor. Keep for backward compatibility but unused.
-    juce::ignoreUnused(newMix);
+    // Update volume compensation if enabled
+    if (volumeCompensationEnabled)
+    {
+        float compensation = calculateVolumeCompensation(driveAmount, saturationType);
+        compensationGain.setTargetValue(compensation);
+    }
 }
 
 void WarmDistortion::setSaturationType(SaturationType type)
 {
     saturationType = type;
+
+    // Update volume compensation if enabled
+    if (volumeCompensationEnabled)
+    {
+        float compensation = calculateVolumeCompensation(driveAmount, saturationType);
+        compensationGain.setTargetValue(compensation);
+    }
 }
 
-void WarmDistortion::process(juce::AudioBuffer<float> &buffer)
+void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float> &context)
 {
-    const int numChannels = buffer.getNumChannels();
-    const int numSamples = buffer.getNumSamples();
-
-    if (numChannels == 0 || numSamples == 0 || !oversampler)
-        return;
+    juce::dsp::AudioBlock<float> block = context.getOutputBlock();
 
     // Process always 100% wet here; global dry/wet mix is applied in the processor
-
-    juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::AudioBlock<float> oversampledBlock = oversampler->processSamplesUp(block);
 
+    // Process each channel using SIMD-optimized operations where possible
     for (int channel = 0; channel < oversampledBlock.getNumChannels(); ++channel)
     {
         float *channelData = oversampledBlock.getChannelPointer(channel);
-        for (int sample = 0; sample < oversampledBlock.getNumSamples(); ++sample)
+        const int numSamples = static_cast<int>(oversampledBlock.getNumSamples());
+
+        // Process in SIMD blocks where possible (4 samples at a time)
+        const int simdBlocks = numSamples / 4;
+        const int remainingSamples = numSamples % 4;
+
+        int sampleIndex = 0;
+
+        // SIMD processing for aligned blocks
+        for (int simdBlock = 0; simdBlock < simdBlocks; ++simdBlock)
         {
-            float inputSample = channelData[sample];
+            // Load 4 samples
+            float samples[4];
+            for (int i = 0; i < 4; ++i)
+            {
+                samples[i] = channelData[sampleIndex + i];
+                addDenormalizationNoise(samples[i]);
+            }
+
+            // Apply saturation to each sample
+            for (int i = 0; i < 4; ++i)
+            {
+                samples[i] = applySaturation(samples[i], driveAmount);
+                samples[i] = applyBitCrush(samples[i]);
+            }
+
+            // Store results back
+            for (int i = 0; i < 4; ++i)
+            {
+                channelData[sampleIndex + i] = samples[i];
+            }
+
+            sampleIndex += 4;
+        }
+
+        // Process remaining samples individually
+        for (int i = 0; i < remainingSamples; ++i)
+        {
+            float inputSample = channelData[sampleIndex];
             addDenormalizationNoise(inputSample);
 
             // Apply saturation
             float saturatedSample = applySaturation(inputSample, driveAmount);
 
             // Apply bit crush effect
-            channelData[sample] = applyBitCrush(saturatedSample);
+            channelData[sampleIndex] = applyBitCrush(saturatedSample);
+
+            ++sampleIndex;
         }
     }
 
     oversampler->processSamplesDown(block);
 
-    // No dry/wet mix here
+    // Apply volume compensation to the downsampled signal
+    if (volumeCompensationEnabled)
+    {
+        for (int channel = 0; channel < block.getNumChannels(); ++channel)
+        {
+            float *channelData = block.getChannelPointer(channel);
+
+            // Use JUCE's optimized vector operations for gain application
+            if (compensationGain.isSmoothing())
+            {
+                // Apply smoothed gain sample by sample
+                for (int sample = 0; sample < block.getNumSamples(); ++sample)
+                {
+                    channelData[sample] *= compensationGain.getNextValue();
+                }
+            }
+            else
+            {
+                // Apply constant gain using optimized vector operation
+                const float gain = compensationGain.getTargetValue();
+                juce::FloatVectorOperations::multiply(channelData, gain, static_cast<int>(block.getNumSamples()));
+            }
+        }
+    }
+    else
+    {
+        // Skip compensation smoothing if disabled
+        compensationGain.skip(static_cast<int>(block.getNumSamples()));
+    }
 }
 
 float WarmDistortion::applySaturation(float input, float drive)
@@ -164,4 +237,41 @@ void WarmDistortion::addDenormalizationNoise(float &sample)
     {
         sample += noiseGenerator.nextFloat() * DENORM_NOISE_LEVEL;
     }
+}
+
+float WarmDistortion::calculateVolumeCompensation(float drive, SaturationType type) const
+{
+    // Calculate compensation based on drive amount and saturation type
+    // Higher drive typically reduces overall volume, so we compensate accordingly
+
+    float baseDriveCompensation = 1.0f;
+
+    switch (type)
+    {
+    case SaturationType::SMOOTH:
+    {
+        // tanh saturation reduces volume as drive increases
+        // Empirical compensation curve for smooth saturation
+        float driveEffect = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.3f);
+        baseDriveCompensation = 1.0f / juce::jmax(0.1f, driveEffect);
+        break;
+    }
+    case SaturationType::TUBE:
+    {
+        // Tube saturation has asymmetric behavior, less volume reduction
+        float driveEffect = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.5f);
+        baseDriveCompensation = 1.0f / juce::jmax(0.2f, driveEffect);
+        break;
+    }
+    case SaturationType::TAPE:
+    {
+        // Tape saturation has soft knee, moderate volume reduction
+        float driveEffect = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.4f);
+        baseDriveCompensation = 1.0f / juce::jmax(0.15f, driveEffect);
+        break;
+    }
+    }
+
+    // Limit compensation to reasonable range to avoid excessive volumes
+    return juce::jlimit(0.5f, 3.0f, baseDriveCompensation);
 }

@@ -18,7 +18,8 @@ namespace synthortion
      * - Input/output level metering
      * - Full parameter automation support
      */
-    class AudioPluginAudioProcessor final : public juce::AudioProcessor
+    class AudioPluginAudioProcessor final : public juce::AudioProcessor,
+                                            public juce::AudioProcessorValueTreeState::Listener
     {
     public:
         //==============================================================================
@@ -59,6 +60,12 @@ namespace synthortion
 
         // Parameter tree for automation and preset management
         juce::AudioProcessorValueTreeState apvts;
+
+        //==============================================================================
+        void parameterChanged(const juce::String &parameterID, float newValue) override;
+
+        // Force update all DSP parameters (used during initialization)
+        void updateDSPParameters();
 
         // Spectrum analyzer callback for real-time visualization
         std::function<void(float)> spectrumAnalyzerCallback;
