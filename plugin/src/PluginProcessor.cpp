@@ -247,6 +247,17 @@ namespace synthortion
         }
         mixValue = juce::jlimit(0.0f, 1.0f, mixValue);
 
+        // Apply input gain
+        auto inputGainValue = apvts.getRawParameterValue("INPUT_GAIN")->load();
+        if (std::isfinite(inputGainValue))
+        {
+            float inputGainLinear = juce::Decibels::decibelsToGain(inputGainValue);
+            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+            {
+                juce::FloatVectorOperations::multiply(buffer.getWritePointer(channel), inputGainLinear, buffer.getNumSamples());
+            }
+        }
+
         // Calculate input RMS level with error checking using optimized operations
         float inputRms = 0.0f;
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
@@ -355,7 +366,18 @@ namespace synthortion
             }
         }
 
-        // Calculate output RMS level with error checking
+        // Apply output gain before RMS calculation and spectrum analysis
+        auto outputGainValue = apvts.getRawParameterValue("OUTPUT_GAIN")->load();
+        if (std::isfinite(outputGainValue))
+        {
+            float outputGainLinear = juce::Decibels::decibelsToGain(outputGainValue);
+            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+            {
+                juce::FloatVectorOperations::multiply(buffer.getWritePointer(channel), outputGainLinear, buffer.getNumSamples());
+            }
+        }
+
+        // Calculate output RMS level with error checking (after output gain)
         float outputRms = 0.0f;
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
