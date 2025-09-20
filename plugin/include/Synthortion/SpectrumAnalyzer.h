@@ -23,8 +23,8 @@ public:
 private:
     enum
     {
-        fftOrder = 11,
-        fftSize = 1 << fftOrder,
+        fftOrder = 12,           // Increased from 11 for better frequency resolution
+        fftSize = 1 << fftOrder, // 4096 samples for higher resolution
         scopeSize = 512
     };
 
@@ -37,10 +37,16 @@ private:
     bool nextFFTBlockReady = false;
     float scopeData[scopeSize];
     float smoothedScopeData[scopeSize];           // For temporal smoothing
+    float targetScopeData[scopeSize];             // Target values for interpolation
+    float currentScopeData[scopeSize];            // Current interpolated values
+    float peakHoldData[scopeSize];                // Peak hold values like professional analyzers
+    int peakHoldTimer[scopeSize];                 // Timer for peak hold decay
     juce::Array<juce::Point<float>> cachedPoints; // Cached points for performance
     double sampleRate = 44100.0;                  // used for frequency mapping
     static constexpr float minFreq = 20.0f;
-    static constexpr float smoothingFactor = 0.8f; // Smoothing coefficient
+    static constexpr float smoothingFactor = 0.85f;    // Smoothing molto forte per interpolazione fluida
+    static constexpr int peakHoldTime = 45;            // Peak hold più lungo (1.5 secondi at 30fps)
+    static constexpr float interpolationSpeed = 0.15f; // Velocità di interpolazione per fluidità perfetta
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectrumAnalyzer)
 };

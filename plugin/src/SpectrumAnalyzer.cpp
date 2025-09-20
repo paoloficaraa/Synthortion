@@ -7,11 +7,15 @@ SpectrumAnalyzer::SpectrumAnalyzer()
 {
     // Initialize smoothed data array to zero
     juce::zeromem(smoothedScopeData, sizeof(smoothedScopeData));
+    juce::zeromem(targetScopeData, sizeof(targetScopeData));
+    juce::zeromem(currentScopeData, sizeof(currentScopeData));
+    juce::zeromem(peakHoldData, sizeof(peakHoldData));
+    juce::zeromem(peakHoldTimer, sizeof(peakHoldTimer));
 
     // Pre-allocate cached points for performance
     cachedPoints.ensureStorageAllocated(scopeSize);
 
-    startTimerHz(60); // Increased from 30Hz to 60Hz for smoother animation
+    startTimerHz(60); // Timer più veloce per interpolazione fluida
 }
 
 SpectrumAnalyzer::~SpectrumAnalyzer()
@@ -20,6 +24,13 @@ SpectrumAnalyzer::~SpectrumAnalyzer()
 
 void SpectrumAnalyzer::paint(juce::Graphics &g)
 {
+    // Safety check for valid sample rate
+    if (sampleRate <= 0.0)
+    {
+        g.fillAll(juce::Colours::black);
+        return;
+    }
+
     auto outer = getLocalBounds().toFloat().reduced(2.0f);
 
     // Enhanced background with subtle texture
@@ -28,8 +39,8 @@ void SpectrumAnalyzer::paint(juce::Graphics &g)
     g.setGradientFill(backgroundGrad);
     g.fillRoundedRectangle(outer, 8.0f);
 
-    // Plot area with some padding for axis labels
-    auto plot = outer.reduced(30.0f, 18.0f);
+    // Plot area ottimizzato - padding ridotto a sinistra senza etichette Y
+    auto plot = outer.reduced(15.0f, 18.0f); // Ridotto padding sinistro da 30 a 15
 
     // Subtle border with inner glow
     g.setColour(juce::Colour(0xff333333).withAlpha(0.8f));
@@ -42,43 +53,30 @@ void SpectrumAnalyzer::paint(juce::Graphics &g)
     // Enhanced grid with better frequency distribution like SPAN
     const float nyquist = (float)(sampleRate * 0.5);
 
-    // More balanced frequency grid lines optimized for uniform distribution
-    const float majorFreqs[] = {20.f, 50.f, 100.f, 200.f, 500.f, 1000.f, 2000.f, 5000.f, 10000.f, 20000.f};
-    const float minorFreqs[] = {25.f, 30.f, 40.f, 60.f, 80.f, 120.f, 150.f, 250.f, 300.f, 400.f, 600.f, 800.f,
-                                1200.f, 1500.f, 2500.f, 3000.f, 4000.f, 6000.f, 8000.f, 12000.f, 15000.f, 16000.f};
+    // More balanced frequency grid lines ottimizzato come Klangfreund
+    const float majorFreqs[] = {20.f, 100.f, 1000.f, 10000.f, 20000.f};
+    const float minorFreqs[] = {30.f, 40.f, 50.f, 60.f, 70.f, 80.f, 90.f, 200.f, 300.f, 400.f, 500.f, 600.f, 700.f, 800.f, 900.f, 2000.f, 3000.f, 4000.f, 5000.f, 6000.f, 7000.f, 8000.f, 9000.f};
     const int numMajorFreqs = (int)(sizeof(majorFreqs) / sizeof(majorFreqs[0]));
     const int numMinorFreqs = (int)(sizeof(minorFreqs) / sizeof(minorFreqs[0]));
 
-    auto freqToX = [&](float f)
+    auto freqToX = [&](float f) -> float
     {
         f = juce::jlimit(20.0f, nyquist, f);
 
-        // Professional frequency mapping for uniform distribution like SPAN
+        // Safe logarithmic mapping to prevent NaN/infinite values
         const float minFreq = 20.0f;
         const float maxFreq = nyquist;
 
-        // Use SPAN-style distribution with multiple compression stages
-        float logMin = std::log10(minFreq);
-        float logMax = std::log10(maxFreq);
-        float logF = std::log10(f);
+        // Use standard log mapping with proper bounds checking
+        const float logMin = std::log10(minFreq);
+        const float logMax = std::log10(maxFreq);
+        const float logF = std::log10(f);
 
-        // Basic logarithmic normalization
-        float norm = (logF - logMin) / (logMax - logMin);
+        // Safe normalization with bounds checking
+        float normalizedLog = (logF - logMin) / (logMax - logMin);
+        normalizedLog = juce::jlimit(0.0f, 1.0f, normalizedLog);
 
-        // Multi-stage frequency redistribution for professional appearance
-        if (norm <= 0.5f)
-        {
-            // Compress low frequencies more aggressively (20Hz - 1kHz range)
-            norm = std::pow(norm, 0.4f) * 0.3f;
-        }
-        else
-        {
-            // Mid and high frequencies get more space (1kHz - 20kHz range)
-            float highNorm = (norm - 0.5f) / 0.5f;
-            norm = 0.3f + std::pow(highNorm, 0.8f) * 0.7f;
-        }
-
-        return plot.getX() + norm * plot.getWidth();
+        return plot.getX() + normalizedLog * plot.getWidth();
     };
 
     // Minor grid lines (thinner, more transparent)
@@ -136,8 +134,8 @@ void SpectrumAnalyzer::paint(juce::Graphics &g)
     juce::Font labelFont(juce::FontOptions().withHeight(9.5f));
     g.setFont(labelFont);
 
-    // Frequency labels with improved formatting
-    const float labelFreqs[] = {20.f, 100.f, 1000.f, 10000.f, 20000.f};
+    // Frequency labels selezionate: 20, 100, 500, 1K, 5K, 10K, 20K
+    const float labelFreqs[] = {20.f, 100.f, 500.f, 1000.f, 5000.f, 10000.f, 20000.f};
     const int numLabelFreqs = (int)(sizeof(labelFreqs) / sizeof(labelFreqs[0]));
 
     for (int i = 0; i < numLabelFreqs; ++i)
@@ -147,28 +145,20 @@ void SpectrumAnalyzer::paint(juce::Graphics &g)
             const float x = freqToX(labelFreqs[i]);
             juce::String label;
 
-            if (labelFreqs[i] >= 1000.f)
-                label = juce::String(labelFreqs[i] / 1000.f, (labelFreqs[i] == 1000.f || labelFreqs[i] == 10000.f || labelFreqs[i] == 20000.f) ? 0 : 1) + "k";
+            // Formattazione: 1000Hz = "1K", 5000Hz = "5K", 10000Hz = "10K"
+            if (labelFreqs[i] >= 1000.f && (int)labelFreqs[i] % 1000 == 0)
+                label = juce::String((int)(labelFreqs[i] / 1000.f)) + "K";
             else
                 label = juce::String((int)labelFreqs[i]);
 
             const int rx = juce::roundToInt(x - 20.0f);
             const int ry = juce::roundToInt(plot.getBottom() + 3.0f);
+
+            // Rendering diretto senza controllo sovrapposizione (abbiamo solo 7 etichette ben distanziate)
             g.drawFittedText(label,
                              juce::Rectangle<int>(rx, ry, 40, 12),
                              juce::Justification::centred, 1);
         }
-    }
-
-    // Gain labels with improved spacing
-    for (int dB = (int)gainMin; dB <= (int)gainMax; dB += 20) // Show every 20dB for cleaner look
-    {
-        const float y = gainToY((float)dB);
-        const int rx = juce::roundToInt(plot.getX() - 28.0f);
-        const int ry = juce::roundToInt(y - 6.0f);
-        g.drawFittedText(juce::String(dB),
-                         juce::Rectangle<int>(rx, ry, 25, 12),
-                         juce::Justification::centredRight, 1);
     }
 
     drawFrame(g);
@@ -184,14 +174,49 @@ void SpectrumAnalyzer::timerCallback()
     {
         drawNextFrameOfSpectrum();
         nextFFTBlockReady = false;
-        repaint();
+
+        // Aggiorna i target values ma non repaint subito
+        // L'interpolazione farà il resto
+        for (int i = 0; i < scopeSize; ++i)
+        {
+            targetScopeData[i] = smoothedScopeData[i];
+        }
     }
-    else
+
+    // Sistema di interpolazione temporale continua per fluidità perfetta
+    bool hasChanges = false;
+
+    for (int i = 0; i < scopeSize; ++i)
     {
-        // Even without new FFT data, repaint for smooth animation
-        // This ensures consistent 60fps visual updates
-        repaint();
+        // Interpolazione fluida verso il target
+        float oldValue = currentScopeData[i];
+        currentScopeData[i] += (targetScopeData[i] - currentScopeData[i]) * interpolationSpeed;
+
+        // Decay continuo del target per animazione naturale
+        targetScopeData[i] *= 0.995f; // Decay molto graduale
+
+        // Verifica se c'è un cambiamento visibile
+        if (std::abs(oldValue - currentScopeData[i]) > 0.002f)
+            hasChanges = true;
+
+        // Update peak hold con interpolazione
+        if (peakHoldTimer[i] > 0)
+        {
+            peakHoldTimer[i]--;
+        }
+        else
+        {
+            // Peak hold decay ancora più graduale
+            peakHoldData[i] *= 0.992f; // Decay ultra-graduale per picchi
+        }
+
+        // Aggiorna scopeData con i valori interpolati
+        scopeData[i] = currentScopeData[i];
     }
+
+    // Repaint continuo per animazione fluida
+    if (hasChanges)
+        repaint();
 }
 
 void SpectrumAnalyzer::pushNextSampleIntoFifo(float sample) noexcept
@@ -217,9 +242,10 @@ void SpectrumAnalyzer::drawNextFrameOfSpectrum()
 
     const float mindB = -100.0f;
     const float maxdB = 0.0f;
-    const float scale = 2.0f / (float)fftSize; // Correct normalization for JUCE FFT
+    // Improved normalization factor accounting for window function and FFT size
+    const float scale = 2.0f / (float)fftSize;
+    const float windowCorrection = 1.5f; // Compensation for Hann window energy loss
     const float nyquist = (float)sampleRate * 0.5f;
-    const float minFreq = 20.0f;
 
     for (int i = 0; i < scopeSize; ++i)
     {
@@ -233,22 +259,35 @@ void SpectrumAnalyzer::drawNextFrameOfSpectrum()
 
         // Interpolate between adjacent bins for smoother results
         float frac = binFloat - (float)fftIndex;
-        float mag1 = fftData[fftIndex] * scale;
-        float mag2 = (fftIndex + 1 < fftSize / 2) ? fftData[fftIndex + 1] * scale : mag1;
+        float mag1 = fftData[fftIndex] * scale * windowCorrection;
+        float mag2 = (fftIndex + 1 < fftSize / 2) ? fftData[fftIndex + 1] * scale * windowCorrection : mag1;
         float mag = mag1 + frac * (mag2 - mag1);
 
         float dB = juce::Decibels::gainToDecibels(juce::jmax(mag, 1.0e-9f));
         float level = juce::jlimit(0.0f, 1.0f, juce::jmap(dB, mindB, maxdB, 0.0f, 1.0f));
 
-        // Apply temporal smoothing for fluid animation
+        // Apply temporal smoothing molto forte per evitare scatti
         smoothedScopeData[i] = smoothedScopeData[i] * smoothingFactor + level * (1.0f - smoothingFactor);
-        scopeData[i] = smoothedScopeData[i];
+
+        // Peak hold logic like professional spectrum analyzers
+        if (level > peakHoldData[i])
+        {
+            peakHoldData[i] = level;         // New peak
+            peakHoldTimer[i] = peakHoldTime; // Reset timer
+        }
+
+        // Non aggiornare direttamente scopeData - sarà fatto dall'interpolazione
+        // scopeData[i] = smoothedScopeData[i]; // Commentato per interpolazione fluida
     }
 }
 
 void SpectrumAnalyzer::drawFrame(juce::Graphics &g)
 {
-    auto bounds = getLocalBounds().toFloat().reduced(30.0f, 18.0f);
+    // Safety check for valid sample rate
+    if (sampleRate <= 0.0)
+        return;
+
+    auto bounds = getLocalBounds().toFloat().reduced(15.0f, 18.0f); // Consistente con paint()
     auto width = bounds.getWidth();
     auto height = bounds.getHeight();
 
@@ -264,62 +303,69 @@ void SpectrumAnalyzer::drawFrame(juce::Graphics &g)
     // Collect points with optimized loop using consistent logarithmic mapping
     for (int i = 1; i < scopeSize; ++i)
     {
-        // Use same professional frequency mapping as in paint() method
+        // Calculate logarithmic frequency for this scope bin
         float logPos = (float)i / (float)(scopeSize - 1); // 0 to 1
         float freq = 20.0f * std::pow(nyquist / 20.0f, logPos);
 
-        // Apply the same professional frequency distribution for consistency
-        const float minFreq = 20.0f;
+        // Apply the same safe logarithmic mapping as in paint() method for consistency
+        freq = juce::jlimit(20.0f, nyquist, freq);
+        
         const float maxFreq = nyquist;
 
-        float logMin = std::log10(minFreq);
-        float logMax = std::log10(maxFreq);
-        float logF = std::log10(freq);
+        // Use standard log mapping with proper bounds checking
+        const float logMin = std::log10(minFreq);
+        const float logMax = std::log10(maxFreq);
+        const float logF = std::log10(freq);
 
-        // Apply the same multi-stage distribution for consistent appearance
-        float norm = (logF - logMin) / (logMax - logMin);
+        // Safe normalization with bounds checking
+        float normalizedLog = (logF - logMin) / (logMax - logMin);
+        normalizedLog = juce::jlimit(0.0f, 1.0f, normalizedLog);
 
-        // Multi-stage frequency redistribution (same as paint method)
-        if (norm <= 0.5f)
-        {
-            // Compress low frequencies more aggressively (20Hz - 1kHz range)
-            norm = std::pow(norm, 0.4f) * 0.3f;
-        }
-        else
-        {
-            // Mid and high frequencies get more space (1kHz - 20kHz range)
-            float highNorm = (norm - 0.5f) / 0.5f;
-            norm = 0.3f + std::pow(highNorm, 0.8f) * 0.7f;
-        }
-
-        auto x = bounds.getX() + norm * width;
+        auto x = bounds.getX() + normalizedLog * width;
         auto y = bounds.getBottom() - juce::jmap(scopeData[i], 0.0f, 1.0f, 0.0f, height);
-        cachedPoints.add({x, y});
-    }
 
+        // Additional safety check for valid coordinates
+        if (std::isfinite(x) && std::isfinite(y))
+        {
+            cachedPoints.add({x, y});
+        }
+    }
     juce::Path spectrumPath;
 
-    // Create smooth path using optimized curve fitting
-    if (cachedPoints.size() > 2)
+    // Create ultra-smooth path usando cubic curves per fluidità massima
+    if (cachedPoints.size() > 3)
     {
-        spectrumPath.preallocateSpace(cachedPoints.size() * 3); // Pre-allocate for performance
+        spectrumPath.preallocateSpace(cachedPoints.size() * 4); // Pre-allocate per cubic curves
         spectrumPath.startNewSubPath(cachedPoints[0]);
 
-        // Use quadratic curves for smoother appearance with optimized control points
-        for (int i = 1; i < cachedPoints.size() - 1; ++i)
+        // Use cubic curves per smoothness massima
+        for (int i = 1; i < cachedPoints.size() - 2; ++i)
         {
+            auto p0 = cachedPoints[i - 1];
             auto p1 = cachedPoints[i];
             auto p2 = cachedPoints[i + 1];
+            auto p3 = cachedPoints[i + 2];
 
-            // Optimized control point calculation
-            auto controlX = (p1.x + p2.x) * 0.5f;
-            auto controlY = juce::jmin(p1.y, p2.y);
+            // Catmull-Rom spline per smoothness naturale
+            auto cp1x = p1.x + (p2.x - p0.x) * 0.16f;
+            auto cp1y = p1.y + (p2.y - p0.y) * 0.16f;
+            auto cp2x = p2.x - (p3.x - p1.x) * 0.16f;
+            auto cp2y = p2.y - (p3.y - p1.y) * 0.16f;
 
-            spectrumPath.quadraticTo(p1.x, p1.y, controlX, controlY);
+            spectrumPath.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
         }
 
         if (cachedPoints.size() > 1)
             spectrumPath.lineTo(cachedPoints.getLast());
+    }
+    else if (cachedPoints.size() > 1)
+    {
+        // Fallback per pochi punti
+        spectrumPath.startNewSubPath(cachedPoints[0]);
+        for (int i = 1; i < cachedPoints.size(); ++i)
+        {
+            spectrumPath.lineTo(cachedPoints[i]);
+        }
     }
 
     // Fill under the spectrum with enhanced gradient

@@ -17,6 +17,16 @@ void WarmDistortion::setSampleRate(double newSampleRate)
 void WarmDistortion::reset()
 {
     noiseGenerator.setSeedRandomly();
+
+    // Reset analog modeling state
+    tubeBiasDrift = 0.0f;
+    tubeWarmupFactor = 0.0f;
+    samplesSinceReset = 0;
+    flickerNoiseAccumulator = 0.0f;
+
+    // Reset filter states
+    preEmphState = 0.0f;
+    postFilterState = 0.0f;
 }
 
 void WarmDistortion::prepare(const juce::dsp::ProcessSpec &spec)
@@ -93,8 +103,14 @@ void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float> &co
             // Apply saturation to each sample
             for (int i = 0; i < 4; ++i)
             {
+                // Pre-filtering (pre-emphasis) prima della saturazione
+                applyDriveDependentFiltering(samples[i], driveAmount);
+
                 samples[i] = applySaturation(samples[i], driveAmount);
                 samples[i] = applyBitCrush(samples[i]);
+
+                // Add realistic analog noise
+                addAnalogNoise(samples[i], driveAmount);
             }
 
             // Store results back
@@ -112,11 +128,19 @@ void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float> &co
             float inputSample = channelData[sampleIndex];
             addDenormalizationNoise(inputSample);
 
+            // Apply drive-dependent filtering prima della saturazione
+            applyDriveDependentFiltering(inputSample, driveAmount);
+
             // Apply saturation
             float saturatedSample = applySaturation(inputSample, driveAmount);
 
             // Apply bit crush effect
-            channelData[sampleIndex] = applyBitCrush(saturatedSample);
+            saturatedSample = applyBitCrush(saturatedSample);
+
+            // Add realistic analog noise
+            addAnalogNoise(saturatedSample, driveAmount);
+
+            channelData[sampleIndex] = saturatedSample;
 
             ++sampleIndex;
         }
@@ -180,21 +204,83 @@ float WarmDistortion::smoothSaturation(float input, float drive)
 
 float WarmDistortion::tubeSaturation(float input, float drive)
 {
-    // Tube-style saturation with asymmetric clipping
+    // Advanced 12AX7 tube modeling con thermal effects
     float driveMapped = juce::jmap(drive, 0.0f, 1.0f, TUBE_DRIVE_MIN, TUBE_DRIVE_MAX);
-    float driven = input * driveMapped;
 
-    // Asymmetric saturation mimicking tube behavior
-    if (driven > 0.0f)
+    // Simula riscaldamento graduale del tubo (primi ~5 secondi)
+    samplesSinceReset++;
+    if (samplesSinceReset < sampleRate * 5.0) // 5 secondi di warmup
     {
-        // Softer saturation for positive signals
-        return std::tanh(driven * TUBE_POSITIVE_FACTOR) * TUBE_POSITIVE_GAIN;
+        tubeWarmupFactor = (float)samplesSinceReset / (float)(sampleRate * 5.0);
+        tubeWarmupFactor = std::pow(tubeWarmupFactor, 0.7f); // Curva non lineare
     }
     else
     {
-        // Harder clipping for negative signals
-        return juce::jmax(TUBE_NEGATIVE_CLAMP, driven * TUBE_NEGATIVE_FACTOR);
+        tubeWarmupFactor = 1.0f;
     }
+
+    // Bias drift termico - molto lento e sottile
+    if (samplesSinceReset % 1024 == 0) // Aggiorna ogni 1024 campioni
+    {
+        tubeBiasDrift += (noiseGenerator.nextFloat() - 0.5f) * TUBE_BIAS_DRIFT * 0.001f;
+        tubeBiasDrift = juce::jlimit(-TUBE_BIAS_DRIFT, TUBE_BIAS_DRIFT, tubeBiasDrift);
+    }
+
+    // Applica il bias drift e warmup
+    float driven = input * driveMapped * tubeWarmupFactor;
+    driven += tubeBiasDrift; // Bias offset sottile
+
+    // Modello realistico 12AX7: curve di saturazione asimmetriche
+    float output;
+
+    if (driven >= 0.0f)
+    {
+        // Saturazione positiva: più dolce, simula grid current limiting
+        if (driven < TUBE_GRID_CURRENT)
+        {
+            // Regione lineare/dolce
+            output = driven * (1.0f + driven * 0.1f);
+        }
+        else
+        {
+            // Grid current limiting - saturazione morbida
+            float excess = driven - TUBE_GRID_CURRENT;
+            output = TUBE_GRID_CURRENT * (1.0f + TUBE_GRID_CURRENT * 0.1f);
+            output += excess / (1.0f + excess * TUBE_CATHODE_COMPRESSION);
+        }
+    }
+    else
+    {
+        // Saturazione negativa: più dura, simula plate current cutoff
+        float abs_driven = -driven;
+
+        if (abs_driven < TUBE_PLATE_KNEE)
+        {
+            // Regione semi-lineare
+            output = driven * (1.0f + abs_driven * 0.05f);
+        }
+        else
+        {
+            // Hard limiting della placca
+            float excess = abs_driven - TUBE_PLATE_KNEE;
+            output = -TUBE_PLATE_KNEE * (1.0f + TUBE_PLATE_KNEE * 0.05f);
+            output -= excess / (1.0f + excess * 3.0f); // Limiting più duro
+        }
+    }
+
+    // Aggiunge contenuto armonico sottile (simula distorsione della griglia)
+    float harmonic = std::sin(driven * 3.14159f) * TUBE_HARMONIC_CONTENT * drive;
+    output += harmonic * input * input; // Solo per segnali più forti
+
+    // Asimmetria variabile basata sul drive
+    float asymmetry = TUBE_ASYMMETRY_FACTOR * drive;
+    if (output > 0.0f)
+        output *= (1.0f - asymmetry);
+    else
+        output *= (1.0f + asymmetry);
+
+    // Clamp finale per evitare valori eccessivi
+    return juce::jlimit(-1.2f, 1.0f, output);
 }
 
 float WarmDistortion::tapeSaturation(float input, float drive)
@@ -239,6 +325,54 @@ void WarmDistortion::addDenormalizationNoise(float &sample)
     }
 }
 
+void WarmDistortion::addAnalogNoise(float &sample, float drive)
+{
+    float noiseLevel = 0.0f;
+
+    switch (saturationType)
+    {
+    case SaturationType::TUBE:
+    {
+        // Tube hiss che aumenta con il drive
+        float tubeHiss = TUBE_HISS_BASE * (1.0f + drive * 2.0f);
+
+        // 1/f flicker noise tipico dei tubi
+        flickerNoiseAccumulator = flickerNoiseAccumulator * 0.99f +
+                                  (noiseGenerator.nextFloat() - 0.5f) * TUBE_FLICKER_NOISE;
+
+        // Thermal noise del catodo (aumenta con warmup)
+        float thermalNoise = THERMAL_NOISE_BASE * tubeWarmupFactor;
+
+        noiseLevel = tubeHiss + std::abs(flickerNoiseAccumulator) + thermalNoise;
+        break;
+    }
+    case SaturationType::TAPE:
+    {
+        // Tape modulation noise
+        float tapeNoise = TAPE_MODULATION_NOISE * (1.0f + drive * 1.5f);
+
+        // High frequency bias noise
+        float biasNoise = THERMAL_NOISE_BASE * 0.5f;
+
+        noiseLevel = tapeNoise + biasNoise;
+        break;
+    }
+    case SaturationType::SMOOTH:
+    {
+        // Minimal digital noise per la modalità smooth
+        noiseLevel = THERMAL_NOISE_BASE * 0.3f;
+        break;
+    }
+    }
+
+    // Applica il rumore solo se il segnale è sopra una certa soglia
+    if (std::abs(sample) > 0.001f || drive > 0.3f)
+    {
+        float noise = (noiseGenerator.nextFloat() - 0.5f) * noiseLevel;
+        sample += noise;
+    }
+}
+
 float WarmDistortion::calculateVolumeCompensation(float drive, SaturationType type) const
 {
     // Calculate compensation based on drive amount and saturation type
@@ -274,4 +408,32 @@ float WarmDistortion::calculateVolumeCompensation(float drive, SaturationType ty
 
     // Limit compensation to reasonable range to avoid excessive volumes
     return juce::jlimit(0.5f, 3.0f, baseDriveCompensation);
+}
+
+void WarmDistortion::applyDriveDependentFiltering(float &sample, float drive)
+{
+    // Pre-emphasis: aumenta gli alti con il drive (simula condensatori che saturano)
+    // Frequency aumenta da 1kHz a ~4kHz con drive max
+    float preEmphFreq = PREEMPH_BASE_FREQ * (1.0f + drive * PREEMPH_DRIVE_FACTOR);
+    float preEmphAlpha = 1.0f - std::exp(-2.0f * 3.14159f * preEmphFreq / (float)sampleRate);
+
+    // High-pass filter semplice per pre-emphasis
+    float preEmphOutput = sample - preEmphState;
+    preEmphState += preEmphAlpha * preEmphOutput;
+
+    // Mix con l'originale - più drive = più pre-emphasis
+    float preEmphAmount = drive * 0.3f; // Massimo 30% di pre-emphasis
+    sample = sample * (1.0f - preEmphAmount) + preEmphOutput * preEmphAmount;
+
+    // Post-filtering: taglia gli alti con drive alto (simula trasformatori saturi)
+    // Frequency diminuisce da 8kHz a ~2kHz con drive max
+    float postFilterFreq = POSTFILTER_BASE_FREQ * (1.0f - drive * POSTFILTER_DRIVE_FACTOR);
+    float postFilterAlpha = 1.0f - std::exp(-2.0f * 3.14159f * postFilterFreq / (float)sampleRate);
+
+    // Low-pass filter semplice per post-filtering
+    postFilterState += postFilterAlpha * (sample - postFilterState);
+
+    // Mix con l'originale - più drive = più filtering
+    float postFilterAmount = drive * 0.4f; // Massimo 40% di post-filtering
+    sample = sample * (1.0f - postFilterAmount) + postFilterState * postFilterAmount;
 }

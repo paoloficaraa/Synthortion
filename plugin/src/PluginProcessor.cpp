@@ -283,14 +283,13 @@ namespace synthortion
             // Output RMS equals input in this case
             outputRmsLevel.setTargetValue(inputRmsLevel.getTargetValue());
 
-            // Analyzer on dry - optimized for real-time thread
+            // Analyzer on dry - process all samples for accuracy
             auto callbackDry = spectrumAnalyzerCallback;
             if (callbackDry && buffer.getNumChannels() > 0)
             {
                 auto *dryData = buffer.getReadPointer(0);
-                const int decimationFactor = 2; // Process every 2nd sample for better responsiveness
 
-                for (int sample = 0; sample < buffer.getNumSamples(); sample += decimationFactor)
+                for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
                     callbackDry(dryData[sample]);
             }
             return;
@@ -382,16 +381,15 @@ namespace synthortion
             outputRmsLevel.setTargetValue(-60.0f); // Fallback to minimum level
         }
 
-        // Send audio data to spectrum analyzer (post-EQ) - optimized for real-time thread
-        // Use local copy to avoid race conditions with callback destruction
-        // Only process every Nth sample to reduce computational load
+        // Send final output audio data to spectrum analyzer (post-everything including dry/wet)
+        // This shows exactly what goes to the output, reflecting all processing and mixing
         auto callback = spectrumAnalyzerCallback;
         if (callback && buffer.getNumChannels() > 0)
         {
             auto *channelData = buffer.getReadPointer(0);
-            const int decimationFactor = 2; // Process every 2nd sample for better responsiveness
 
-            for (int sample = 0; sample < buffer.getNumSamples(); sample += decimationFactor)
+            // Process all samples for better frequency resolution and accuracy
+            for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
             {
                 callback(channelData[sample]);
             }

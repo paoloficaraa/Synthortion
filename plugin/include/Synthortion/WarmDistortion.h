@@ -98,6 +98,20 @@ private:
     void addDenormalizationNoise(float &sample);
 
     /**
+     * @brief Add realistic analog noise based on saturation type and drive
+     * @param sample Reference to sample to modify
+     * @param drive Current drive amount for noise scaling
+     */
+    void addAnalogNoise(float &sample, float drive);
+
+    /**
+     * @brief Apply drive-dependent filtering that simulates analog component saturation
+     * @param sample Reference to sample to modify
+     * @param drive Current drive amount [0.0-1.0]
+     */
+    void applyDriveDependentFiltering(float &sample, float drive);
+
+    /**
      * @brief Calculate volume compensation factor based on drive and saturation type
      * @param drive Current drive amount [0.0-1.0]
      * @param type Current saturation type
@@ -108,12 +122,17 @@ private:
     // Constants for saturation algorithms
     static constexpr float SMOOTH_DRIVE_MIN = 1.0f;
     static constexpr float SMOOTH_DRIVE_MAX = 20.0f;
-    static constexpr float TUBE_POSITIVE_FACTOR = 0.7f;
-    static constexpr float TUBE_POSITIVE_GAIN = 1.2f;
-    static constexpr float TUBE_NEGATIVE_FACTOR = 0.9f;
-    static constexpr float TUBE_NEGATIVE_CLAMP = -0.9f;
+
+    // Advanced Tube modeling constants (12AX7 based)
     static constexpr float TUBE_DRIVE_MIN = 1.0f;
     static constexpr float TUBE_DRIVE_MAX = 15.0f;
+    static constexpr float TUBE_BIAS_DRIFT = 0.02f;         // Simula drift del bias
+    static constexpr float TUBE_GRID_CURRENT = 0.85f;       // Soglia grid current
+    static constexpr float TUBE_PLATE_KNEE = 0.7f;          // Knee point della placca
+    static constexpr float TUBE_CATHODE_COMPRESSION = 1.8f; // Compressione del catodo
+    static constexpr float TUBE_ASYMMETRY_FACTOR = 0.3f;    // Asimmetria variabile
+    static constexpr float TUBE_HARMONIC_CONTENT = 0.15f;   // Contenuto armonico
+
     static constexpr float TAPE_DRIVE_MIN = 1.0f;
     static constexpr float TAPE_DRIVE_MAX = 8.0f;
     static constexpr float TAPE_KNEE_THRESHOLD = 0.5f;
@@ -127,11 +146,33 @@ private:
     static constexpr float DENORM_THRESHOLD = 1.0e-15f;
     static constexpr float DENORM_NOISE_LEVEL = 1.0e-30f;
 
+    // Analog noise modeling constants
+    static constexpr float TUBE_HISS_BASE = 2.0e-6f;        // Tube hiss base level
+    static constexpr float TUBE_FLICKER_NOISE = 1.5e-6f;    // 1/f noise per i tubi
+    static constexpr float TAPE_MODULATION_NOISE = 3.0e-6f; // Tape modulation noise
+    static constexpr float THERMAL_NOISE_BASE = 1.0e-6f;    // Thermal noise base
+
+    // Drive-dependent filtering constants
+    static constexpr float PREEMPH_BASE_FREQ = 1000.0f;    // Base frequency per pre-emphasis
+    static constexpr float PREEMPH_DRIVE_FACTOR = 3.0f;    // Quanto aumenta con il drive
+    static constexpr float POSTFILTER_BASE_FREQ = 8000.0f; // Base frequency per post-filter
+    static constexpr float POSTFILTER_DRIVE_FACTOR = 0.3f; // Quanto diminuisce con il drive
+
     // Main parameters
     float driveAmount = 0.5f;
     // Internal mix removed; always process 100% wet, mix later globally
     SaturationType saturationType = SaturationType::SMOOTH;
     bool volumeCompensationEnabled = true;
+
+    // Advanced analog modeling state
+    float tubeBiasDrift = 0.0f;           // Simula drift termico del bias
+    float tubeWarmupFactor = 0.0f;        // Simula riscaldamento del tubo
+    int samplesSinceReset = 0;            // Contatore per effetti termici
+    float flickerNoiseAccumulator = 0.0f; // Per 1/f noise
+
+    // Drive-dependent filtering state (simple one-pole filters)
+    float preEmphState = 0.0f;    // Pre-emphasis filter state
+    float postFilterState = 0.0f; // Post-filter state
 
     // Volume compensation smoothing
     juce::LinearSmoothedValue<float> compensationGain{1.0f};
