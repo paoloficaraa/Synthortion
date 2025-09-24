@@ -13,7 +13,7 @@ jobs:
           submodules: recursive
 
       - name: Set up CMake
-        uses: lukka/get-cmake@v3
+        uses: lukka/get-cmake@v4.1.1
 
       - name: Configure (Universal build)
         run: |
