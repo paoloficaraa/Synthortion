@@ -30,6 +30,8 @@ void WarmDistortion::reset()
     // Reset filter states
     std::fill(std::begin(preEmphState), std::end(preEmphState), 0.0f);
     std::fill(std::begin(postFilterState), std::end(postFilterState), 0.0f);
+    std::fill(std::begin(exciterHighpass), std::end(exciterHighpass), 0.0f);
+    std::fill(std::begin(exciterDelay), std::end(exciterDelay), 0.0f);
 
     // Reset gain compensation
     compensationGain.setCurrentAndTargetValue(1.0f);
@@ -132,6 +134,9 @@ void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float> &co
                 // Pre-filtering (pre-emphasis) prima della saturazione
                 applyDriveDependentFiltering(samples[i], driveAmount, channel);
 
+                // High-frequency exciter per croccantezza
+                applyHighFrequencyExciter(samples[i], driveAmount, channel);
+
                 samples[i] = applySaturation(samples[i], driveAmount, channel);
                 samples[i] = applyBitCrush(samples[i], channel);
 
@@ -157,6 +162,9 @@ void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float> &co
             // Apply drive-dependent filtering prima della saturazione
             applyDriveDependentFiltering(inputSample, driveAmount, channel);
 
+            // High-frequency exciter per croccantezza
+            applyHighFrequencyExciter(inputSample, driveAmount, channel);
+
             // Apply saturation
             float saturatedSample = applySaturation(inputSample, driveAmount, channel);
 
@@ -181,9 +189,13 @@ void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float> &co
             float *channelData = block.getChannelPointer(channel);
             for (int sample = 0; sample < block.getNumSamples(); ++sample)
             {
-                // Soft clipper tanh-based
+                // Soft clipper tanh-based con volume compensation
                 float x = channelData[sample];
-                channelData[sample] = std::tanh(x * 0.8f) / 0.8f;
+                float clipped = std::tanh(x * 0.7f);
+
+                // Riduci l'amplificazione del clipper finale
+                float finalCompensation = juce::jmap(driveAmount, 0.05f, 1.0f, 0.9f, 0.7f);
+                channelData[sample] = clipped * finalCompensation;
             }
         }
     }
@@ -247,10 +259,18 @@ float WarmDistortion::applySaturation(float input, float drive, int channel)
 
 float WarmDistortion::smoothSaturation(float input, float drive)
 {
-    // Smooth tanh saturation (original behavior)
+    // Smooth tanh saturation con compensazione volume integrata
     float driveMapped = juce::jmap(drive, 0.0f, 1.0f, SMOOTH_DRIVE_MIN, SMOOTH_DRIVE_MAX);
     float driven = input * driveMapped;
-    return std::tanh(driven);
+
+    // Applica saturazione tanh
+    float saturated = std::tanh(driven);
+
+    // Compensazione volume integrata: riduci l'output man mano che aumenta il drive
+    // per compensare l'amplificazione intrinseca del tanh quando drive è basso
+    float volumeCompensation = juce::jmap(drive, 0.0f, 1.0f, 0.8f, 0.6f);
+
+    return saturated * volumeCompensation;
 }
 
 float WarmDistortion::tubeSaturation(float input, float drive, int channel)
@@ -312,8 +332,12 @@ float WarmDistortion::tubeSaturation(float input, float drive, int channel)
     float asymFactor = 1.0f - asymmetry * (0.5f + 0.5f * std::tanh(output * 4.0f));
     output *= asymFactor;
 
+    // Compensazione volume integrata per il tubo
+    float tubeVolumeCompensation = juce::jmap(drive, 0.0f, 1.0f, 0.75f, 0.5f);
+    output *= tubeVolumeCompensation;
+
     // Clamp finale per evitare valori eccessivi
-    return juce::jlimit(-1.2f, 1.0f, output);
+    return juce::jlimit(-1.0f, 1.0f, output);
 }
 
 float WarmDistortion::tapeSaturation(float input, float drive)
@@ -324,17 +348,23 @@ float WarmDistortion::tapeSaturation(float input, float drive)
 
     // Soft knee saturation characteristic of tape
     float abs_driven = std::abs(driven);
+    float output;
+
     if (abs_driven < TAPE_KNEE_THRESHOLD)
     {
-        return driven;
+        output = driven;
     }
     else
     {
         float sign = (driven > 0.0f) ? 1.0f : -1.0f;
         float compressed = TAPE_KNEE_THRESHOLD + (abs_driven - TAPE_KNEE_THRESHOLD) /
                                                      (1.0f + (abs_driven - TAPE_KNEE_THRESHOLD) * TAPE_COMPRESSION_FACTOR);
-        return sign * compressed;
+        output = sign * compressed;
     }
+
+    // Compensazione volume integrata per il tape
+    float tapeVolumeCompensation = juce::jmap(drive, 0.0f, 1.0f, 0.85f, 0.65f);
+    return output * tapeVolumeCompensation;
 }
 
 float WarmDistortion::applyBitCrush(float input, int channel)
@@ -418,39 +448,39 @@ void WarmDistortion::addAnalogNoise(float &sample, float drive, int channel)
 
 float WarmDistortion::calculateVolumeCompensation(float drive, SaturationType type) const
 {
-    // Calculate compensation based on drive amount and saturation type
-    // Higher drive typically reduces overall volume, so we compensate accordingly
+    // Riduce il volume man mano che aumenta il drive
+    // per mantenere un volume percepito costante nonostante la saturazione
 
-    float baseDriveCompensation = 1.0f;
+    float volumeReduction = 1.0f;
 
     switch (type)
     {
     case SaturationType::SMOOTH:
     {
-        // tanh saturation reduces volume as drive increases
-        // Empirical compensation curve for smooth saturation
-        float driveEffect = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.3f);
-        baseDriveCompensation = 1.0f / juce::jmax(0.1f, driveEffect);
+        // tanh amplifica il segnale, riduciamo progressivamente
+        // Volume reduction più aggressiva per compensare l'amplificazione del tanh
+        volumeReduction = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.25f);
         break;
     }
     case SaturationType::TUBE:
     {
-        // Tube saturation has asymmetric behavior, less volume reduction
-        float driveEffect = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.5f);
-        baseDriveCompensation = 1.0f / juce::jmax(0.2f, driveEffect);
+        // Il tubo ha amplificazione asimmetrica, compensazione moderata
+        volumeReduction = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.35f);
         break;
     }
     case SaturationType::TAPE:
     {
-        // Tape saturation has soft knee, moderate volume reduction
-        float driveEffect = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.4f);
-        baseDriveCompensation = 1.0f / juce::jmax(0.15f, driveEffect);
+        // Il tape ha soft knee, compensazione più delicata
+        volumeReduction = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.4f);
         break;
     }
     }
 
-    // Limit compensation to reasonable range to avoid excessive volumes
-    return juce::jlimit(0.5f, 3.0f, baseDriveCompensation);
+    // Applica una curva logaritmica per una riduzione più naturale
+    float logReduction = std::pow(volumeReduction, 0.8f);
+
+    // Limita la riduzione per evitare volumi troppo bassi
+    return juce::jlimit(0.15f, 1.0f, logReduction);
 }
 
 void WarmDistortion::updateAnalogModelState(int numSamples)
@@ -498,17 +528,17 @@ void WarmDistortion::applyDriveDependentFiltering(float &sample, float drive, in
     // Post-filtering solo se necessario
     if (drive > 0.1f)
     {
-        // Pre-emphasis: aumenta gli alti con il drive (simula condensatori che saturano)
-        // Frequency aumenta da 1kHz a ~4kHz con drive max
-        float preEmphFreq = PREEMPH_BASE_FREQ * (1.0f + drive * PREEMPH_DRIVE_FACTOR * 0.7f);
+        // Pre-emphasis POTENZIATO: aumenta gli alti con il drive per più croccantezza
+        // Frequency aumenta da 1.5kHz a ~6kHz con drive max (range più ampio)
+        float preEmphFreq = PREEMPH_BASE_FREQ * 1.5f * (1.0f + drive * PREEMPH_DRIVE_FACTOR * 1.2f);
         float preEmphAlpha = std::min(0.95f, 1.0f - std::exp(-2.0f * 3.14159f * preEmphFreq / (float)sampleRate));
 
         // High-pass filter semplice per pre-emphasis
         float preEmphOutput = sample - preEmphState[safeChannel];
         preEmphState[safeChannel] += preEmphAlpha * preEmphOutput;
 
-        // Mix con l'originale - più drive = più pre-emphasis
-        float preEmphAmount = drive * 0.3f;
+        // Mix con l'originale - MIX PIÙ AGGRESSIVO per più croccantezza
+        float preEmphAmount = drive * 0.5f; // Aumentato da 0.3f a 0.5f
         sample = sample * (1.0f - preEmphAmount) + preEmphOutput * preEmphAmount;
 
         // Post-filtering: taglia gli alti con drive alto (simula trasformatori saturi)
@@ -522,4 +552,47 @@ void WarmDistortion::applyDriveDependentFiltering(float &sample, float drive, in
         float postFilterAmount = drive * 0.6f;
         sample = sample * (1.0f - postFilterAmount) + postFilterState[safeChannel] * postFilterAmount;
     }
+}
+
+void WarmDistortion::applyHighFrequencyExciter(float &sample, float drive, int channel)
+{
+    // Assicurati che l'indice del canale sia valido
+    int safeChannel = juce::jlimit(0, 1, channel);
+
+    // Applica exciter solo se c'è drive sufficiente
+    if (drive < 0.15f)
+        return;
+
+    // 1. Estrai le alte frequenze con un high-pass filter
+    float cutoffFreq = EXCITER_HIGHPASS_FREQ * (0.8f + drive * 0.4f); // Varia da 2.4kHz a 4.2kHz
+    float alpha = std::min(0.95f, 1.0f - std::exp(-2.0f * 3.14159f * cutoffFreq / (float)sampleRate));
+
+    // High-pass filter
+    float highFreqSignal = sample - exciterHighpass[safeChannel];
+    exciterHighpass[safeChannel] += alpha * highFreqSignal;
+
+    // 2. Genera armoniche delle alte frequenze con saturazione asimmetrica
+    float harmonicDrive = EXCITER_HARMONIC_DRIVE * drive;
+    float drivenHigh = highFreqSignal * harmonicDrive;
+
+    // Saturazione asimmetrica che enfatizza le armoniche pari (più croccanti)
+    float excitedSignal;
+    if (drivenHigh >= 0.0f)
+    {
+        // Saturazione più dolce sui positivi
+        excitedSignal = std::tanh(drivenHigh * 0.8f);
+    }
+    else
+    {
+        // Saturazione più aggressiva sui negativi per asimmetria
+        excitedSignal = std::tanh(drivenHigh * 1.2f) * 0.85f;
+    }
+
+    // 3. Aggiungi seconda armonica per più "air" e presenza
+    float secondHarmonic = std::sin(highFreqSignal * 6.28318f) * 0.1f * drive;
+    excitedSignal += secondHarmonic;
+
+    // 4. Mix l'exciter con il segnale originale
+    float exciterAmount = EXCITER_MIX_AMOUNT * drive * drive; // Curva quadratica
+    sample += excitedSignal * exciterAmount;
 }

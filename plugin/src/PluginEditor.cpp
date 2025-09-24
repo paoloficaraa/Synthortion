@@ -25,7 +25,7 @@ namespace synthortion
         driveKnob.setVelocityBasedMode(true);
         addAndMakeVisible(driveKnob);
         driveAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "DRIVE", driveKnob);
-        driveLabel.setText("DRIVE", juce::dontSendNotification);
+        driveLabel.setText("COLOR", juce::dontSendNotification);
         driveLabel.setJustificationType(juce::Justification::centred);
         addAndMakeVisible(driveLabel);
 
@@ -167,35 +167,35 @@ namespace synthortion
         g.fillAll(BLACK);
 
         // Mirror the same layout used in resized() con le nuove proporzioni
-        auto bounds = getLocalBounds().reduced(11).toFloat(); 
+        auto bounds = getLocalBounds().reduced(11).toFloat();
 
         // METRI AI LATI ESTREMI - sezioni ridotte proporzionalmente
-        auto inputMeterArea = bounds.removeFromLeft(56.f);   
-        auto outputMeterArea = bounds.removeFromRight(56.f); 
+        auto inputMeterArea = bounds.removeFromLeft(56.f);
+        auto outputMeterArea = bounds.removeFromRight(56.f);
 
-        auto leftSection = bounds.removeFromLeft(175.f); 
-        auto rightSection = bounds;                      
+        auto leftSection = bounds.removeFromLeft(175.f);
+        auto rightSection = bounds;
 
-        auto leftTop = leftSection.removeFromTop(224.f); 
-        auto leftBottom = leftSection;                  
+        auto leftTop = leftSection.removeFromTop(224.f);
+        auto leftBottom = leftSection;
 
         auto spectrumSection = rightSection.removeFromTop(245.f);
-        auto eqSection = rightSection;                            
+        auto eqSection = rightSection;
 
         // Panels per meter
-        lookAndFeel.drawSectionPanel(g, inputMeterArea.reduced(2.f), 4.f);                      
-        lookAndFeel.drawFrameLabel(g, inputMeterArea.reduced(4.f).removeFromTop(13.f), "IN"); 
+        lookAndFeel.drawSectionPanel(g, inputMeterArea.reduced(2.f), 4.f);
+        lookAndFeel.drawFrameLabel(g, inputMeterArea.reduced(4.f).removeFromTop(13.f), "IN");
 
-        lookAndFeel.drawSectionPanel(g, outputMeterArea.reduced(2.f), 4.f);                       
-        lookAndFeel.drawFrameLabel(g, outputMeterArea.reduced(4.f).removeFromTop(13.f), "OUT"); 
+        lookAndFeel.drawSectionPanel(g, outputMeterArea.reduced(2.f), 4.f);
+        lookAndFeel.drawFrameLabel(g, outputMeterArea.reduced(4.f).removeFromTop(13.f), "OUT");
 
         // Drive + Type
-        lookAndFeel.drawSectionPanel(g, leftTop.reduced(4.f), 7.f);                                       
-        lookAndFeel.drawFrameLabel(g, leftTop.reduced(7.f).removeFromTop(14.f).withWidth(84.f), "COLOR"); 
+        lookAndFeel.drawSectionPanel(g, leftTop.reduced(4.f), 7.f);
+        lookAndFeel.drawFrameLabel(g, leftTop.reduced(7.f).removeFromTop(14.f).withWidth(84.f), "COLOR");
 
         // Effects section
         lookAndFeel.drawSectionPanel(g, leftBottom.reduced(4.f), 6.f);
-        lookAndFeel.drawFrameLabel(g, leftBottom.reduced(7.f).removeFromTop(13.f).withWidth(70.f), "EFFECTS"); 
+        lookAndFeel.drawFrameLabel(g, leftBottom.reduced(7.f).removeFromTop(13.f).withWidth(70.f), "EFFECTS");
 
         // EQ section
         lookAndFeel.drawSectionPanel(g, eqSection.reduced(4.f), 7.f);
@@ -213,16 +213,16 @@ namespace synthortion
         auto bounds = getLocalBounds().reduced(11);
 
         // METER
-        auto inputMeterArea = bounds.removeFromLeft(56);  
-        auto outputMeterArea = bounds.removeFromRight(56); 
+        auto inputMeterArea = bounds.removeFromLeft(56);
+        auto outputMeterArea = bounds.removeFromRight(56);
 
         // Layout principale: left (controls) e right (EQ+spectrum)
-        auto leftSection = bounds.removeFromLeft(175); 
-        auto rightSection = bounds;                    // Sezione destra per EQ e spectrum
+        auto leftSection = bounds.removeFromLeft(175);
+        auto rightSection = bounds; // Sezione destra per EQ e spectrum
 
         // LEFT SECTION - dividiamo in top (drive + type) e bottom (effects)
-        auto leftTop = leftSection.removeFromTop(224); 
-        auto leftBottom = leftSection;                
+        auto leftTop = leftSection.removeFromTop(224);
+        auto leftBottom = leftSection;
 
         // RIGHT SECTION - spectrum e EQ più grandi per colmare lo spazio vuoto
         auto spectrumSection = rightSection.removeFromTop(245);
@@ -255,11 +255,11 @@ namespace synthortion
 
         // OUTPUT METER + KNOB
         {
-            const int meterH = 385, meterW = 14; 
-            const int knobSize = 42;             
-            const int topPadding = 18;        
-            const int bottomPadding = 11;       
-            const int meterKnobGap = 7;         
+            const int meterH = 385, meterW = 14;
+            const int knobSize = 42;
+            const int topPadding = 18;
+            const int bottomPadding = 11;
+            const int meterKnobGap = 7;
 
             auto workingArea = outputMeterArea.reduced(4, topPadding);
             auto cx = outputMeterArea.getCentreX();
@@ -297,10 +297,10 @@ namespace synthortion
         // EFFECTS SECTION (bottom) - sezione più compatta con 3 knob
         {
             const int knobSize = 46;
-            const int labelH = 14;  
+            const int labelH = 14;
             const int knobsPerRow = 3;
 
-            auto effectsArea = leftBottom.reduced(7); 
+            auto effectsArea = leftBottom.reduced(7);
             auto labelsArea = effectsArea.removeFromBottom(labelH);
 
             // Dividi l'area in 3 colonne per i 3 knob
@@ -326,26 +326,26 @@ namespace synthortion
         }
 
         // SPECTRUM SECTION (right top) - più grande per colmare spazio vuoto
-        spectrumAnalyzer.setBounds(spectrumSection.reduced(7)); 
+        spectrumAnalyzer.setBounds(spectrumSection.reduced(7));
 
         // EQ SECTION (right bottom) - layout aggiornato: freq knobs più grandi e distanziati,
         // riempiono meglio l'area; Gain/Q con etichette più basse per migliore leggibilità.
         {
-            auto area = eqSection.reduced(7); 
+            auto area = eqSection.reduced(7);
 
             const int sectionHeaderOffset = 20;
             const int bandCount = 4;
 
             // Dimensioni scalate al ~70%
-            const int freqKnobSize = juce::jmin(56, area.getWidth() / 9); 
-            const int smallKnobSize = 34;                                 
-            const int titleHeight = 13;                                   
-            const int labelHeight = 11;                                  
-            const int verticalGap = 21;                                  
-            const int smallKnobGap = 18;                                 
-            const int labelYOffset = 8;                                 
-            const int sidePadding = 42;                                
-            const int bottomPadding = 7;                                 
+            const int freqKnobSize = juce::jmin(56, area.getWidth() / 9);
+            const int smallKnobSize = 34;
+            const int titleHeight = 13;
+            const int labelHeight = 11;
+            const int verticalGap = 21;
+            const int smallKnobGap = 18;
+            const int labelYOffset = 8;
+            const int sidePadding = 42;
+            const int bottomPadding = 7;
 
             area.removeFromTop(sectionHeaderOffset);
             area.removeFromBottom(bottomPadding);
@@ -440,8 +440,8 @@ namespace synthortion
                       &highCutQKnob, &highCutQLabel);
 
             // Linear Phase button - centrally positioned below all EQ controls
-            const int buttonWidth = 84;  
-            const int buttonHeight = 21; 
+            const int buttonWidth = 84;
+            const int buttonHeight = 21;
             const int buttonBottomMargin = -1;
             auto buttonX = area.getCentreX() - buttonWidth / 2;
             auto buttonY = area.getBottom() - buttonBottomMargin - buttonHeight;

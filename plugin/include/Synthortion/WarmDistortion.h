@@ -113,6 +113,14 @@ private:
     void applyDriveDependentFiltering(float &sample, float drive, int channel);
 
     /**
+     * @brief Apply high-frequency exciter for more "crispness" and presence
+     * @param sample Reference to sample to modify
+     * @param drive Current drive amount [0.0-1.0]
+     * @param channel Channel index for state management
+     */
+    void applyHighFrequencyExciter(float &sample, float drive, int channel);
+
+    /**
      * @brief Calculate volume compensation factor based on drive and saturation type
      * @param drive Current drive amount [0.0-1.0]
      * @param type Current saturation type
@@ -165,6 +173,11 @@ private:
     static constexpr float POSTFILTER_BASE_FREQ = 5000.0f; // Base frequency per post-filter
     static constexpr float POSTFILTER_DRIVE_FACTOR = 0.7f; // Quanto diminuisce con il drive
 
+    // High-frequency exciter constants
+    static constexpr float EXCITER_HIGHPASS_FREQ = 3000.0f; // Frequenza di taglio per estrarre alte
+    static constexpr float EXCITER_HARMONIC_DRIVE = 2.5f;   // Drive per generare armoniche
+    static constexpr float EXCITER_MIX_AMOUNT = 0.15f;      // Quantità di exciter da mixare
+
     // Main parameters
     float driveAmount = 0.5f;
     // Internal mix removed; always process 100% wet, mix later globally
@@ -180,6 +193,10 @@ private:
     // Drive-dependent filtering state (simple one-pole filters)
     float preEmphState[2] = {0.0f, 0.0f};    // Pre-emphasis filter state
     float postFilterState[2] = {0.0f, 0.0f}; // Post-filter state
+
+    // High-frequency exciter state
+    float exciterHighpass[2] = {0.0f, 0.0f}; // High-pass filter per estrarre alte frequenze
+    float exciterDelay[2] = {0.0f, 0.0f};    // Delay line per generare armoniche
 
     // Volume compensation smoothing
     juce::LinearSmoothedValue<float> compensationGain{1.0f};
