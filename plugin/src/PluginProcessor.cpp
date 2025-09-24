@@ -198,33 +198,6 @@ namespace synthortion
             }
         }
 
-        // Stereo balance correction for mono inputs
-        if (buffer.getNumChannels() == 2 && apvts.getRawParameterValue("STEREO_BALANCE")->load() > 0.5f)
-        {
-            auto *leftChannel = buffer.getWritePointer(0);
-            auto *rightChannel = buffer.getWritePointer(1);
-
-            // Check if input is effectively mono (one channel much quieter than the other)
-            float leftRMS = buffer.getRMSLevel(0, 0, buffer.getNumSamples());
-            float rightRMS = buffer.getRMSLevel(1, 0, buffer.getNumSamples());
-
-            // If there's significant imbalance (>6dB difference), apply correction
-            if (leftRMS > 0.0f && rightRMS > 0.0f)
-            {
-                float ratio = leftRMS / rightRMS;
-                if (ratio > 2.0f || ratio < 0.5f) // More than 6dB difference
-                {
-                    // Average the channels to ensure balanced output
-                    for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
-                    {
-                        float avgSample = (leftChannel[sample] + rightChannel[sample]) * 0.5f;
-                        leftChannel[sample] = avgSample;
-                        rightChannel[sample] = avgSample;
-                    }
-                }
-            }
-        }
-
         juce::ScopedNoDenormals noDenormals;
         auto totalNumInputChannels = getTotalNumInputChannels();
         auto totalNumOutputChannels = getTotalNumOutputChannels();

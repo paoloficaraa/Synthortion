@@ -58,7 +58,7 @@ public:
 
 private:
     // Audio processing methods
-    float applySaturation(float input, float drive);
+    float applySaturation(float input, float drive, int channel);
 
     /**
      * @brief Smooth tanh-based saturation
@@ -74,7 +74,7 @@ private:
      * @param drive Drive amount [0.0, 1.0]
      * @return Processed sample with tube characteristics
      */
-    float tubeSaturation(float input, float drive);
+    float tubeSaturation(float input, float drive, int channel);
 
     /**
      * @brief Tape-style soft-knee saturation
@@ -89,27 +89,28 @@ private:
      * @param input Input sample
      * @return Bit-crushed sample with 14-bit quantization at 15% mix
      */
-    float applyBitCrush(float input);
+    float applyBitCrush(float input, int channel);
 
     /**
      * @brief Add denormalization noise to prevent CPU spikes
      * @param sample Reference to sample to modify
+     * @param channel Channel index for independent noise generation
      */
-    void addDenormalizationNoise(float &sample);
+    void addDenormalizationNoise(float &sample, int channel);
 
     /**
      * @brief Add realistic analog noise based on saturation type and drive
      * @param sample Reference to sample to modify
      * @param drive Current drive amount for noise scaling
      */
-    void addAnalogNoise(float &sample, float drive);
+    void addAnalogNoise(float &sample, float drive, int channel);
 
     /**
      * @brief Apply drive-dependent filtering that simulates analog component saturation
      * @param sample Reference to sample to modify
      * @param drive Current drive amount [0.0-1.0]
      */
-    void applyDriveDependentFiltering(float &sample, float drive);
+    void applyDriveDependentFiltering(float &sample, float drive, int channel);
 
     /**
      * @brief Calculate volume compensation factor based on drive and saturation type
@@ -118,6 +119,12 @@ private:
      * @return Compensation factor to apply to output
      */
     float calculateVolumeCompensation(float drive, SaturationType type) const;
+
+    /**
+     * @brief Updates the analog modeling state once per processing block.
+     * @param numSamples The number of samples in the current block.
+     */
+    void updateAnalogModelState(int numSamples);
 
     // Constants for saturation algorithms
     static constexpr float SMOOTH_DRIVE_MIN = 1.0f;
@@ -140,11 +147,11 @@ private:
 
     // Bit crush constants
     static constexpr float BITCRUSH_BITS = 14.0f;
-    static constexpr float BITCRUSH_MIX = 0.15f;
+    static constexpr float BITCRUSH_MIX = 0.05f;
 
     // Denormalization constants
-    static constexpr float DENORM_THRESHOLD = 1.0e-15f;
-    static constexpr float DENORM_NOISE_LEVEL = 1.0e-30f;
+    static constexpr float DENORM_THRESHOLD = 1.0e-20f;
+    static constexpr float DENORM_NOISE_LEVEL = 1.0e-35f;
 
     // Analog noise modeling constants
     static constexpr float TUBE_HISS_BASE = 2.0e-6f;        // Tube hiss base level
@@ -154,9 +161,9 @@ private:
 
     // Drive-dependent filtering constants
     static constexpr float PREEMPH_BASE_FREQ = 1000.0f;    // Base frequency per pre-emphasis
-    static constexpr float PREEMPH_DRIVE_FACTOR = 3.0f;    // Quanto aumenta con il drive
-    static constexpr float POSTFILTER_BASE_FREQ = 8000.0f; // Base frequency per post-filter
-    static constexpr float POSTFILTER_DRIVE_FACTOR = 0.3f; // Quanto diminuisce con il drive
+    static constexpr float PREEMPH_DRIVE_FACTOR = 0.4f;    // Quanto aumenta con il drive
+    static constexpr float POSTFILTER_BASE_FREQ = 5000.0f; // Base frequency per post-filter
+    static constexpr float POSTFILTER_DRIVE_FACTOR = 0.7f; // Quanto diminuisce con il drive
 
     // Main parameters
     float driveAmount = 0.5f;
@@ -165,14 +172,14 @@ private:
     bool volumeCompensationEnabled = true;
 
     // Advanced analog modeling state
-    float tubeBiasDrift = 0.0f;           // Simula drift termico del bias
-    float tubeWarmupFactor = 0.0f;        // Simula riscaldamento del tubo
-    int samplesSinceReset = 0;            // Contatore per effetti termici
-    float flickerNoiseAccumulator = 0.0f; // Per 1/f noise
+    float tubeBiasDrift[2] = {0.0f, 0.0f};           // Simula drift termico del bias
+    float tubeWarmupFactor[2] = {0.0f, 0.0f};        // Simula riscaldamento del tubo
+    int samplesSinceReset = 0;                       // Contatore per effetti termici
+    float flickerNoiseAccumulator[2] = {0.0f, 0.0f}; // Per 1/f noise
 
     // Drive-dependent filtering state (simple one-pole filters)
-    float preEmphState = 0.0f;    // Pre-emphasis filter state
-    float postFilterState = 0.0f; // Post-filter state
+    float preEmphState[2] = {0.0f, 0.0f};    // Pre-emphasis filter state
+    float postFilterState[2] = {0.0f, 0.0f}; // Post-filter state
 
     // Volume compensation smoothing
     juce::LinearSmoothedValue<float> compensationGain{1.0f};
@@ -183,7 +190,7 @@ private:
     static constexpr int OVERSAMPLING_FACTOR = 3; // 2^3 = 8x oversampling
 
     // Noise generator for denormalization
-    juce::Random noiseGenerator;
+    juce::Random noiseGenerator[2];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WarmDistortion)
 };
