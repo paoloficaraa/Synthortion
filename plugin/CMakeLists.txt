@@ -1,5 +1,6 @@
 juce_add_plugin(Synthortion
     COMPANY_NAME "WavesCrate"
+    BUNDLE_ID com.wavescrate.synthortion
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
