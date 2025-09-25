@@ -1,4 +1,4 @@
-name: Build macOS VST3
+name: Build macOS VST3 + AU
 
 on:
   workflow_dispatch:
@@ -25,18 +25,40 @@ jobs:
 
       - name: Show produced files
         run: |
-          ls -R build/plugin/Synthortion_artefacts/Release/VST3 || true
+            echo "--- VST3 ---"
+            ls -R build/plugin/Synthortion_artefacts/Release/VST3 || true
+            echo "--- AU ---"
+            ls -R build/plugin/Synthortion_artefacts/Release/AU || true
 
       - name: Package VST3
         run: |
           cd build/plugin/Synthortion_artefacts/Release/VST3
-          # Usa ditto per preservare il bundle
-            ditto -c -k --keepParent Synthortion.vst3 Synthortion_mac_universal_vst3.zip
+          ditto -c -k --keepParent Synthortion.vst3 Synthortion_mac_universal_vst3.zip
           ls -lh Synthortion_mac_universal_vst3.zip
 
-      - name: Upload artifact
+      - name: Package AU
+        run: |
+          cd build/plugin/Synthortion_artefacts/Release/AU
+          ditto -c -k --keepParent Synthortion.component Synthortion_mac_universal_au.zip
+          ls -lh Synthortion_mac_universal_au.zip
+
+      # (Opzionale) Firma: imposta SIGNING_IDENTITY come secret
+      # - name: Codesign AU
+      #   if: env.SIGNING_IDENTITY != ''
+      #   run: |
+      #     codesign --force --timestamp --options runtime -s "$SIGNING_IDENTITY" build/plugin/Synthortion_artefacts/Release/AU/Synthortion.component
+      #     codesign -dv build/plugin/Synthortion_artefacts/Release/AU/Synthortion.component || true
+
+      - name: Upload VST3 artifact
         uses: actions/upload-artifact@v4
         with:
           name: Synthortion-macOS-VST3
           path: build/plugin/Synthortion_artefacts/Release/VST3/Synthortion_mac_universal_vst3.zip
+          if-no-files-found: error
+
+      - name: Upload AU artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Synthortion-macOS-AU
+          path: build/plugin/Synthortion_artefacts/Release/AU/Synthortion_mac_universal_au.zip
           if-no-files-found: error
