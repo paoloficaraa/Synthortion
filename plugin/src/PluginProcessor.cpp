@@ -501,9 +501,10 @@ namespace synthortion
             }
             else if (parameterID == "HIGH_CUT_FREQ" || parameterID == "HIGH_CUT_Q")
             {
-                auto highCutFreq = juce::jlimit(0.0f, 20000.0f, apvts.getRawParameterValue("HIGH_CUT_FREQ")->load());
+                auto highCutFreq = juce::jlimit(5000.0f, 20000.0f, apvts.getRawParameterValue("HIGH_CUT_FREQ")->load());
                 auto highCutQ = juce::jlimit(0.1f, 10.0f, apvts.getRawParameterValue("HIGH_CUT_Q")->load());
-                parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq > 0.0f);
+                // Inverted behavior: disabled when freq >= 20000.0f, enabled when freq < 20000.0f
+                parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq < 20000.0f);
             }
             else if (parameterID == "LINEAR_PHASE")
             {
@@ -554,9 +555,10 @@ namespace synthortion
             auto highMidQ = juce::jlimit(0.1f, 10.0f, apvts.getRawParameterValue("HIGH_MID_Q")->load());
             parametricEQ.setHighMid(highMidFreq, highMidGain, highMidQ);
 
-            auto highCutFreq = juce::jlimit(0.0f, 20000.0f, apvts.getRawParameterValue("HIGH_CUT_FREQ")->load());
+            auto highCutFreq = juce::jlimit(5000.0f, 20000.0f, apvts.getRawParameterValue("HIGH_CUT_FREQ")->load());
             auto highCutQ = juce::jlimit(0.1f, 10.0f, apvts.getRawParameterValue("HIGH_CUT_Q")->load());
-            parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq > 0.0f);
+            // Inverted behavior: disabled when freq >= 20000.0f, enabled when freq < 20000.0f
+            parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq < 20000.0f);
 
             auto linearPhase = apvts.getRawParameterValue("LINEAR_PHASE")->load() > 0.5f;
             parametricEQ.setLinearPhase(linearPhase);
@@ -596,7 +598,7 @@ namespace synthortion
         layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_MID_GAIN", "High Mid Gain", -15.0f, 15.0f, 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_MID_Q", "High Mid Q", 0.1f, 10.0f, 1.0f));
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_CUT_FREQ", "High Cut Freq", 0.0f, 20000.0f, 0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_CUT_FREQ", "High Cut Freq", 5000.0f, 20000.0f, 20000.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_CUT_Q", "High Cut Q", 0.1f, 10.0f, 0.7f));
 
         // Linear Phase toggle

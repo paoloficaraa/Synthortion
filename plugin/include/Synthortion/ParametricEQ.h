@@ -57,7 +57,7 @@ public:
 
     /**
      * @brief Set high-cut (low-pass) filter parameters
-     * @param frequency Cutoff frequency in Hz [5000-20000]
+     * @param frequency Cutoff frequency in Hz [5000-20000] (20000 = disabled)
      * @param q Quality factor [0.1-10.0]
      */
     void setHighCut(float frequency, float q, bool enabled = true);
@@ -90,10 +90,12 @@ public:
 private:
     // 4-band EQ filters - using ProcessorDuplicator for stereo support
     using FilterType = juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>;
-    FilterType lowCutFilter;  ///< High-pass filter for low frequencies
-    FilterType lowMidFilter;  ///< Parametric filter for low-mid frequencies
-    FilterType highMidFilter; ///< Parametric filter for high-mid frequencies
-    FilterType highCutFilter; ///< Low-pass filter for high frequencies
+    FilterType lowCutFilter;   ///< High-pass filter for low frequencies (first stage)
+    FilterType lowCutFilter2;  ///< High-pass filter for low frequencies (second stage for 12dB/oct)
+    FilterType lowMidFilter;   ///< Parametric filter for low-mid frequencies
+    FilterType highMidFilter;  ///< Parametric filter for high-mid frequencies
+    FilterType highCutFilter;  ///< Low-pass filter for high frequencies (first stage)
+    FilterType highCutFilter2; ///< Low-pass filter for high frequencies (second stage for 12dB/oct)
 
     // Linear phase FIR convolution
     juce::dsp::Convolution convolution;
@@ -122,7 +124,7 @@ private:
     float lowCutFreq = 20.0f, lowCutQ = 0.7f;                         ///< Low-cut: 20Hz, Q=0.7
     float lowMidFreq = 350.0f, lowMidGain = 0.0f, lowMidQ = 1.0f;     ///< Low-mid: 350Hz, 0dB, Q=1.0
     float highMidFreq = 3800.0f, highMidGain = 0.0f, highMidQ = 1.0f; ///< High-mid: 3.8kHz, 0dB, Q=1.0
-    float highCutFreq = 20000.0f, highCutQ = 0.7f;                    ///< High-cut: 20kHz, Q=0.7
+    float highCutFreq = 20000.0f, highCutQ = 0.7f;                    ///< High-cut: 20kHz, Q=0.7 (disabled by default)
 
     bool lowCutEnabled = false;
     bool highCutEnabled = false;
