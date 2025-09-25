@@ -27,7 +27,6 @@ namespace synthortion
         apvts.addParameterListener("HIGH_MID_Q", this);
         apvts.addParameterListener("HIGH_CUT_FREQ", this);
         apvts.addParameterListener("HIGH_CUT_Q", this);
-        apvts.addParameterListener("LINEAR_PHASE", this);
         apvts.addParameterListener("VOLUME_COMPENSATION", this);
         apvts.addParameterListener("STEREO_BALANCE", this);
     }
@@ -290,6 +289,7 @@ namespace synthortion
             catch (const std::exception &e)
             {
                 DBG("Error in dry samples processing: " << e.what());
+                (void)e; // Suppress unused variable warning
                 // Continue with wet processing only
             }
         }
@@ -307,6 +307,7 @@ namespace synthortion
         catch (const std::exception &e)
         {
             DBG("Error in wet processing chain: " << e.what());
+            (void)e; // Suppress unused variable warning
             // Leave buffer as-is if processing fails
         }
 
@@ -321,6 +322,7 @@ namespace synthortion
             catch (const std::exception &e)
             {
                 DBG("Error in dry/wet mixing: " << e.what());
+                (void)e; // Suppress unused variable warning
                 // Continue without mixing
             }
         }
@@ -482,34 +484,29 @@ namespace synthortion
             else if (parameterID == "LOW_CUT_FREQ" || parameterID == "LOW_CUT_Q")
             {
                 auto lowCutFreq = juce::jlimit(0.0f, 1000.0f, apvts.getRawParameterValue("LOW_CUT_FREQ")->load());
-                auto lowCutQ = juce::jlimit(0.1f, 10.0f, apvts.getRawParameterValue("LOW_CUT_Q")->load());
+                auto lowCutQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("LOW_CUT_Q")->load());
                 parametricEQ.setLowCut(lowCutFreq, lowCutQ, lowCutFreq > 0.0f);
             }
             else if (parameterID == "LOW_MID_FREQ" || parameterID == "LOW_MID_GAIN" || parameterID == "LOW_MID_Q")
             {
                 auto lowMidFreq = juce::jlimit(100.0f, 2000.0f, apvts.getRawParameterValue("LOW_MID_FREQ")->load());
                 auto lowMidGain = juce::jlimit(-15.0f, 15.0f, apvts.getRawParameterValue("LOW_MID_GAIN")->load());
-                auto lowMidQ = juce::jlimit(0.1f, 10.0f, apvts.getRawParameterValue("LOW_MID_Q")->load());
+                auto lowMidQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("LOW_MID_Q")->load());
                 parametricEQ.setLowMid(lowMidFreq, lowMidGain, lowMidQ);
             }
             else if (parameterID == "HIGH_MID_FREQ" || parameterID == "HIGH_MID_GAIN" || parameterID == "HIGH_MID_Q")
             {
                 auto highMidFreq = juce::jlimit(1000.0f, 8000.0f, apvts.getRawParameterValue("HIGH_MID_FREQ")->load());
                 auto highMidGain = juce::jlimit(-15.0f, 15.0f, apvts.getRawParameterValue("HIGH_MID_GAIN")->load());
-                auto highMidQ = juce::jlimit(0.1f, 10.0f, apvts.getRawParameterValue("HIGH_MID_Q")->load());
+                auto highMidQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("HIGH_MID_Q")->load());
                 parametricEQ.setHighMid(highMidFreq, highMidGain, highMidQ);
             }
             else if (parameterID == "HIGH_CUT_FREQ" || parameterID == "HIGH_CUT_Q")
             {
                 auto highCutFreq = juce::jlimit(5000.0f, 20000.0f, apvts.getRawParameterValue("HIGH_CUT_FREQ")->load());
-                auto highCutQ = juce::jlimit(0.1f, 10.0f, apvts.getRawParameterValue("HIGH_CUT_Q")->load());
+                auto highCutQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("HIGH_CUT_Q")->load());
                 // Inverted behavior: disabled when freq >= 20000.0f, enabled when freq < 20000.0f
                 parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq < 20000.0f);
-            }
-            else if (parameterID == "LINEAR_PHASE")
-            {
-                bool enabled = newValue > 0.5f;
-                parametricEQ.setLinearPhase(enabled);
             }
             else if (parameterID == "VOLUME_COMPENSATION")
             {
@@ -520,6 +517,7 @@ namespace synthortion
         catch (const std::exception &e)
         {
             DBG("Error processing parameter change for " << parameterID << ": " << e.what());
+            (void)e; // Suppress unused variable warning
         }
     }
 
@@ -547,27 +545,25 @@ namespace synthortion
 
             auto lowMidFreq = juce::jlimit(100.0f, 2000.0f, apvts.getRawParameterValue("LOW_MID_FREQ")->load());
             auto lowMidGain = juce::jlimit(-15.0f, 15.0f, apvts.getRawParameterValue("LOW_MID_GAIN")->load());
-            auto lowMidQ = juce::jlimit(0.1f, 10.0f, apvts.getRawParameterValue("LOW_MID_Q")->load());
+            auto lowMidQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("LOW_MID_Q")->load());
             parametricEQ.setLowMid(lowMidFreq, lowMidGain, lowMidQ);
 
             auto highMidFreq = juce::jlimit(1000.0f, 8000.0f, apvts.getRawParameterValue("HIGH_MID_FREQ")->load());
             auto highMidGain = juce::jlimit(-15.0f, 15.0f, apvts.getRawParameterValue("HIGH_MID_GAIN")->load());
-            auto highMidQ = juce::jlimit(0.1f, 10.0f, apvts.getRawParameterValue("HIGH_MID_Q")->load());
+            auto highMidQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("HIGH_MID_Q")->load());
             parametricEQ.setHighMid(highMidFreq, highMidGain, highMidQ);
 
             auto highCutFreq = juce::jlimit(5000.0f, 20000.0f, apvts.getRawParameterValue("HIGH_CUT_FREQ")->load());
-            auto highCutQ = juce::jlimit(0.1f, 10.0f, apvts.getRawParameterValue("HIGH_CUT_Q")->load());
+            auto highCutQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("HIGH_CUT_Q")->load());
             // Inverted behavior: disabled when freq >= 20000.0f, enabled when freq < 20000.0f
             parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq < 20000.0f);
-
-            auto linearPhase = apvts.getRawParameterValue("LINEAR_PHASE")->load() > 0.5f;
-            parametricEQ.setLinearPhase(linearPhase);
 
             DBG("DSP parameters synchronized on initialization");
         }
         catch (const std::exception &e)
         {
             DBG("Error updating DSP parameters: " << e.what());
+            (void)e; // Suppress unused variable warning
         }
     }
 
@@ -588,21 +584,23 @@ namespace synthortion
 
         // EQ Parameters
         layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_CUT_FREQ", "Low Cut Freq", 0.0f, 1000.0f, 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_CUT_Q", "Low Cut Q", 0.1f, 10.0f, 0.7f));
+
+        // Custom Q range with center at 1.0 (0.025 to 1.0 in first half, 1.0 to 40.0 in second half)
+        auto qRange = juce::NormalisableRange<float>(0.025f, 40.0f, 0.001f);
+        qRange.setSkewForCentre(1.0f);
+
+        layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_CUT_Q", "Low Cut Q", qRange, 1.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_MID_FREQ", "Low Mid Freq", 100.0f, 2000.0f, 350.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_MID_GAIN", "Low Mid Gain", -15.0f, 15.0f, 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_MID_Q", "Low Mid Q", 0.1f, 10.0f, 1.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_MID_Q", "Low Mid Q", qRange, 1.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_MID_FREQ", "High Mid Freq", 1000.0f, 8000.0f, 3800.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_MID_GAIN", "High Mid Gain", -15.0f, 15.0f, 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_MID_Q", "High Mid Q", 0.1f, 10.0f, 1.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_MID_Q", "High Mid Q", qRange, 1.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_CUT_FREQ", "High Cut Freq", 5000.0f, 20000.0f, 20000.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_CUT_Q", "High Cut Q", 0.1f, 10.0f, 0.7f));
-
-        // Linear Phase toggle
-        layout.add(std::make_unique<juce::AudioParameterBool>("LINEAR_PHASE", "Linear Phase", false));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("HIGH_CUT_Q", "High Cut Q", qRange, 1.0f));
 
         // Volume compensation toggle
         layout.add(std::make_unique<juce::AudioParameterBool>("VOLUME_COMPENSATION", "Volume Compensation", true));

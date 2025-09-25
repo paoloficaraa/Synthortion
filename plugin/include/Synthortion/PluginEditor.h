@@ -24,6 +24,15 @@ namespace synthortion
     private:
         void setupEQControls();
 
+        // Utility functions for parameter value formatting
+        juce::String formatFrequency(float freq);
+        juce::String formatGain(float gain);
+        juce::String formatQ(float q);
+        juce::String formatPercentage(float normalizedValue);
+        juce::String formatDB(float dbValue);
+        void updateEQLabels();
+        void updateMainControlLabels();
+
         // This reference is provided as a quick way for your editor to
         // access the processor object that created it.
         AudioPluginAudioProcessor &processorRef;
@@ -57,17 +66,17 @@ namespace synthortion
         juce::Slider highCutFreqKnob;
         juce::Slider highCutQKnob;
 
-        // Linear Phase toggle button for EQ
-        juce::ToggleButton linearPhaseButton;
-
         // Labels
         juce::Label driveLabel;
-        juce::Label inputGainLabel;
-        juce::Label outputGainLabel;
         juce::Label mixLabel;
         juce::Label delayLabel;
         juce::Label chorusLabel;
         juce::Label saturationTypeLabel;
+
+        // Effects title labels
+        juce::Label mixTitleLabel;
+        juce::Label delayTitleLabel;
+        juce::Label chorusTitleLabel;
 
         // EQ Labels
         juce::Label lowCutFreqLabel;
@@ -111,9 +120,6 @@ namespace synthortion
         std::unique_ptr<SliderAttachment> highMidQAttachment;
         std::unique_ptr<SliderAttachment> highCutFreqAttachment;
         std::unique_ptr<SliderAttachment> highCutQAttachment;
-
-        // Linear Phase button attachment
-        std::unique_ptr<ButtonAttachment> linearPhaseAttachment;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessorEditor)
     };

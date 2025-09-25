@@ -153,8 +153,7 @@ void SynthortionLookAndFeel::drawToggleButton(juce::Graphics &g, juce::ToggleBut
 
     // Draw text
     g.setColour(textColour);
-    juce::Font font(11.0f);
-    font.setBold(true);
+    juce::Font font(juce::FontOptions().withHeight(11.0f).withStyle("Bold"));
     g.setFont(font);
     g.drawFittedText(button.getButtonText(), bounds.toNearestInt(),
                      juce::Justification::centred, 1);
@@ -362,8 +361,7 @@ void SynthortionLookAndFeel::drawFrameLabel(juce::Graphics &g, const juce::Recta
     g.drawEllipse(led, 1.0f);
 
     g.setColour(LIGHT_GREY);
-    juce::Font boldFont(11.0f);
-    boldFont.setBold(true);
+    juce::Font boldFont(juce::FontOptions().withHeight(11.0f).withStyle("Bold"));
     g.setFont(boldFont);
     g.drawFittedText(text, labelBounds.toNearestInt(), juce::Justification::centred, 1);
 }

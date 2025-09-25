@@ -63,20 +63,8 @@ public:
     void setHighCut(float frequency, float q, bool enabled = true);
 
     /**
-     * @brief Enable or disable linear phase mode
-     * @param enabled True for linear phase (FIR), false for minimum phase (IIR)
-     */
-    void setLinearPhase(bool enabled);
-
-    /**
-     * @brief Check if linear phase mode is enabled
-     * @return True if linear phase mode is active
-     */
-    bool isLinearPhaseEnabled() const { return linearPhaseEnabled; }
-
-    /**
      * @brief Get processing latency in samples
-     * @return Latency in samples (0 for IIR mode, FIR length/2 for linear phase)
+     * @return Latency in samples
      */
     int getLatencySamples() const;
 
@@ -97,13 +85,6 @@ private:
     FilterType highCutFilter;  ///< Low-pass filter for high frequencies (first stage)
     FilterType highCutFilter2; ///< Low-pass filter for high frequencies (second stage for 12dB/oct)
 
-    // Linear phase FIR convolution
-    juce::dsp::Convolution convolution;
-    juce::AudioBuffer<float> firBuffer;
-    static constexpr int firLength = 2048; ///< FIR filter length for linear phase
-    bool linearPhaseEnabled = false;
-    bool firNeedsUpdate = true;
-
     // Processing state
     double sampleRate = 44100.0;
     bool isPrepared = false;
@@ -113,12 +94,6 @@ private:
      * Called automatically when parameters change
      */
     void updateFilters();
-
-    /**
-     * @brief Generate FIR impulse response for linear phase mode
-     * Creates an impulse response combining all EQ bands
-     */
-    void generateFIRResponse();
 
     // Filter parameters with sensible defaults
     float lowCutFreq = 20.0f, lowCutQ = 0.7f;                         ///< Low-cut: 20Hz, Q=0.7
