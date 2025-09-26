@@ -103,10 +103,13 @@ void ParametricEQ::updateFilters()
     float validHighCutQ = juce::jmax(0.1f, highCutQ);
 
     // Low Cut - High Pass Filter (12dB/octave using cascade of two 6dB filters)
-    // First stage: 6dB/octave high-pass with user-controlled Q
-    *lowCutFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, validLowCutFreq, validLowCutQ);
+    // For proper Butterworth response at Q=1.0, use 0.707. For other values, allow the curve to change.
+    float correctedLowCutQ = (std::abs(validLowCutQ - 1.0f) < 0.05f) ? 0.707f : validLowCutQ;
+
+    // First stage: 6dB/octave high-pass
+    *lowCutFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, validLowCutFreq, correctedLowCutQ);
     // Second stage: another 6dB/octave high-pass for total 12dB/octave
-    *lowCutFilter2.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, validLowCutFreq, validLowCutQ);
+    *lowCutFilter2.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, validLowCutFreq, correctedLowCutQ);
 
     // Low Mid - Peaking Filter
     *lowMidFilter.state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter(sampleRate, validLowMidFreq, validLowMidQ, juce::Decibels::decibelsToGain(lowMidGain));
@@ -115,10 +118,13 @@ void ParametricEQ::updateFilters()
     *highMidFilter.state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter(sampleRate, validHighMidFreq, validHighMidQ, juce::Decibels::decibelsToGain(highMidGain));
 
     // High Cut - Low Pass Filter (12dB/octave using cascade of two 6dB filters)
-    // First stage: 6dB/octave low-pass with user-controlled Q
-    *highCutFilter.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, validHighCutFreq, validHighCutQ);
+    // For proper Butterworth response at Q=1.0, use 0.707. For other values, allow the curve to change.
+    float correctedHighCutQ = (std::abs(validHighCutQ - 1.0f) < 0.05f) ? 0.707f : validHighCutQ;
+
+    // First stage: 6dB/octave low-pass
+    *highCutFilter.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, validHighCutFreq, correctedHighCutQ);
     // Second stage: another 6dB/octave low-pass for total 12dB/octave
-    *highCutFilter2.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, validHighCutFreq, validHighCutQ);
+    *highCutFilter2.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, validHighCutFreq, correctedHighCutQ);
 }
 
 std::vector<float> ParametricEQ::getFrequencyResponse(const std::vector<float> &frequencies)

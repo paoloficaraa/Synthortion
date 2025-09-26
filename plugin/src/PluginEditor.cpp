@@ -167,6 +167,9 @@ namespace synthortion
         addAndMakeVisible(spectrumAnalyzer);
         spectrumAnalyzer.setSampleRate(processorRef.getSampleRate());
 
+        // Connect EQ reference for curve visualization
+        spectrumAnalyzer.setEQReference(&processorRef.getEQ());
+
         // Connect spectrum analyzer to audio processor
         // IMPORTANT: This creates a callback that captures 'this'.
         // The callback MUST be cleared in the destructor to prevent crashes.
@@ -255,6 +258,10 @@ namespace synthortion
 
         // Update main control labels dynamically
         updateMainControlLabels();
+
+        // Update EQ bypass state in spectrum analyzer
+        auto eqBypass = processorRef.apvts.getRawParameterValue("EQ_BYPASS")->load() > 0.5f;
+        spectrumAnalyzer.setEQBypass(eqBypass);
     }
 
     void AudioPluginAudioProcessorEditor::resized()

@@ -1,5 +1,6 @@
 #include "Synthortion/SpectrumAnalyzer.h"
 #include "Synthortion/SynthortionLookAndFeel.h"
+#include "Synthortion/ParametricEQ.h"
 
 SpectrumAnalyzer::SpectrumAnalyzer()
     : forwardFFT(fftOrder),
@@ -162,6 +163,12 @@ void SpectrumAnalyzer::paint(juce::Graphics &g)
     }
 
     drawFrame(g);
+
+    // Draw EQ curve overlay
+    if (eqReference != nullptr && !eqBypassed)
+    {
+        drawEQCurve(g);
+    }
 }
 
 void SpectrumAnalyzer::resized()
@@ -309,7 +316,7 @@ void SpectrumAnalyzer::drawFrame(juce::Graphics &g)
 
         // Apply the same safe logarithmic mapping as in paint() method for consistency
         freq = juce::jlimit(20.0f, nyquist, freq);
-        
+
         const float maxFreq = nyquist;
 
         // Use standard log mapping with proper bounds checking
@@ -408,4 +415,89 @@ void SpectrumAnalyzer::drawFrame(juce::Graphics &g)
     // Main line with enhanced brightness
     g.setColour(PURPLE.brighter(0.3f));
     g.strokePath(spectrumPath, strokeType);
+}
+
+void SpectrumAnalyzer::drawEQCurve(juce::Graphics &g)
+{
+    if (eqReference == nullptr)
+        return;
+
+    auto outer = getLocalBounds().toFloat().reduced(2.0f);
+    auto plot = outer.reduced(15.0f, 18.0f);
+
+    // Generate frequency points for EQ curve (logarithmic spacing)
+    std::vector<float> frequencies;
+    const int numPoints = 200; // Smooth curve resolution
+    const float maxFreq = 20000.0f;
+
+    for (int i = 0; i < numPoints; ++i)
+    {
+        float ratio = (float)i / (float)(numPoints - 1);
+        float freq = minFreq * std::pow(maxFreq / minFreq, ratio);
+        frequencies.push_back(freq);
+    }
+
+    // Get frequency response from EQ
+    auto magnitudes = eqReference->getFrequencyResponse(frequencies);
+
+    // Convert to visual coordinates
+    juce::Path eqPath;
+    bool firstPoint = true;
+
+    for (size_t i = 0; i < frequencies.size() && i < magnitudes.size(); ++i)
+    {
+        float freq = frequencies[i];
+        float magnitude = magnitudes[i];
+
+        // Convert frequency to x coordinate (logarithmic scale)
+        float x = plot.getX() + plot.getWidth() *
+                                    std::log10(freq / minFreq) / std::log10(maxFreq / minFreq);
+
+        // Convert magnitude (dB) to y coordinate
+        // Assuming +/- 20dB range for visual scaling
+        float y = plot.getY() + plot.getHeight() * 0.5f * (1.0f - magnitude / 20.0f);
+
+        // Clamp y to plot area
+        y = juce::jlimit(plot.getY(), plot.getBottom(), y);
+
+        if (firstPoint)
+        {
+            eqPath.startNewSubPath(x, y);
+            firstPoint = false;
+        }
+        else
+        {
+            eqPath.lineTo(x, y);
+        }
+    }
+
+    // Draw EQ curve with Pro-Q style in purple theme
+    if (!eqPath.isEmpty())
+    {
+        // Fill area under curve with subtle transparency (like Pro-Q)
+        juce::Path fillPath = eqPath;
+        fillPath.lineTo(plot.getRight(), plot.getY() + plot.getHeight() * 0.5f); // Center line
+        fillPath.lineTo(plot.getX(), plot.getY() + plot.getHeight() * 0.5f);     // Center line
+        fillPath.closeSubPath();
+
+        // Main EQ curve line
+        juce::PathStrokeType strokeType(2.5f); // Slightly thicker for better visibility
+        strokeType.setJointStyle(juce::PathStrokeType::curved);
+        strokeType.setEndStyle(juce::PathStrokeType::rounded);
+
+        // Purple glow effect - stronger than spectrum
+        g.setColour(PURPLE.withAlpha(0.5f));
+        juce::PathStrokeType glowStroke(5.0f);
+        glowStroke.setJointStyle(juce::PathStrokeType::curved);
+        g.strokePath(eqPath, glowStroke);
+
+        // Main purple line - bright and visible
+        g.setColour(PURPLE.brighter(0.4f));
+        g.strokePath(eqPath, strokeType);
+
+        // Draw center line (0dB reference) in darker purple
+        g.setColour(PURPLE_DARK.withAlpha(0.6f));
+        float centerY = plot.getY() + plot.getHeight() * 0.5f;
+        g.drawHorizontalLine((int)centerY, plot.getX(), plot.getRight());
+    }
 }

@@ -3,6 +3,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 
+class ParametricEQ;
+
 class SpectrumAnalyzer : public juce::Component, public juce::Timer
 {
 public:
@@ -19,6 +21,11 @@ public:
 
     // Configure analyzer with host sample rate for correct frequency axis
     void setSampleRate(double newSampleRate) { sampleRate = newSampleRate; }
+
+    // EQ curve visualization
+    void setEQReference(ParametricEQ *eq) { eqReference = eq; }
+    void drawEQCurve(juce::Graphics &g);
+    void setEQBypass(bool bypassed) { eqBypassed = bypassed; }
 
 private:
     enum
@@ -43,6 +50,12 @@ private:
     int peakHoldTimer[scopeSize];                 // Timer for peak hold decay
     juce::Array<juce::Point<float>> cachedPoints; // Cached points for performance
     double sampleRate = 44100.0;                  // used for frequency mapping
+
+    // EQ curve visualization
+    ParametricEQ *eqReference = nullptr;
+    bool eqBypassed = false;
+    std::vector<juce::Point<float>> eqCurvePoints;
+
     static constexpr float minFreq = 20.0f;
     static constexpr float smoothingFactor = 0.85f;    // Smoothing molto forte per interpolazione fluida
     static constexpr int peakHoldTime = 45;            // Peak hold più lungo (1.5 secondi at 30fps)
