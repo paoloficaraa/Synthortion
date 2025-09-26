@@ -189,12 +189,14 @@ void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float> &co
             float *channelData = block.getChannelPointer(channel);
             for (int sample = 0; sample < block.getNumSamples(); ++sample)
             {
-                // Soft clipper tanh-based con volume compensation
+                // Soft clipper finale più delicato per preservare il volume
                 float x = channelData[sample];
-                float clipped = std::tanh(x * 0.7f);
 
-                // Riduci l'amplificazione del clipper finale
-                float finalCompensation = juce::jmap(driveAmount, 0.05f, 1.0f, 0.9f, 0.7f);
+                // Clipper meno aggressivo che preserva meglio l'ampiezza
+                float clipped = std::tanh(x * 0.85f) * 1.15f;
+
+                // Compensazione finale molto più conservativa per mantenere unity gain
+                float finalCompensation = juce::jmap(driveAmount, 0.05f, 1.0f, 1.0f, 0.92f);
                 channelData[sample] = clipped * finalCompensation;
             }
         }
@@ -259,16 +261,15 @@ float WarmDistortion::applySaturation(float input, float drive, int channel)
 
 float WarmDistortion::smoothSaturation(float input, float drive)
 {
-    // Smooth tanh saturation con compensazione volume integrata
+    // Smooth tanh saturation con compensazione volume bilanciata
     float driveMapped = juce::jmap(drive, 0.0f, 1.0f, SMOOTH_DRIVE_MIN, SMOOTH_DRIVE_MAX);
     float driven = input * driveMapped;
 
     // Applica saturazione tanh
     float saturated = std::tanh(driven);
 
-    // Compensazione volume integrata: riduci l'output man mano che aumenta il drive
-    // per compensare l'amplificazione intrinseca del tanh quando drive è basso
-    float volumeCompensation = juce::jmap(drive, 0.0f, 1.0f, 0.8f, 0.6f);
+    // Compensazione volume più conservativa per preservare il volume percepito
+    float volumeCompensation = juce::jmap(drive, 0.0f, 1.0f, 0.95f, 0.82f);
 
     return saturated * volumeCompensation;
 }
@@ -332,8 +333,8 @@ float WarmDistortion::tubeSaturation(float input, float drive, int channel)
     float asymFactor = 1.0f - asymmetry * (0.5f + 0.5f * std::tanh(output * 4.0f));
     output *= asymFactor;
 
-    // Compensazione volume integrata per il tubo
-    float tubeVolumeCompensation = juce::jmap(drive, 0.0f, 1.0f, 0.75f, 0.5f);
+    // Compensazione volume più conservativa per il tubo
+    float tubeVolumeCompensation = juce::jmap(drive, 0.0f, 1.0f, 0.92f, 0.75f);
     output *= tubeVolumeCompensation;
 
     // Clamp finale per evitare valori eccessivi
@@ -362,8 +363,8 @@ float WarmDistortion::tapeSaturation(float input, float drive)
         output = sign * compressed;
     }
 
-    // Compensazione volume integrata per il tape
-    float tapeVolumeCompensation = juce::jmap(drive, 0.0f, 1.0f, 0.85f, 0.65f);
+    // Compensazione volume più conservativa per il tape
+    float tapeVolumeCompensation = juce::jmap(drive, 0.0f, 1.0f, 0.95f, 0.80f);
     return output * tapeVolumeCompensation;
 }
 
@@ -448,45 +449,43 @@ void WarmDistortion::addAnalogNoise(float &sample, float drive, int channel)
 
 float WarmDistortion::calculateVolumeCompensation(float drive, SaturationType type) const
 {
-    // Riduce il volume man mano che aumenta il drive
-    // per mantenere un volume percepito costante nonostante la saturazione
+    if (drive < 0.01f)
+        return 1.0f; // Nessuna compensazione per drive molto bassi
 
-    float volumeReduction = 1.0f;
+    float compensationFactor = 1.0f;
 
     switch (type)
     {
     case SaturationType::SMOOTH:
     {
-        // tanh amplifica il segnale, riduciamo progressivamente
-        // Volume reduction più aggressiva per compensare l'amplificazione del tanh
-        volumeReduction = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.25f);
+        // tanh ha guadagno naturale, compensiamo per mantenere unity gain
+        // Compensazione basata su analisi empirica del guadagno reale
+        compensationFactor = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.72f);
         break;
     }
     case SaturationType::TUBE:
     {
-        // Il tubo ha amplificazione asimmetrica, compensazione moderata
-        volumeReduction = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.35f);
+        // Tube saturation ha compressione naturale, compensazione moderata
+        compensationFactor = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.78f);
         break;
     }
     case SaturationType::TAPE:
     {
-        // Il tape ha soft knee, compensazione più delicata
-        volumeReduction = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.4f);
+        // Tape ha compressione soft, compensazione minima
+        compensationFactor = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.85f);
         break;
     }
     }
 
-    // Applica una curva logaritmica per una riduzione più naturale
-    float logReduction = std::pow(volumeReduction, 0.8f);
+    // Applica una curva più naturale che mantiene meglio il volume percepito
+    float smoothedCompensation = std::pow(compensationFactor, 0.9f);
 
-    // Limita la riduzione per evitare volumi troppo bassi
-    return juce::jlimit(0.15f, 1.0f, logReduction);
+    // Range di compensazione più conservativo per evitare perdite eccessive
+    return juce::jlimit(0.65f, 1.0f, smoothedCompensation);
 }
 
 void WarmDistortion::updateAnalogModelState(int numSamples)
 {
-    // Questo aggiornamento ora avviene una volta per blocco, non per campione.
-    // L'avanzamento è basato sulla dimensione del blocco oversamplato.
     samplesSinceReset += numSamples;
 
     // Aggiorna il fattore di riscaldamento (warm-up)

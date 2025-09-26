@@ -533,6 +533,13 @@ namespace synthortion
                       highCutFreqKnob, highCutFreqLabel,
                       nullptr, nullptr,
                       &highCutQKnob, &highCutQLabel);
+
+            // EQ Bypass Button - positioned in top right of EQ section
+            int bypassWidth = 80;
+            int bypassHeight = 20;
+            int bypassX = eqSection.getRight() - bypassWidth - 10;
+            int bypassY = eqSection.getY() + 5;
+            eqBypassButton.setBounds(bypassX, bypassY, bypassWidth, bypassHeight);
         }
     }
     void AudioPluginAudioProcessorEditor::setupEQControls()
@@ -690,6 +697,13 @@ namespace synthortion
         highCutQLabel.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
         highCutQLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
         addAndMakeVisible(highCutQLabel);
+
+        // EQ Bypass Button
+        eqBypassButton.setButtonText("EQ BYPASS");
+        eqBypassButton.setColour(juce::ToggleButton::textColourId, LIGHT_GREY);
+        eqBypassButton.setColour(juce::ToggleButton::tickColourId, juce::Colours::orange);
+        addAndMakeVisible(eqBypassButton);
+        eqBypassAttachment = std::make_unique<ButtonAttachment>(processorRef.apvts, "EQ_BYPASS", eqBypassButton);
     }
 
     juce::String AudioPluginAudioProcessorEditor::formatFrequency(float freq)

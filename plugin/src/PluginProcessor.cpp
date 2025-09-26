@@ -16,7 +16,11 @@ namespace synthortion
     {
         // Register parameter listeners for all parameters
         apvts.addParameterListener("DRIVE", this);
+        apvts.addParameterListener("MIX", this);
+        apvts.addParameterListener("INPUT_GAIN", this);
+        apvts.addParameterListener("OUTPUT_GAIN", this);
         apvts.addParameterListener("SATURATION_TYPE", this);
+        apvts.addParameterListener("EQ_BYPASS", this);
         apvts.addParameterListener("LOW_CUT_FREQ", this);
         apvts.addParameterListener("LOW_CUT_Q", this);
         apvts.addParameterListener("LOW_MID_FREQ", this);
@@ -28,7 +32,6 @@ namespace synthortion
         apvts.addParameterListener("HIGH_CUT_FREQ", this);
         apvts.addParameterListener("HIGH_CUT_Q", this);
         apvts.addParameterListener("VOLUME_COMPENSATION", this);
-        apvts.addParameterListener("STEREO_BALANCE", this);
     }
 
     AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
@@ -301,8 +304,12 @@ namespace synthortion
             juce::dsp::ProcessContextReplacing<float> context(block);
             warmDistortion.process(context);
 
-            // Apply EQ post-distortion
-            parametricEQ.process(context);
+            // Apply EQ post-distortion (only if not bypassed)
+            auto eqBypass = apvts.getRawParameterValue("EQ_BYPASS")->load() > 0.5f;
+            if (!eqBypass)
+            {
+                parametricEQ.process(context);
+            }
         }
         catch (const std::exception &e)
         {
@@ -571,7 +578,7 @@ namespace synthortion
     {
         juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>("DRIVE", "Drive", 0.0f, 1.0f, 0.3f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("DRIVE", "Drive", 0.0f, 1.0f, 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("MIX", "Mix", 0.0f, 1.0f, 1.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("INPUT_GAIN", "Input Gain", -24.0f, 24.0f, 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("OUTPUT_GAIN", "Output Gain", -24.0f, 24.0f, 0.0f));
@@ -605,8 +612,8 @@ namespace synthortion
         // Volume compensation toggle
         layout.add(std::make_unique<juce::AudioParameterBool>("VOLUME_COMPENSATION", "Volume Compensation", true));
 
-        // Stereo balance correction toggle
-        layout.add(std::make_unique<juce::AudioParameterBool>("STEREO_BALANCE", "Stereo Balance Correction", true));
+        // EQ bypass toggle
+        layout.add(std::make_unique<juce::AudioParameterBool>("EQ_BYPASS", "EQ Bypass", false));
 
         return layout;
     }

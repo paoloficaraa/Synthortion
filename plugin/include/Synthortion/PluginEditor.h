@@ -66,6 +66,9 @@ namespace synthortion
         juce::Slider highCutFreqKnob;
         juce::Slider highCutQKnob;
 
+        // EQ Bypass Button
+        juce::ToggleButton eqBypassButton;
+
         // Labels
         juce::Label driveLabel;
         juce::Label mixLabel;
@@ -120,6 +123,7 @@ namespace synthortion
         std::unique_ptr<SliderAttachment> highMidQAttachment;
         std::unique_ptr<SliderAttachment> highCutFreqAttachment;
         std::unique_ptr<SliderAttachment> highCutQAttachment;
+        std::unique_ptr<ButtonAttachment> eqBypassAttachment;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessorEditor)
     };
