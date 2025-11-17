@@ -30,6 +30,8 @@ namespace synthortion
         juce::String formatQ(float q);
         juce::String formatPercentage(float normalizedValue);
         juce::String formatDB(float dbValue);
+        juce::String formatMilliseconds(float ms);
+        juce::String formatBitDepth(float bits);
         void updateEQLabels();
         void updateMainControlLabels();
 
@@ -41,14 +43,17 @@ namespace synthortion
 
         SpectrumAnalyzer spectrumAnalyzer;
 
-        // Main Controls (matching image layout)
-        juce::Slider driveKnob;
-        juce::Slider inputGainKnob;  // Left side with meter
-        juce::Slider outputGainKnob; // Right side with meter
-        juce::Slider mixKnob;        // DRY/WET knob
-        juce::Slider delayKnob;      // Delay knob
-        juce::Slider chorusKnob;     // Chorus knob
-        juce::ComboBox saturationTypeSelector;
+        // Main Controls (matching new layout)
+        juce::Slider driveKnob;         // Color master mix knob (mapped to COLOR parameter)
+        juce::Slider inputGainKnob;     // Left side with meter
+        juce::Slider outputGainKnob;    // Right side with meter
+        juce::Slider noiseKnob;         // Noise amount knob
+        juce::Slider bitCrushKnob;      // BitCrush depth knob
+        juce::Slider delayTimeKnob;     // Delay time in ms
+        juce::Slider delayMixKnob;      // Delay mix amount
+        juce::Slider delayFeedbackKnob; // Delay feedback amount
+        juce::Slider chorusMixKnob;     // Chorus mix amount
+        juce::ComboBox presetSelector;  // Preset selection
 
         // Vertical meters for input/output
         synthortion::Gui::VerticalDiscreteMeter inputMeter;
@@ -70,16 +75,22 @@ namespace synthortion
         juce::ToggleButton eqBypassButton;
 
         // Labels
-        juce::Label driveLabel;
-        juce::Label mixLabel;
-        juce::Label delayLabel;
-        juce::Label chorusLabel;
-        juce::Label saturationTypeLabel;
+        juce::Label driveLabel; // Label for Color knob (driveKnob)
+        juce::Label noiseLabel;
+        juce::Label bitCrushLabel;
+        juce::Label delayTimeLabel;
+        juce::Label delayMixLabel;
+        juce::Label delayFeedbackLabel;
+        juce::Label chorusMixLabel;
+        juce::Label presetLabel;
 
         // Effects title labels
-        juce::Label mixTitleLabel;
-        juce::Label delayTitleLabel;
-        juce::Label chorusTitleLabel;
+        juce::Label noiseTitleLabel;
+        juce::Label bitCrushTitleLabel;
+        juce::Label delayTimeTitleLabel;
+        juce::Label delayMixTitleLabel;
+        juce::Label delayFeedbackTitleLabel;
+        juce::Label chorusMixTitleLabel;
 
         // EQ Labels
         juce::Label lowCutFreqLabel;
@@ -103,14 +114,17 @@ namespace synthortion
         using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
         using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
-        // Distortion Attachments
-        std::unique_ptr<SliderAttachment> driveAttachment;
+        // Control Attachments
+        std::unique_ptr<SliderAttachment> driveAttachment; // Attached to COLOR parameter
         std::unique_ptr<SliderAttachment> inputGainAttachment;
         std::unique_ptr<SliderAttachment> outputGainAttachment;
-        std::unique_ptr<SliderAttachment> mixAttachment;
-        std::unique_ptr<SliderAttachment> delayAttachment;
-        std::unique_ptr<SliderAttachment> chorusAttachment;
-        std::unique_ptr<ComboBoxAttachment> saturationTypeAttachment;
+        std::unique_ptr<SliderAttachment> noiseAttachment;
+        std::unique_ptr<SliderAttachment> bitCrushAttachment;
+        std::unique_ptr<SliderAttachment> delayTimeAttachment;
+        std::unique_ptr<SliderAttachment> delayMixAttachment;
+        std::unique_ptr<SliderAttachment> delayFeedbackAttachment;
+        std::unique_ptr<SliderAttachment> chorusMixAttachment;
+        std::unique_ptr<ComboBoxAttachment> presetAttachment;
 
         // EQ Attachments
         std::unique_ptr<SliderAttachment> lowCutFreqAttachment;

@@ -18,6 +18,9 @@ PRIVATE
     src/SynthortionLookAndFeel.cpp
     src/SpectrumAnalyzer.cpp
     src/ParametricEQ.cpp
+    src/BitCrusher.cpp
+    src/PingPongDelay.cpp
+    src/SynthortionChorus.cpp
 )
 
 target_include_directories(Synthortion

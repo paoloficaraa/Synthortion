@@ -2,9 +2,13 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <functional>
+#include <juce_dsp/juce_dsp.h>
+
 #include "Synthortion/WarmDistortion.h"
 #include "Synthortion/ParametricEQ.h"
-#include <juce_dsp/juce_dsp.h>
+#include "Synthortion/SynthortionChorus.h"
+#include "Synthortion/PingPongDelay.h"
+#include "Synthortion/BitCrusher.h"
 
 namespace synthortion
 {
@@ -106,15 +110,25 @@ namespace synthortion
         juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
         // Audio processing components
-        WarmDistortion warmDistortion; ///< Main distortion processor
-        ParametricEQ parametricEQ;     ///< 4-band equalizer
+        WarmDistortion warmDistortion;
+        ParametricEQ parametricEQ;
 
         // Global dry/wet mixer (applied at end of chain)
         juce::dsp::DryWetMixer<float> globalDryWet;
 
         // RMS level tracking for meters (smoothed values in dB)
-        juce::LinearSmoothedValue<float> inputRmsLevel{-60.0f};  ///< Input level meter
-        juce::LinearSmoothedValue<float> outputRmsLevel{-60.0f}; ///< Output level meter
+        juce::LinearSmoothedValue<float> inputRmsLevel{-60.0f};
+        juce::LinearSmoothedValue<float> outputRmsLevel{-60.0f};
+
+        SynthortionChorus chorus;
+        PingPongDelay pingPongDelay;
+        BitCrusher bitCrusher;
+
+        juce::Random noiseGenerator;
+        juce::AudioBuffer<float> noiseBuffer;
+
+        // Add preset loading method
+        //void loadPreset(int presetIndex);
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessor)
     };

@@ -4,21 +4,14 @@
 #include <juce_dsp/juce_dsp.h>
 
 /**
- * @brief High-quality warm distortion processor with multiple saturation algorithms
+ * @brief High-quality warm distortion processor with tape saturation
  *
- * Features 8x oversampling, multiple saturation types, and bit crushing effects.
+ * Features 8x oversampling and tape-style soft-knee compression.
  * Designed for musical distortion with minimal aliasing artifacts.
  */
 class WarmDistortion
 {
 public:
-    enum class SaturationType
-    {
-        SMOOTH, ///< Smooth tanh-based saturation
-        TUBE,   ///< Asymmetric tube-style saturation
-        TAPE    ///< Soft-knee tape-style compression
-    };
-
     WarmDistortion();
     ~WarmDistortion() = default;
 
@@ -31,12 +24,6 @@ public:
      * @param drive Drive amount [0.0 - 1.0] where 0 = clean, 1 = maximum saturation
      */
     void setDrive(float drive);
-
-    /**
-     * @brief Set saturation algorithm type
-     * @param type Saturation algorithm (SMOOTH/TUBE/TAPE)
-     */
-    void setSaturationType(SaturationType type);
 
     /**
      * @brief Enable or disable automatic volume compensation
@@ -121,12 +108,11 @@ private:
     void applyHighFrequencyExciter(float &sample, float drive, int channel);
 
     /**
-     * @brief Calculate volume compensation factor based on drive and saturation type
+     * @brief Calculate volume compensation factor based on drive
      * @param drive Current drive amount [0.0-1.0]
-     * @param type Current saturation type
      * @return Compensation factor to apply to output
      */
-    float calculateVolumeCompensation(float drive, SaturationType type) const;
+    float calculateVolumeCompensation(float drive) const;
 
     /**
      * @brief Updates the analog modeling state once per processing block.
@@ -134,20 +120,7 @@ private:
      */
     void updateAnalogModelState(int numSamples);
 
-    // Constants for saturation algorithms
-    static constexpr float SMOOTH_DRIVE_MIN = 1.0f;
-    static constexpr float SMOOTH_DRIVE_MAX = 20.0f;
-
-    // Advanced Tube modeling constants (12AX7 based)
-    static constexpr float TUBE_DRIVE_MIN = 1.0f;
-    static constexpr float TUBE_DRIVE_MAX = 15.0f;
-    static constexpr float TUBE_BIAS_DRIFT = 0.02f;         // Simula drift del bias
-    static constexpr float TUBE_GRID_CURRENT = 0.85f;       // Soglia grid current
-    static constexpr float TUBE_PLATE_KNEE = 0.7f;          // Knee point della placca
-    static constexpr float TUBE_CATHODE_COMPRESSION = 1.8f; // Compressione del catodo
-    static constexpr float TUBE_ASYMMETRY_FACTOR = 0.3f;    // Asimmetria variabile
-    static constexpr float TUBE_HARMONIC_CONTENT = 0.15f;   // Contenuto armonico
-
+    // Constants for tape saturation
     static constexpr float TAPE_DRIVE_MIN = 1.0f;
     static constexpr float TAPE_DRIVE_MAX = 8.0f;
     static constexpr float TAPE_KNEE_THRESHOLD = 0.5f;
@@ -161,9 +134,7 @@ private:
     static constexpr float DENORM_THRESHOLD = 1.0e-20f;
     static constexpr float DENORM_NOISE_LEVEL = 1.0e-35f;
 
-    // Analog noise modeling constants
-    static constexpr float TUBE_HISS_BASE = 2.0e-6f;        // Tube hiss base level
-    static constexpr float TUBE_FLICKER_NOISE = 1.5e-6f;    // 1/f noise per i tubi
+    // Analog noise modeling constants (tape-specific)
     static constexpr float TAPE_MODULATION_NOISE = 3.0e-6f; // Tape modulation noise
     static constexpr float THERMAL_NOISE_BASE = 1.0e-6f;    // Thermal noise base
 
@@ -180,15 +151,10 @@ private:
 
     // Main parameters
     float driveAmount = 0.5f;
-    // Internal mix removed; always process 100% wet, mix later globally
-    SaturationType saturationType = SaturationType::SMOOTH;
     bool volumeCompensationEnabled = true;
 
-    // Advanced analog modeling state
-    float tubeBiasDrift[2] = {0.0f, 0.0f};           // Simula drift termico del bias
-    float tubeWarmupFactor[2] = {0.0f, 0.0f};        // Simula riscaldamento del tubo
-    int samplesSinceReset = 0;                       // Contatore per effetti termici
-    float flickerNoiseAccumulator[2] = {0.0f, 0.0f}; // Per 1/f noise
+    // Analog modeling state (simplified for tape)
+    int samplesSinceReset = 0; // Contatore per effetti termici
 
     // Drive-dependent filtering state (simple one-pole filters)
     float preEmphState[2] = {0.0f, 0.0f};    // Pre-emphasis filter state

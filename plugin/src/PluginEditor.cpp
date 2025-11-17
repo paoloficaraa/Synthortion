@@ -16,17 +16,17 @@ namespace synthortion
     {
         setLookAndFeel(&lookAndFeel);
 
-        // Drive Knob (large central knob)
+        // Color Knob (large central knob - master effects mix)
         driveKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
         driveKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
                                       juce::MathConstants<float>::pi * 2.75f,
                                       true);
         driveKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
         driveKnob.setVelocityBasedMode(true);
-        driveKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
+        driveKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
         addAndMakeVisible(driveKnob);
-        driveAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "DRIVE", driveKnob);
-        driveLabel.setText("COLOR", juce::dontSendNotification);
+        driveAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "COLOR", driveKnob);
+        driveLabel.setText("", juce::dontSendNotification);
         driveLabel.setJustificationType(juce::Justification::centred);
         driveLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
         driveLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
@@ -54,82 +54,146 @@ namespace synthortion
         addAndMakeVisible(outputGainKnob);
         outputGainAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "OUTPUT_GAIN", outputGainKnob);
 
-        // Mix/Dry-Wet Knob
-        mixKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        mixKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                    juce::MathConstants<float>::pi * 2.75f,
-                                    true);
-        mixKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        mixKnob.setVelocityBasedMode(true);
-        mixKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(mixKnob);
-        mixAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "MIX", mixKnob);
-        mixLabel.setText("DRY/WET", juce::dontSendNotification);
-        mixLabel.setJustificationType(juce::Justification::centred);
-        mixLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
-        mixLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(mixLabel);
-
-        // Delay Knob
-        delayKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        delayKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
+        // Noise Knob
+        noiseKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        noiseKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
                                       juce::MathConstants<float>::pi * 2.75f,
                                       true);
-        delayKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        delayKnob.setVelocityBasedMode(true);
-        delayKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(delayKnob);
-        delayAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "DELAY", delayKnob);
-        delayLabel.setText("DELAY", juce::dontSendNotification);
-        delayLabel.setJustificationType(juce::Justification::centred);
-        delayLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
-        delayLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(delayLabel);
+        noiseKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        noiseKnob.setVelocityBasedMode(true);
+        noiseKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
+        addAndMakeVisible(noiseKnob);
+        noiseAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "NOISE_AMOUNT", noiseKnob);
+        noiseLabel.setText("", juce::dontSendNotification);
+        noiseLabel.setJustificationType(juce::Justification::centred);
+        noiseLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
+        noiseLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(noiseLabel);
 
-        // Chorus Knob
-        chorusKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        chorusKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                       juce::MathConstants<float>::pi * 2.75f,
-                                       true);
-        chorusKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        chorusKnob.setVelocityBasedMode(true);
-        chorusKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(chorusKnob);
-        chorusAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "CHORUS", chorusKnob);
-        chorusLabel.setText("CHORUS", juce::dontSendNotification);
-        chorusLabel.setJustificationType(juce::Justification::centred);
-        chorusLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
-        chorusLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(chorusLabel);
+        // BitCrush Knob
+        bitCrushKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        bitCrushKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
+                                         juce::MathConstants<float>::pi * 2.75f,
+                                         true);
+        bitCrushKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        bitCrushKnob.setVelocityBasedMode(true);
+        bitCrushKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
+        addAndMakeVisible(bitCrushKnob);
+        bitCrushAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "BITCRUSH", bitCrushKnob);
+        bitCrushLabel.setText("", juce::dontSendNotification);
+        bitCrushLabel.setJustificationType(juce::Justification::centred);
+        bitCrushLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
+        bitCrushLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(bitCrushLabel);
+
+        // Delay Time Knob
+        delayTimeKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        delayTimeKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
+                                          juce::MathConstants<float>::pi * 2.75f,
+                                          true);
+        delayTimeKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        delayTimeKnob.setVelocityBasedMode(true);
+        delayTimeKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
+        addAndMakeVisible(delayTimeKnob);
+        delayTimeAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "DELAY_TIME", delayTimeKnob);
+        delayTimeLabel.setText("", juce::dontSendNotification);
+        delayTimeLabel.setJustificationType(juce::Justification::centred);
+        delayTimeLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
+        delayTimeLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(delayTimeLabel);
+
+        // Delay Mix Knob
+        delayMixKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        delayMixKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
+                                         juce::MathConstants<float>::pi * 2.75f,
+                                         true);
+        delayMixKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        delayMixKnob.setVelocityBasedMode(true);
+        delayMixKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
+        addAndMakeVisible(delayMixKnob);
+        delayMixAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "DELAY_MIX", delayMixKnob);
+        delayMixLabel.setText("", juce::dontSendNotification);
+        delayMixLabel.setJustificationType(juce::Justification::centred);
+        delayMixLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
+        delayMixLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(delayMixLabel);
+
+        // Delay Feedback Knob
+        delayFeedbackKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        delayFeedbackKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
+                                              juce::MathConstants<float>::pi * 2.75f,
+                                              true);
+        delayFeedbackKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        delayFeedbackKnob.setVelocityBasedMode(true);
+        delayFeedbackKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
+        addAndMakeVisible(delayFeedbackKnob);
+        delayFeedbackAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "DELAY_FEEDBACK", delayFeedbackKnob);
+        delayFeedbackLabel.setText("", juce::dontSendNotification);
+        delayFeedbackLabel.setJustificationType(juce::Justification::centred);
+        delayFeedbackLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
+        delayFeedbackLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(delayFeedbackLabel);
+
+        // Chorus Mix Knob
+        chorusMixKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        chorusMixKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
+                                          juce::MathConstants<float>::pi * 2.75f,
+                                          true);
+        chorusMixKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        chorusMixKnob.setVelocityBasedMode(true);
+        chorusMixKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
+        addAndMakeVisible(chorusMixKnob);
+        chorusMixAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "CHORUS_MIX", chorusMixKnob);
+        chorusMixLabel.setText("", juce::dontSendNotification);
+        chorusMixLabel.setJustificationType(juce::Justification::centred);
+        chorusMixLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
+        chorusMixLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(chorusMixLabel);
+
+        // Preset Selector (commented out - to be implemented later)
+        // presetSelector.addItemList({"User", "Clean Tape", "Lofi Chaos", "Ambient Wash", "Aggressive Crunch"}, 1);
+        // addAndMakeVisible(presetSelector);
+        // presetAttachment = std::make_unique<ComboBoxAttachment>(processorRef.apvts, "PRESET", presetSelector);
+        // presetLabel.setText("PRESET", juce::dontSendNotification);
+        // presetLabel.setJustificationType(juce::Justification::centred);
+        // addAndMakeVisible(presetLabel);
 
         // Effects title labels (static titles above knobs)
-        mixTitleLabel.setText("MIX", juce::dontSendNotification);
-        mixTitleLabel.setJustificationType(juce::Justification::centred);
-        mixTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
-        mixTitleLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(mixTitleLabel);
+        noiseTitleLabel.setText("NOISE", juce::dontSendNotification);
+        noiseTitleLabel.setJustificationType(juce::Justification::centred);
+        noiseTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
+        noiseTitleLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(noiseTitleLabel);
 
-        delayTitleLabel.setText("DELAY", juce::dontSendNotification);
-        delayTitleLabel.setJustificationType(juce::Justification::centred);
-        delayTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
-        delayTitleLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(delayTitleLabel);
+        bitCrushTitleLabel.setText("BITCRUSH", juce::dontSendNotification);
+        bitCrushTitleLabel.setJustificationType(juce::Justification::centred);
+        bitCrushTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
+        bitCrushTitleLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(bitCrushTitleLabel);
 
-        chorusTitleLabel.setText("CHORUS", juce::dontSendNotification);
-        chorusTitleLabel.setJustificationType(juce::Justification::centred);
-        chorusTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
-        chorusTitleLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(chorusTitleLabel);
+        delayTimeTitleLabel.setText("DELAY TIME", juce::dontSendNotification);
+        delayTimeTitleLabel.setJustificationType(juce::Justification::centred);
+        delayTimeTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
+        delayTimeTitleLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(delayTimeTitleLabel);
 
-        // Saturation Type Selector (bottom right)
-        saturationTypeSelector.addItem("Smooth", 1);
-        saturationTypeSelector.addItem("Tube", 2);
-        saturationTypeSelector.addItem("Tape", 3);
-        addAndMakeVisible(saturationTypeSelector);
-        saturationTypeAttachment = std::make_unique<ComboBoxAttachment>(processorRef.apvts, "SATURATION_TYPE", saturationTypeSelector);
-        saturationTypeLabel.setText("TYPE", juce::dontSendNotification);
-        saturationTypeLabel.setJustificationType(juce::Justification::centred);
-        addAndMakeVisible(saturationTypeLabel);
+        delayMixTitleLabel.setText("DELAY MIX", juce::dontSendNotification);
+        delayMixTitleLabel.setJustificationType(juce::Justification::centred);
+        delayMixTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
+        delayMixTitleLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(delayMixTitleLabel);
+
+        delayFeedbackTitleLabel.setText("DELAY FB", juce::dontSendNotification);
+        delayFeedbackTitleLabel.setJustificationType(juce::Justification::centred);
+        delayFeedbackTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
+        delayFeedbackTitleLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(delayFeedbackTitleLabel);
+
+        chorusMixTitleLabel.setText("CHORUS MIX", juce::dontSendNotification);
+        chorusMixTitleLabel.setJustificationType(juce::Justification::centred);
+        chorusMixTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
+        chorusMixTitleLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(chorusMixTitleLabel);
 
         // Add meters
         addAndMakeVisible(inputMeter);
@@ -206,7 +270,7 @@ namespace synthortion
         auto leftSection = bounds.removeFromLeft(175.f);
         auto rightSection = bounds;
 
-        auto leftTop = leftSection.removeFromTop(224.f);
+        auto leftTop = leftSection.removeFromTop(160.f); // Ridotto da 224 a 160
         auto leftBottom = leftSection;
 
         auto spectrumSection = rightSection.removeFromTop(245.f);
@@ -219,9 +283,9 @@ namespace synthortion
         lookAndFeel.drawSectionPanel(g, outputMeterArea.reduced(2.f), 4.f);
         lookAndFeel.drawFrameLabel(g, outputMeterArea.reduced(4.f).removeFromTop(13.f), "OUT");
 
-        // Drive + Type
+        // Color section (master effects mix knob)
         lookAndFeel.drawSectionPanel(g, leftTop.reduced(4.f), 7.f);
-        lookAndFeel.drawFrameLabel(g, leftTop.reduced(7.f).removeFromTop(14.f).withWidth(84.f), "COLOR");
+        lookAndFeel.drawFrameLabel(g, leftTop.reduced(7.f).removeFromTop(14.f).withWidth(70.f), "COLOR");
 
         // Effects section
         lookAndFeel.drawSectionPanel(g, leftBottom.reduced(4.f), 6.f);
@@ -277,7 +341,7 @@ namespace synthortion
         auto rightSection = bounds; // Sezione destra per EQ e spectrum
 
         // LEFT SECTION - dividiamo in top (drive + type) e bottom (effects)
-        auto leftTop = leftSection.removeFromTop(224);
+        auto leftTop = leftSection.removeFromTop(160); // Ridotto da 224 a 160
         auto leftBottom = leftSection;
 
         // RIGHT SECTION - spectrum e EQ più grandi per colmare lo spazio vuoto
@@ -328,99 +392,102 @@ namespace synthortion
             outputMeter.setBounds(outputMeterBounds);
         }
 
-        // DRIVE + TYPE AREA (nella stessa sezione COLOR, come nell'immagine)
+        // COLOR AREA (master effects mix - large knob)
         {
-            const int driveKnobSize = 84;
-            const int driveLabelH = 12;
-            const int labelGap = 2; // Same small gap as other knobs
+            const int colorKnobSize = 70; // Ridotto da 84
+            const int colorLabelH = 12;
+            const int labelGap = 2;
 
-            // Drive knob principale con etichetta vicina
-            auto driveArea = leftTop.removeFromTop(154);
-            auto driveCenterX = driveArea.getCentreX();
-            auto driveCenterY = driveArea.getCentreY();
+            auto colorCenterX = leftTop.getCentreX();
+            auto colorCenterY = leftTop.getCentreY();
 
-            // Posiziona il drive knob al centro dell'area
-            auto driveKnobBounds = juce::Rectangle<int>(driveCenterX - driveKnobSize / 2, driveCenterY - driveKnobSize / 2, driveKnobSize, driveKnobSize);
-            driveKnob.setBounds(driveKnobBounds);
+            // Color knob centrato
+            auto colorKnobBounds = juce::Rectangle<int>(colorCenterX - colorKnobSize / 2, colorCenterY - colorKnobSize / 2, colorKnobSize, colorKnobSize);
+            driveKnob.setBounds(colorKnobBounds);
 
-            // Etichetta percentuale appena sotto il knob (molto vicina)
-            auto driveLabelBounds = juce::Rectangle<int>(driveCenterX - 40, driveKnobBounds.getBottom() + labelGap, 80, driveLabelH);
-            driveLabel.setBounds(driveLabelBounds);
-
-            // Type selector nella stessa sezione (sotto il drive, non sezione separata)
-            auto typeArea = leftTop.removeFromTop(56);
-            auto typeLabelArea = typeArea.removeFromTop(18);
-            saturationTypeLabel.setText("TYPE", juce::dontSendNotification);
-            saturationTypeLabel.setBounds(typeLabelArea);
-            saturationTypeSelector.setBounds(typeArea.reduced(14, 7));
+            // Etichetta percentuale sotto il knob
+            auto colorLabelBounds = juce::Rectangle<int>(colorCenterX - 40, colorKnobBounds.getBottom() + labelGap, 80, colorLabelH);
+            driveLabel.setBounds(colorLabelBounds);
         }
 
-        // EFFECTS SECTION (bottom) - Mix in alto centro, Delay e Chorus sotto in orizzontale
+        // EFFECTS SECTION - Layout 3 righe: Noise+BitCrush / Delay Time+Delay Mix / Delay Feedback+Chorus
         {
             const int knobSize = 46;
-            const int titleH = 11;  // Title labels above knobs (reduced)
-            const int valueH = 11;  // Value labels below knobs (reduced)
-            const int labelGap = 2; // Very small gap between knobs and labels
-            const int rowGap = 8;   // Gap between rows
+            const int titleH = 10;
+            const int valueH = 10;
+            const int labelGap = 1;
+            const int rowGap = 8; // Spaziatura uniforme tra le righe
+            const int labelWidth = 70;
+            const int topMargin = 22; // Margine superiore per evitare sovrapposizione con "EFFECTS"
 
-            auto effectsArea = leftBottom.reduced(7);
+            auto effectsArea = leftBottom.reduced(10, 12);
+            effectsArea.removeFromTop(topMargin); // Sposta tutto più in basso
 
-            // Calcola le altezze per le due righe
+            // Calcola lo spazio disponibile e dividilo equamente tra le 3 righe
             auto totalContentHeight = titleH + labelGap + knobSize + labelGap + valueH;
-            auto topRowHeight = totalContentHeight + 50;
+            auto availableHeight = effectsArea.getHeight();
+            auto totalGaps = rowGap * 2; // 2 gap tra 3 righe
+            auto totalRowsHeight = totalContentHeight * 3;
+            auto extraSpace = availableHeight - totalRowsHeight - totalGaps;
 
-            auto topRow = effectsArea.removeFromTop(topRowHeight);
-            effectsArea.removeFromTop(rowGap); // Gap tra le righe
-            auto bottomRow = effectsArea;
+            // Distribuisci lo spazio extra equamente
+            auto rowHeight = totalContentHeight + (extraSpace / 3);
 
-            // TOP ROW: Mix knob centrato con etichette molto vicine
+            auto row1 = effectsArea.removeFromTop(rowHeight);
+            effectsArea.removeFromTop(rowGap);
+            auto row2 = effectsArea.removeFromTop(rowHeight);
+            effectsArea.removeFromTop(rowGap);
+            auto row3 = effectsArea; // Usa tutto lo spazio rimanente
+
+            // Helper per posizionare un knob con title e value label
+            auto placeKnob = [&](juce::Rectangle<int> area, juce::Slider &knob, juce::Label &titleLabel, juce::Label &valueLabel)
             {
-                auto mixCenterX = topRow.getCentreX();
-                auto mixCenterY = topRow.getCentreY();
+                auto centerX = area.getCentreX();
+                auto centerY = area.getCentreY();
 
-                // Posiziona il knob al centro
-                auto mixKnobBounds = juce::Rectangle<int>(mixCenterX - knobSize / 2, mixCenterY - knobSize / 2, knobSize, knobSize);
-                mixKnob.setBounds(mixKnobBounds);
+                auto knobBounds = juce::Rectangle<int>(centerX - knobSize / 2, centerY - knobSize / 2, knobSize, knobSize);
+                knob.setBounds(knobBounds);
 
-                // Etichetta titolo appena sopra il knob
-                auto mixTitleBounds = juce::Rectangle<int>(mixCenterX - 30, mixKnobBounds.getY() - titleH - labelGap, 60, titleH);
-                mixTitleLabel.setBounds(mixTitleBounds);
+                auto titleBounds = juce::Rectangle<int>(centerX - labelWidth / 2, knobBounds.getY() - titleH - labelGap - 1, labelWidth, titleH);
+                titleLabel.setBounds(titleBounds);
 
-                // Etichetta valore appena sotto il knob
-                auto mixValueBounds = juce::Rectangle<int>(mixCenterX - 30, mixKnobBounds.getBottom() + labelGap, 60, valueH);
-                mixLabel.setBounds(mixValueBounds);
+                auto valueBounds = juce::Rectangle<int>(centerX - labelWidth / 2, knobBounds.getBottom() + labelGap + 1, labelWidth, valueH);
+                valueLabel.setBounds(valueBounds);
+            };
+
+            // ROW 1: Noise, BitCrush
+            {
+                int halfWidth = row1.getWidth() / 2;
+
+                auto noiseArea = row1.removeFromLeft(halfWidth);
+                auto bitCrushArea = row1;
+
+                placeKnob(noiseArea, noiseKnob, noiseTitleLabel, noiseLabel);
+                placeKnob(bitCrushArea, bitCrushKnob, bitCrushTitleLabel, bitCrushLabel);
             }
 
-            // BOTTOM ROW: Delay e Chorus affiancati con etichette molto vicine
+            // ROW 2: Delay Time, Delay Feedback
             {
-                auto halfWidth = bottomRow.getWidth() / 2;
-                auto knobCenterY = bottomRow.getCentreY() - 20;
+                int halfWidth = row2.getWidth() / 2;
 
-                // Delay (sinistra)
-                auto delayCenterX = bottomRow.getX() + halfWidth / 2;
-                auto delayKnobBounds = juce::Rectangle<int>(delayCenterX - knobSize / 2, knobCenterY - knobSize / 2, knobSize, knobSize);
-                delayKnob.setBounds(delayKnobBounds);
+                auto delayTimeArea = row2.removeFromLeft(halfWidth);
+                auto delayFeedbackArea = row2;
 
-                auto delayTitleBounds = juce::Rectangle<int>(delayCenterX - 30, delayKnobBounds.getY() - titleH - labelGap, 60, titleH);
-                delayTitleLabel.setBounds(delayTitleBounds);
-
-                auto delayValueBounds = juce::Rectangle<int>(delayCenterX - 30, delayKnobBounds.getBottom() + labelGap, 60, valueH);
-                delayLabel.setBounds(delayValueBounds);
-
-                // Chorus (destra)
-                auto chorusCenterX = bottomRow.getX() + halfWidth + halfWidth / 2;
-                auto chorusKnobBounds = juce::Rectangle<int>(chorusCenterX - knobSize / 2, knobCenterY - knobSize / 2, knobSize, knobSize);
-                chorusKnob.setBounds(chorusKnobBounds);
-
-                auto chorusTitleBounds = juce::Rectangle<int>(chorusCenterX - 30, chorusKnobBounds.getY() - titleH - labelGap, 60, titleH);
-                chorusTitleLabel.setBounds(chorusTitleBounds);
-
-                auto chorusValueBounds = juce::Rectangle<int>(chorusCenterX - 30, chorusKnobBounds.getBottom() + labelGap, 60, valueH);
-                chorusLabel.setBounds(chorusValueBounds);
+                placeKnob(delayTimeArea, delayTimeKnob, delayTimeTitleLabel, delayTimeLabel);
+                placeKnob(delayFeedbackArea, delayFeedbackKnob, delayFeedbackTitleLabel, delayFeedbackLabel);
             }
-        }
 
-        // SPECTRUM SECTION (right top) - più grande per colmare spazio vuoto
+            // ROW 3: Delay Mix, Chorus Mix
+            {
+                int halfWidth = row3.getWidth() / 2;
+
+                auto delayMixArea = row3.removeFromLeft(halfWidth);
+                auto chorusMixArea = row3;
+
+                placeKnob(delayMixArea, delayMixKnob, delayMixTitleLabel, delayMixLabel);
+                placeKnob(chorusMixArea, chorusMixKnob, chorusMixTitleLabel, chorusMixLabel);
+            }
+        } // SPECTRUM SECTION (right top) - più grande per colmare spazio vuoto
         spectrumAnalyzer.setBounds(spectrumSection.reduced(7));
 
         // EQ SECTION (right bottom) - layout aggiornato: freq knobs più grandi e distanziati,
@@ -829,22 +896,47 @@ namespace synthortion
             return "0 dB";
     }
 
+    juce::String AudioPluginAudioProcessorEditor::formatMilliseconds(float ms)
+    {
+        if (ms >= 1000.0f)
+            return juce::String(ms / 1000.0f, 2) + " s";
+        else
+            return juce::String((int)ms) + " ms";
+    }
+
+    juce::String AudioPluginAudioProcessorEditor::formatBitDepth(float bits)
+    {
+        return juce::String((int)bits) + "-bit";
+    }
+
     void AudioPluginAudioProcessorEditor::updateMainControlLabels()
     {
-        // Drive knob (0.0 to 1.0 normalized)
-        auto driveValue = processorRef.apvts.getRawParameterValue("DRIVE")->load();
-        driveLabel.setText(formatPercentage(driveValue), juce::dontSendNotification);
+        // Color knob (0.0 to 1.0 normalized) - driveKnob is actually COLOR
+        auto colorValue = processorRef.apvts.getRawParameterValue("COLOR")->load();
+        driveLabel.setText(formatPercentage(colorValue), juce::dontSendNotification);
 
-        // Mix knob (0.0 to 1.0 normalized)
-        auto mixValue = processorRef.apvts.getRawParameterValue("MIX")->load();
-        mixLabel.setText(formatPercentage(mixValue), juce::dontSendNotification);
+        // Noise knob (0.0 to 1.0 normalized)
+        auto noiseValue = processorRef.apvts.getRawParameterValue("NOISE_AMOUNT")->load();
+        noiseLabel.setText(formatPercentage(noiseValue), juce::dontSendNotification);
 
-        // Delay knob (0.0 to 1.0 normalized)
-        auto delayValue = processorRef.apvts.getRawParameterValue("DELAY")->load();
-        delayLabel.setText(formatPercentage(delayValue), juce::dontSendNotification);
+        // BitCrush knob (1-16 bits)
+        auto bitCrushValue = processorRef.apvts.getRawParameterValue("BITCRUSH")->load();
+        bitCrushLabel.setText(formatBitDepth(bitCrushValue), juce::dontSendNotification);
 
-        // Chorus knob (0.0 to 1.0 normalized)
-        auto chorusValue = processorRef.apvts.getRawParameterValue("CHORUS")->load();
-        chorusLabel.setText(formatPercentage(chorusValue), juce::dontSendNotification);
+        // Delay Time knob (1-2000 ms)
+        auto delayTimeValue = processorRef.apvts.getRawParameterValue("DELAY_TIME")->load();
+        delayTimeLabel.setText(formatMilliseconds(delayTimeValue), juce::dontSendNotification);
+
+        // Delay Mix knob (0.0 to 1.0 normalized)
+        auto delayMixValue = processorRef.apvts.getRawParameterValue("DELAY_MIX")->load();
+        delayMixLabel.setText(formatPercentage(delayMixValue), juce::dontSendNotification);
+
+        // Delay Feedback knob (0.0 to 0.9 normalized)
+        auto delayFeedbackValue = processorRef.apvts.getRawParameterValue("DELAY_FEEDBACK")->load();
+        delayFeedbackLabel.setText(formatPercentage(delayFeedbackValue), juce::dontSendNotification);
+
+        // Chorus Mix knob (0.0 to 1.0 normalized)
+        auto chorusMixValue = processorRef.apvts.getRawParameterValue("CHORUS_MIX")->load();
+        chorusMixLabel.setText(formatPercentage(chorusMixValue), juce::dontSendNotification);
     }
 }

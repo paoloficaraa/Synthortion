@@ -164,8 +164,8 @@ void SpectrumAnalyzer::paint(juce::Graphics &g)
 
     drawFrame(g);
 
-    // Draw EQ curve overlay
-    if (eqReference != nullptr && !eqBypassed)
+    // Draw EQ curve overlay - ALWAYS visible even without audio signal
+    if (eqReference != nullptr)
     {
         drawEQCurve(g);
     }
@@ -221,8 +221,9 @@ void SpectrumAnalyzer::timerCallback()
         scopeData[i] = currentScopeData[i];
     }
 
-    // Repaint continuo per animazione fluida
-    if (hasChanges)
+    // Repaint continuo per animazione fluida e per mostrare la curva EQ anche senza audio
+    // Facciamo sempre repaint per aggiornare la curva EQ quando i parametri cambiano
+    if (hasChanges || eqReference != nullptr)
         repaint();
 }
 

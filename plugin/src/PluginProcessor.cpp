@@ -14,12 +14,20 @@ namespace synthortion
                              ),
           apvts(*this, nullptr, "Parameters", createParameterLayout())
     {
-        // Register parameter listeners for all parameters
         apvts.addParameterListener("DRIVE", this);
-        apvts.addParameterListener("MIX", this);
+
         apvts.addParameterListener("INPUT_GAIN", this);
         apvts.addParameterListener("OUTPUT_GAIN", this);
-        apvts.addParameterListener("SATURATION_TYPE", this);
+
+        // apvts.addParameterListener("PRESET", this);
+        apvts.addParameterListener("COLOR", this);
+        apvts.addParameterListener("NOISE_AMOUNT", this);
+        apvts.addParameterListener("BITCRUSH", this);
+        apvts.addParameterListener("DELAY_TIME", this);
+        apvts.addParameterListener("DELAY_MIX", this);
+        apvts.addParameterListener("DELAY_FEEDBACK", this);
+        apvts.addParameterListener("CHORUS_MIX", this);
+
         apvts.addParameterListener("EQ_BYPASS", this);
         apvts.addParameterListener("LOW_CUT_FREQ", this);
         apvts.addParameterListener("LOW_CUT_Q", this);
@@ -31,6 +39,7 @@ namespace synthortion
         apvts.addParameterListener("HIGH_MID_Q", this);
         apvts.addParameterListener("HIGH_CUT_FREQ", this);
         apvts.addParameterListener("HIGH_CUT_Q", this);
+
         apvts.addParameterListener("VOLUME_COMPENSATION", this);
     }
 
@@ -108,41 +117,31 @@ namespace synthortion
     //==============================================================================
     void AudioPluginAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     {
-        juce::dsp::ProcessSpec spec{sampleRate, (juce::uint32)samplesPerBlock, (juce::uint32)getTotalNumInputChannels()};
+        juce::dsp::ProcessSpec spec{sampleRate, (juce::uint32)samplesPerBlock, (juce::uint32)getTotalNumOutputChannels()};
+
         warmDistortion.prepare(spec);
+        bitCrusher.prepare(spec);
         parametricEQ.prepare(spec);
+        chorus.prepare(spec);
+        pingPongDelay.prepare(spec);
 
-        // Configure global dry/wet mixer with sufficient maximum latency
-        {
-            const int distortionLatency = juce::jmax(1, warmDistortion.getLatencySamples());
-            const int eqLatency = parametricEQ.getLatencySamples();
-            const int totalLatency = juce::jmax(1, distortionLatency + eqLatency);
+        noiseBuffer.setSize(2, samplesPerBlock);
 
-            globalDryWet = juce::dsp::DryWetMixer<float>(totalLatency);
-            globalDryWet.prepare(spec);
-            globalDryWet.reset();
-            globalDryWet.setWetLatency(static_cast<float>(totalLatency));
-            // Equal-power style crossfade for more musical blending
-            globalDryWet.setMixingRule(juce::dsp::DryWetMixer<float>::MixingRule::squareRoot3dB);
-
-            // Report total latency to host
-            setLatencySamples(totalLatency);
-        }
-
-        // Initialize RMS level smoothing
-        inputRmsLevel.reset(sampleRate, 0.1); // 100ms smoothing
+        inputRmsLevel.reset(sampleRate, 0.1);
         outputRmsLevel.reset(sampleRate, 0.1);
         inputRmsLevel.setCurrentAndTargetValue(-60.0f);
         outputRmsLevel.setCurrentAndTargetValue(-60.0f);
 
-        // Initialize all parameters to ensure DSP objects match saved values
+        const int distortionLatency = juce::jmax(1, warmDistortion.getLatencySamples());
+        const int eqLatency = parametricEQ.getLatencySamples();
+        const int totalLatency = distortionLatency + eqLatency;
+        setLatencySamples(totalLatency);
+
         updateDSPParameters();
     }
 
     void AudioPluginAudioProcessor::releaseResources()
     {
-        // When playback stops, you can use this as an opportunity to free up any
-        // spare memory, etc.
     }
 
     bool AudioPluginAudioProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
@@ -151,14 +150,9 @@ namespace synthortion
         juce::ignoreUnused(layouts);
         return true;
 #else
-        // This is the place where you check if the layout is supported.
-        // In this template code we only support mono or stereo.
-        // Some plugin hosts, such as certain GarageBand versions, will only
-        // load plugins that support stereo bus layouts.
         if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono() && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
             return false;
 
-        // This checks if the input layout matches the output layout
 #if !JucePlugin_IsSynth
         if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
             return false;
@@ -173,230 +167,107 @@ namespace synthortion
     {
         juce::ignoreUnused(midiMessages);
 
-        // Enhanced validation checks
         if (buffer.getNumSamples() == 0 || buffer.getNumChannels() == 0)
-        {
-            DBG("Warning: Empty audio buffer received");
             return;
-        }
-
-        if (getSampleRate() <= 0.0)
-        {
-            DBG("Error: Invalid sample rate: " << getSampleRate());
-            return;
-        }
-
-        // Validate buffer contents for NaN/Inf values
-        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-        {
-            auto *channelData = buffer.getWritePointer(channel);
-            for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
-            {
-                if (!std::isfinite(channelData[sample]))
-                {
-                    DBG("Warning: Non-finite value detected in input buffer, channel " << channel << ", sample " << sample);
-                    channelData[sample] = 0.0f; // Replace with silence
-                }
-            }
-        }
 
         juce::ScopedNoDenormals noDenormals;
-        auto totalNumInputChannels = getTotalNumInputChannels();
-        auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-        // Clear unused output channels
-        for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
             buffer.clear(i, 0, buffer.getNumSamples());
 
-        // Skip RMS processing ahead
         inputRmsLevel.skip(buffer.getNumSamples());
         outputRmsLevel.skip(buffer.getNumSamples());
 
-        auto mixValue = apvts.getRawParameterValue("MIX")->load();
+        // Reading parameters
+        float inputGainValue = apvts.getRawParameterValue("INPUT_GAIN")->load();
+        float driveBase = apvts.getRawParameterValue("DRIVE")->load();
+        float color = apvts.getRawParameterValue("COLOR")->load();
 
-        // Validate mix parameter
-        if (!std::isfinite(mixValue))
-        {
-            DBG("Warning: Non-finite mix value detected, using default");
-            mixValue = 1.0f;
-        }
-        mixValue = juce::jlimit(0.0f, 1.0f, mixValue);
+        // COLOR controls effects intensity
+        // Drive increases with color (more saturation as color increases)
+        float drive = driveBase + (color * 0.3f); // Adds up to 30% extra drive at full color
 
-        // Apply input gain
-        auto inputGainValue = apvts.getRawParameterValue("INPUT_GAIN")->load();
-        if (std::isfinite(inputGainValue))
-        {
-            float inputGainLinear = juce::Decibels::decibelsToGain(inputGainValue);
-            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-            {
-                juce::FloatVectorOperations::multiply(buffer.getWritePointer(channel), inputGainLinear, buffer.getNumSamples());
-            }
-        }
+        // Noise increases with color, but scaled down to avoid being too loud
+        float noiseBase = apvts.getRawParameterValue("NOISE_AMOUNT")->load();
+        float noiseAmount = noiseBase * color * 0.5f; // Max 50% of noise knob value to keep it subtle
 
-        // Calculate input RMS level with error checking using optimized operations
+        // BitCrush, Delay, Chorus controlled by color as master mix
+        float bitCrushDepth = apvts.getRawParameterValue("BITCRUSH")->load();
+        float effectiveBitDepth = 16.0f - ((16.0f - bitCrushDepth) * color);
+        float delayTime = apvts.getRawParameterValue("DELAY_TIME")->load();
+        float delayMix = apvts.getRawParameterValue("DELAY_MIX")->load() * color;
+        float delayFeedback = apvts.getRawParameterValue("DELAY_FEEDBACK")->load();
+        float chorusMix = apvts.getRawParameterValue("CHORUS_MIX")->load() * color;
+        float outputGainValue = apvts.getRawParameterValue("OUTPUT_GAIN")->load();
+        bool eqBypass = apvts.getRawParameterValue("EQ_BYPASS")->load() > 0.5f;
+
+        // INPUT GAIN
+        float inputGainLinear = juce::Decibels::decibelsToGain(inputGainValue);
+        buffer.applyGain(inputGainLinear);
+
         float inputRms = 0.0f;
-        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-        {
-            // Use JUCE's optimized RMS calculation
-            float channelRms = buffer.getRMSLevel(channel, 0, buffer.getNumSamples());
-            if (std::isfinite(channelRms))
-            {
-                inputRms += channelRms;
-            }
-            else
-            {
-                DBG("Warning: Non-finite RMS level in channel " << channel);
-            }
-        }
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+            inputRms += buffer.getRMSLevel(ch, 0, buffer.getNumSamples());
         inputRms /= static_cast<float>(buffer.getNumChannels());
+        inputRmsLevel.setTargetValue(juce::Decibels::gainToDecibels(inputRms, -60.0f));
 
-        // Validate and set input RMS level
-        if (std::isfinite(inputRms))
+        // WARM DISTORTION
+        juce::dsp::AudioBlock<float> block(buffer);
+        juce::dsp::ProcessContextReplacing<float> context(block);
+        warmDistortion.setDrive(drive);
+        warmDistortion.process(context);
+
+        // NOISE
+        if (noiseAmount > 0.001f)
         {
-            inputRmsLevel.setTargetValue(juce::Decibels::gainToDecibels(inputRms, -60.0f));
-        }
-        else
-        {
-            inputRmsLevel.setTargetValue(-60.0f); // Fallback to minimum level
-        }
-
-        // Short-circuit paths for MIX extremes
-        const float eps = 1.0e-6f;
-
-        // Fully dry: leave buffer untouched and skip all processing/mixing
-        if (mixValue <= eps)
-        {
-            // Output RMS equals input in this case
-            outputRmsLevel.setTargetValue(inputRmsLevel.getTargetValue());
-
-            // Analyzer on dry - process all samples for accuracy
-            auto callbackDry = spectrumAnalyzerCallback;
-            if (callbackDry && buffer.getNumChannels() > 0)
+            for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
             {
-                auto *dryData = buffer.getReadPointer(0);
-
-                for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
-                    callbackDry(dryData[sample]);
-            }
-            return;
-        }
-
-        // For partially wet mixes, capture dry before processing
-        const bool isFullyWet = (mixValue >= 1.0f - eps);
-        if (!isFullyWet)
-        {
-            try
-            {
-                globalDryWet.pushDrySamples(juce::dsp::AudioBlock<const float>(buffer));
-            }
-            catch (const std::exception &e)
-            {
-                DBG("Error in dry samples processing: " << e.what());
-                (void)e; // Suppress unused variable warning
-                // Continue with wet processing only
-            }
-        }
-
-        // Wet processing chain with error handling
-        try
-        {
-            juce::dsp::AudioBlock<float> block(buffer);
-            juce::dsp::ProcessContextReplacing<float> context(block);
-            warmDistortion.process(context);
-
-            // Apply EQ post-distortion (only if not bypassed)
-            auto eqBypass = apvts.getRawParameterValue("EQ_BYPASS")->load() > 0.5f;
-            if (!eqBypass)
-            {
-                parametricEQ.process(context);
-            }
-        }
-        catch (const std::exception &e)
-        {
-            DBG("Error in wet processing chain: " << e.what());
-            (void)e; // Suppress unused variable warning
-            // Leave buffer as-is if processing fails
-        }
-
-        // Apply global dry/wet mix at end (only if partially wet)
-        if (!isFullyWet)
-        {
-            try
-            {
-                globalDryWet.setWetMixProportion(juce::jlimit(0.0f, 1.0f, mixValue));
-                globalDryWet.mixWetSamples(juce::dsp::AudioBlock<float>(buffer));
-            }
-            catch (const std::exception &e)
-            {
-                DBG("Error in dry/wet mixing: " << e.what());
-                (void)e; // Suppress unused variable warning
-                // Continue without mixing
-            }
-        }
-
-        // Validate output buffer for non-finite values
-        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-        {
-            auto *channelData = buffer.getWritePointer(channel);
-            for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
-            {
-                if (!std::isfinite(channelData[sample]))
+                auto *channelData = buffer.getWritePointer(ch);
+                for (int i = 0; i < buffer.getNumSamples(); ++i)
                 {
-                    DBG("Warning: Non-finite value in output buffer, channel " << channel << ", sample " << sample);
-                    channelData[sample] = 0.0f; // Replace with silence
+                    float noise = (noiseGenerator.nextFloat() * 2.0f - 1.0f) * noiseAmount * 0.1f;
+                    channelData[i] += noise;
                 }
             }
         }
 
-        // Apply output gain before RMS calculation and spectrum analysis
-        auto outputGainValue = apvts.getRawParameterValue("OUTPUT_GAIN")->load();
-        if (std::isfinite(outputGainValue))
+        // BITCRUSHER (scaled by color: 0% color = 16-bit clean, 100% color = full crush)
+        bitCrusher.setBitDepth(effectiveBitDepth);
+        bitCrusher.process(buffer);
+
+        // PARAMETRIC EQ
+        if (!eqBypass)
         {
-            float outputGainLinear = juce::Decibels::decibelsToGain(outputGainValue);
-            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-            {
-                juce::FloatVectorOperations::multiply(buffer.getWritePointer(channel), outputGainLinear, buffer.getNumSamples());
-            }
+            parametricEQ.process(context);
         }
 
-        // Calculate output RMS level with error checking (after output gain)
+        // CHORUS
+        chorus.setChorusMix(chorusMix);
+        chorus.process(context);
+
+        // PING-PONG DELAY
+        pingPongDelay.setDelayTime(delayTime);
+        pingPongDelay.setDelayMix(delayMix);
+        pingPongDelay.setFeedback(delayFeedback);
+        pingPongDelay.process(buffer);
+
+        // OUTPUT GAIN
+        float outputGainLinear = juce::Decibels::decibelsToGain(outputGainValue);
+        buffer.applyGain(outputGainLinear);
+
         float outputRms = 0.0f;
-        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-        {
-            float channelRms = buffer.getRMSLevel(channel, 0, buffer.getNumSamples());
-            if (std::isfinite(channelRms))
-            {
-                outputRms += channelRms;
-            }
-            else
-            {
-                DBG("Warning: Non-finite output RMS level in channel " << channel);
-            }
-        }
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+            outputRms += buffer.getRMSLevel(ch, 0, buffer.getNumSamples());
         outputRms /= static_cast<float>(buffer.getNumChannels());
+        outputRmsLevel.setTargetValue(juce::Decibels::gainToDecibels(outputRms, -60.0f));
 
-        // Validate and set output RMS level
-        if (std::isfinite(outputRms))
-        {
-            outputRmsLevel.setTargetValue(juce::Decibels::gainToDecibels(outputRms, -60.0f));
-        }
-        else
-        {
-            outputRmsLevel.setTargetValue(-60.0f); // Fallback to minimum level
-        }
-
-        // Send final output audio data to spectrum analyzer (post-everything including dry/wet)
-        // This shows exactly what goes to the output, reflecting all processing and mixing
+        // Spectrum analyzer callback
         auto callback = spectrumAnalyzerCallback;
         if (callback && buffer.getNumChannels() > 0)
         {
             auto *channelData = buffer.getReadPointer(0);
-
-            // Process all samples for better frequency resolution and accuracy
-            for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
-            {
-                callback(channelData[sample]);
-            }
+            for (int i = 0; i < buffer.getNumSamples(); ++i)
+                callback(channelData[i]);
         }
     }
 
@@ -483,10 +354,21 @@ namespace synthortion
                 float validDrive = juce::jlimit(0.0f, 1.0f, newValue);
                 warmDistortion.setDrive(validDrive);
             }
-            else if (parameterID == "SATURATION_TYPE")
+            // else if (parameterID == "PRESET")
+            // {
+            //     loadPreset(static_cast<int>(newValue));
+            // }
+            else if (parameterID == "BITCRUSH")
             {
-                int typeInt = juce::jlimit(0, 2, static_cast<int>(newValue));
-                warmDistortion.setSaturationType(static_cast<WarmDistortion::SaturationType>(typeInt));
+                bitCrusher.setBitDepth(newValue);
+            }
+            else if (parameterID == "DELAY_TIME")
+            {
+                pingPongDelay.setDelayTime(newValue);
+            }
+            else if (parameterID == "DELAY_FEEDBACK")
+            {
+                pingPongDelay.setFeedback(newValue);
             }
             else if (parameterID == "LOW_CUT_FREQ" || parameterID == "LOW_CUT_Q")
             {
@@ -512,7 +394,6 @@ namespace synthortion
             {
                 auto highCutFreq = juce::jlimit(5000.0f, 20000.0f, apvts.getRawParameterValue("HIGH_CUT_FREQ")->load());
                 auto highCutQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("HIGH_CUT_Q")->load());
-                // Inverted behavior: disabled when freq >= 20000.0f, enabled when freq < 20000.0f
                 parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq < 20000.0f);
             }
             else if (parameterID == "VOLUME_COMPENSATION")
@@ -530,20 +411,32 @@ namespace synthortion
 
     void AudioPluginAudioProcessor::updateDSPParameters()
     {
-        // Force all DSP objects to sync with current parameter values
-        // This ensures saved state is properly restored on plugin initialization
-
         try
         {
             // Update distortion parameters
             auto drive = juce::jlimit(0.0f, 1.0f, apvts.getRawParameterValue("DRIVE")->load());
             warmDistortion.setDrive(drive);
 
-            auto satType = juce::jlimit(0, 2, static_cast<int>(apvts.getRawParameterValue("SATURATION_TYPE")->load()));
-            warmDistortion.setSaturationType(static_cast<WarmDistortion::SaturationType>(satType));
-
             auto volumeComp = apvts.getRawParameterValue("VOLUME_COMPENSATION")->load() > 0.5f;
             warmDistortion.setVolumeCompensation(volumeComp);
+
+            // BitCrusher
+            auto bitDepth = apvts.getRawParameterValue("BITCRUSH")->load();
+            bitCrusher.setBitDepth(bitDepth);
+
+            // Delay
+            auto delayTime = apvts.getRawParameterValue("DELAY_TIME")->load();
+            pingPongDelay.setDelayTime(delayTime);
+
+            auto delayMix = apvts.getRawParameterValue("DELAY_MIX")->load();
+            pingPongDelay.setDelayMix(delayMix);
+
+            auto delayFeedback = apvts.getRawParameterValue("DELAY_FEEDBACK")->load();
+            pingPongDelay.setFeedback(delayFeedback);
+
+            // Chorus
+            auto chorusMix = apvts.getRawParameterValue("CHORUS_MIX")->load();
+            chorus.setChorusMix(chorusMix);
 
             // Update EQ parameters
             auto lowCutFreq = juce::jlimit(0.0f, 1000.0f, apvts.getRawParameterValue("LOW_CUT_FREQ")->load());
@@ -562,7 +455,6 @@ namespace synthortion
 
             auto highCutFreq = juce::jlimit(5000.0f, 20000.0f, apvts.getRawParameterValue("HIGH_CUT_FREQ")->load());
             auto highCutQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("HIGH_CUT_Q")->load());
-            // Inverted behavior: disabled when freq >= 20000.0f, enabled when freq < 20000.0f
             parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq < 20000.0f);
 
             DBG("DSP parameters synchronized on initialization");
@@ -578,16 +470,67 @@ namespace synthortion
     {
         juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
+        // DRIVE parameter
         layout.add(std::make_unique<juce::AudioParameterFloat>("DRIVE", "Drive", 0.0f, 1.0f, 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>("MIX", "Mix", 0.0f, 1.0f, 1.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>("INPUT_GAIN", "Input Gain", -24.0f, 24.0f, 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>("OUTPUT_GAIN", "Output Gain", -24.0f, 24.0f, 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>("DELAY", "Delay", 0.0f, 1.0f, 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>("CHORUS", "Chorus", 0.0f, 1.0f, 0.0f));
 
-        // Saturation type parameter (0 = SMOOTH, 1 = TUBE, 2 = TAPE)
-        layout.add(std::make_unique<juce::AudioParameterChoice>("SATURATION_TYPE", "Saturation Type",
-                                                                juce::StringArray{"Smooth", "Tube", "Tape"}, 0));
+        // INPUT parameter
+        layout.add(std::make_unique<juce::AudioParameterFloat>("INPUT_GAIN", "Input Gain", -24.0f, 24.0f, 0.0f));
+
+        // COLOR parameter
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            "COLOR",
+            "Color",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+            0.0f));
+
+        // NOISE parameter
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            "NOISE_AMOUNT",
+            "Noise Amount",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+            0.0f));
+
+        // BITCRUSH parameter
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            "BITCRUSH",
+            "BitCrush",
+            juce::NormalisableRange<float>(1.0f, 16.0f, 1.0f),
+            16.0f));
+
+        // DELAY_TIME parameter (in milliseconds)
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            "DELAY_TIME",
+            "Delay Time",
+            juce::NormalisableRange<float>(1.0f, 2000.0f, 1.0f),
+            250.0f));
+
+        // DELAY_MIX parameter
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            "DELAY_MIX",
+            "Delay Mix",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+            0.0f));
+
+        // DELAY_FEEDBACK parameter
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            "DELAY_FEEDBACK",
+            "Delay Feedback",
+            juce::NormalisableRange<float>(0.0f, 0.9f, 0.01f),
+            0.4f));
+
+        // CHORUS_MIX parameter
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            "CHORUS_MIX",
+            "Chorus Mix",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+            0.0f));
+
+        // PRESET parameter
+        // layout.add(std::make_unique<juce::AudioParameterChoice>(
+        //     "PRESET",
+        //     "Preset",
+        //     juce::StringArray{"User", "Clean Tape", "Lofi Chaos", "Ambient Wash", "Aggressive Crunch"},
+        //     0));
 
         // EQ Parameters
         layout.add(std::make_unique<juce::AudioParameterFloat>("LOW_CUT_FREQ", "Low Cut Freq", 0.0f, 1000.0f, 0.0f));
@@ -615,6 +558,8 @@ namespace synthortion
         // EQ bypass toggle
         layout.add(std::make_unique<juce::AudioParameterBool>("EQ_BYPASS", "EQ Bypass", false));
 
+        // OUTPUT parameter
+        layout.add(std::make_unique<juce::AudioParameterFloat>("OUTPUT_GAIN", "Output Gain", -24.0f, 24.0f, 0.0f));
         return layout;
     }
 }
