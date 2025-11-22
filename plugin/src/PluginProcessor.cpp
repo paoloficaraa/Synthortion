@@ -20,9 +20,10 @@ namespace synthortion
         apvts.addParameterListener("OUTPUT_GAIN", this);
 
         // apvts.addParameterListener("PRESET", this);
+
         apvts.addParameterListener("COLOR", this);
-        apvts.addParameterListener("NOISE_AMOUNT", this);
         apvts.addParameterListener("BITCRUSH", this);
+        apvts.addParameterListener("DAC_NOISE", this);
         apvts.addParameterListener("DELAY_TIME", this);
         apvts.addParameterListener("DELAY_MIX", this);
         apvts.addParameterListener("DELAY_FEEDBACK", this);
@@ -125,8 +126,6 @@ namespace synthortion
         chorus.prepare(spec);
         pingPongDelay.prepare(spec);
 
-        noiseBuffer.setSize(2, samplesPerBlock);
-
         inputRmsLevel.reset(sampleRate, 0.1);
         outputRmsLevel.reset(sampleRate, 0.1);
         inputRmsLevel.setCurrentAndTargetValue(-60.0f);
@@ -187,13 +186,11 @@ namespace synthortion
         // Drive increases with color (more saturation as color increases)
         float drive = driveBase + (color * 0.3f); // Adds up to 30% extra drive at full color
 
-        // Noise increases with color, but scaled down to avoid being too loud
-        float noiseBase = apvts.getRawParameterValue("NOISE_AMOUNT")->load();
-        float noiseAmount = noiseBase * color * 0.5f; // Max 50% of noise knob value to keep it subtle
-
         // BitCrush, Delay, Chorus controlled by color as master mix
-        float bitCrushDepth = apvts.getRawParameterValue("BITCRUSH")->load();
-        float effectiveBitDepth = 16.0f - ((16.0f - bitCrushDepth) * color);
+        float bitCrushMix = apvts.getRawParameterValue("BITCRUSH")->load() * color;
+        bitCrusher.setBitCrushMix(bitCrushMix);
+        float dacNoise = apvts.getRawParameterValue("DAC_NOISE")->load();
+        bitCrusher.setDACNoise(dacNoise);
         float delayTime = apvts.getRawParameterValue("DELAY_TIME")->load();
         float delayMix = apvts.getRawParameterValue("DELAY_MIX")->load() * color;
         float delayFeedback = apvts.getRawParameterValue("DELAY_FEEDBACK")->load();
@@ -217,22 +214,6 @@ namespace synthortion
         warmDistortion.setDrive(drive);
         warmDistortion.process(context);
 
-        // NOISE
-        if (noiseAmount > 0.001f)
-        {
-            for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
-            {
-                auto *channelData = buffer.getWritePointer(ch);
-                for (int i = 0; i < buffer.getNumSamples(); ++i)
-                {
-                    float noise = (noiseGenerator.nextFloat() * 2.0f - 1.0f) * noiseAmount * 0.1f;
-                    channelData[i] += noise;
-                }
-            }
-        }
-
-        // BITCRUSHER (scaled by color: 0% color = 16-bit clean, 100% color = full crush)
-        bitCrusher.setBitDepth(effectiveBitDepth);
         bitCrusher.process(buffer);
 
         // PARAMETRIC EQ
@@ -360,7 +341,7 @@ namespace synthortion
             // }
             else if (parameterID == "BITCRUSH")
             {
-                bitCrusher.setBitDepth(newValue);
+                bitCrusher.setBitCrushMix(newValue);
             }
             else if (parameterID == "DELAY_TIME")
             {
@@ -421,8 +402,11 @@ namespace synthortion
             warmDistortion.setVolumeCompensation(volumeComp);
 
             // BitCrusher
-            auto bitDepth = apvts.getRawParameterValue("BITCRUSH")->load();
-            bitCrusher.setBitDepth(bitDepth);
+            auto bitcrushMix = apvts.getRawParameterValue("BITCRUSH")->load();
+            bitCrusher.setBitCrushMix(bitcrushMix);
+
+            auto dacNoise = apvts.getRawParameterValue("DAC_NOISE")->load();
+            bitCrusher.setDACNoise(dacNoise);
 
             // Delay
             auto delayTime = apvts.getRawParameterValue("DELAY_TIME")->load();
@@ -477,53 +461,23 @@ namespace synthortion
         layout.add(std::make_unique<juce::AudioParameterFloat>("INPUT_GAIN", "Input Gain", -24.0f, 24.0f, 0.0f));
 
         // COLOR parameter
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            "COLOR",
-            "Color",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-            0.0f));
-
-        // NOISE parameter
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            "NOISE_AMOUNT",
-            "Noise Amount",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-            0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("COLOR", "Color", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
 
         // BITCRUSH parameter
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            "BITCRUSH",
-            "BitCrush",
-            juce::NormalisableRange<float>(1.0f, 16.0f, 1.0f),
-            16.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("BITCRUSH", "BitCrush Mix", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("DAC_NOISE", "DAC Noise", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
 
         // DELAY_TIME parameter (in milliseconds)
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            "DELAY_TIME",
-            "Delay Time",
-            juce::NormalisableRange<float>(1.0f, 2000.0f, 1.0f),
-            250.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("DELAY_TIME", "Delay Time", juce::NormalisableRange<float>(1.0f, 2000.0f, 1.0f), 250.0f));
 
         // DELAY_MIX parameter
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            "DELAY_MIX",
-            "Delay Mix",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-            0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("DELAY_MIX", "Delay Mix", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
 
         // DELAY_FEEDBACK parameter
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            "DELAY_FEEDBACK",
-            "Delay Feedback",
-            juce::NormalisableRange<float>(0.0f, 0.9f, 0.01f),
-            0.4f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("DELAY_FEEDBACK", "Delay Feedback", juce::NormalisableRange<float>(0.0f, 0.95f, 0.01f), 0.4f));
 
         // CHORUS_MIX parameter
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            "CHORUS_MIX",
-            "Chorus Mix",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-            0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("CHORUS_MIX", "Chorus Mix", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
 
         // PRESET parameter
         // layout.add(std::make_unique<juce::AudioParameterChoice>(

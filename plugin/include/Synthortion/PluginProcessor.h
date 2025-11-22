@@ -124,9 +124,6 @@ namespace synthortion
         PingPongDelay pingPongDelay;
         BitCrusher bitCrusher;
 
-        juce::Random noiseGenerator;
-        juce::AudioBuffer<float> noiseBuffer;
-
         // Add preset loading method
         //void loadPreset(int presetIndex);
 

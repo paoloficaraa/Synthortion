@@ -54,7 +54,7 @@ namespace synthortion
         addAndMakeVisible(outputGainKnob);
         outputGainAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "OUTPUT_GAIN", outputGainKnob);
 
-        // Noise Knob
+        // DAC Noise Knob (sostituisce il vecchio noise knob)
         noiseKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
         noiseKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
                                       juce::MathConstants<float>::pi * 2.75f,
@@ -63,7 +63,7 @@ namespace synthortion
         noiseKnob.setVelocityBasedMode(true);
         noiseKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
         addAndMakeVisible(noiseKnob);
-        noiseAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "NOISE_AMOUNT", noiseKnob);
+        noiseAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "DAC_NOISE", noiseKnob);
         noiseLabel.setText("", juce::dontSendNotification);
         noiseLabel.setJustificationType(juce::Justification::centred);
         noiseLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
@@ -159,7 +159,7 @@ namespace synthortion
         // addAndMakeVisible(presetLabel);
 
         // Effects title labels (static titles above knobs)
-        noiseTitleLabel.setText("NOISE", juce::dontSendNotification);
+        noiseTitleLabel.setText("DAC NOISE", juce::dontSendNotification); // Aggiornato
         noiseTitleLabel.setJustificationType(juce::Justification::centred);
         noiseTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
         noiseTitleLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
@@ -792,16 +792,6 @@ namespace synthortion
         }
     }
 
-    juce::String AudioPluginAudioProcessorEditor::formatGain(float gain)
-    {
-        if (gain > 0.0f)
-            return "+" + juce::String(gain, 1) + " dB";
-        else if (gain < 0.0f)
-            return juce::String(gain, 1) + " dB";
-        else
-            return "0 dB";
-    }
-
     juce::String AudioPluginAudioProcessorEditor::formatQ(float q)
     {
         // For values >= 10, show 1 decimal place; for smaller values, show 2
@@ -842,7 +832,7 @@ namespace synthortion
         }
         else
         {
-            lowMidGainLabel.setText(formatGain(lowMidGain), juce::dontSendNotification);
+            lowMidGainLabel.setText(formatDB(lowMidGain), juce::dontSendNotification);
             lowMidQLabel.setText(formatQ(lowMidQ), juce::dontSendNotification);
         }
 
@@ -860,7 +850,7 @@ namespace synthortion
         }
         else
         {
-            highMidGainLabel.setText(formatGain(highMidGain), juce::dontSendNotification);
+            highMidGainLabel.setText(formatDB(highMidGain), juce::dontSendNotification);
             highMidQLabel.setText(formatQ(highMidQ), juce::dontSendNotification);
         }
 
@@ -904,24 +894,18 @@ namespace synthortion
             return juce::String((int)ms) + " ms";
     }
 
-    juce::String AudioPluginAudioProcessorEditor::formatBitDepth(float bits)
-    {
-        return juce::String((int)bits) + "-bit";
-    }
-
     void AudioPluginAudioProcessorEditor::updateMainControlLabels()
     {
-        // Color knob (0.0 to 1.0 normalized) - driveKnob is actually COLOR
         auto colorValue = processorRef.apvts.getRawParameterValue("COLOR")->load();
         driveLabel.setText(formatPercentage(colorValue), juce::dontSendNotification);
 
-        // Noise knob (0.0 to 1.0 normalized)
-        auto noiseValue = processorRef.apvts.getRawParameterValue("NOISE_AMOUNT")->load();
-        noiseLabel.setText(formatPercentage(noiseValue), juce::dontSendNotification);
+        // DAC Noise knob
+        auto dacNoiseValue = processorRef.apvts.getRawParameterValue("DAC_NOISE")->load();
+        noiseLabel.setText(formatPercentage(dacNoiseValue), juce::dontSendNotification);
 
-        // BitCrush knob (1-16 bits)
+        // BitCrush knob
         auto bitCrushValue = processorRef.apvts.getRawParameterValue("BITCRUSH")->load();
-        bitCrushLabel.setText(formatBitDepth(bitCrushValue), juce::dontSendNotification);
+        bitCrushLabel.setText(formatPercentage(bitCrushValue), juce::dontSendNotification);
 
         // Delay Time knob (1-2000 ms)
         auto delayTimeValue = processorRef.apvts.getRawParameterValue("DELAY_TIME")->load();
@@ -933,7 +917,7 @@ namespace synthortion
 
         // Delay Feedback knob (0.0 to 0.9 normalized)
         auto delayFeedbackValue = processorRef.apvts.getRawParameterValue("DELAY_FEEDBACK")->load();
-        delayFeedbackLabel.setText(formatPercentage(delayFeedbackValue), juce::dontSendNotification);
+        delayFeedbackLabel.setText(juce::String(delayFeedbackValue * 100), juce::dontSendNotification);
 
         // Chorus Mix knob (0.0 to 1.0 normalized)
         auto chorusMixValue = processorRef.apvts.getRawParameterValue("CHORUS_MIX")->load();

@@ -17,15 +17,20 @@ public:
     void setFeedback(float fb);
 
 private:
-    juce::dsp::DelayLine<float> delayLineLeft;
-    juce::dsp::DelayLine<float> delayLineRight;
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLineLeft;
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLineRight;
+
     juce::dsp::IIR::Filter<float> dampingFilterLeft;
     juce::dsp::IIR::Filter<float> dampingFilterRight;
+
+    juce::SmoothedValue<float> smoothedDelayTime;
+    juce::SmoothedValue<float> smoothedMix;
+    juce::SmoothedValue<float> smoothedFeedback;
+
+    juce::dsp::DryWetMixer<float> dryWetMixer;
 
     float delayTimeMs = 250.0f;
     float delayMix = 0.0f;
     float feedback = 0.4f;
-    double sampleRate = 0.0; // Initialize to 0 until prepare() is called
-
-    void updateDelayTime();
+    double sampleRate = 0.0;
 };
