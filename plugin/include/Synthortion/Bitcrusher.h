@@ -25,7 +25,7 @@ private:
     
     float bitCrushMix = 0.0f;
     
-    double sampleRate = 44100.0;
+    double sampleRate = 0.0;  // Set by host via prepare()
     float quantizationStep = 1.0f;
     
     // For sample rate reduction

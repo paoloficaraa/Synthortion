@@ -21,9 +21,6 @@ void WarmDistortion::reset()
         noiseGenerator[ch].setSeedRandomly();
     }
 
-    // Reset analog modeling state
-    samplesSinceReset = 0;
-
     // Reset filter states
     std::fill(std::begin(preEmphState), std::end(preEmphState), 0.0f);
     std::fill(std::begin(postFilterState), std::end(postFilterState), 0.0f);
@@ -117,7 +114,6 @@ void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float> &co
                 applyHighFrequencyExciter(samples[i], driveAmount, channel);
 
                 samples[i] = applySaturation(samples[i], driveAmount, channel);
-                samples[i] = applyBitCrush(samples[i], channel);
 
                 // Add realistic analog noise
                 addAnalogNoise(samples[i], driveAmount, channel);
@@ -146,9 +142,6 @@ void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float> &co
 
             // Apply saturation
             float saturatedSample = applySaturation(inputSample, driveAmount, channel);
-
-            // Apply bit crush effect
-            saturatedSample = applyBitCrush(saturatedSample, channel);
 
             // Add realistic analog noise
             addAnalogNoise(saturatedSample, driveAmount, channel);
@@ -254,25 +247,6 @@ float WarmDistortion::tapeSaturation(float input, float drive)
     // Compensazione volume più conservativa per il tape
     float tapeVolumeCompensation = juce::jmap(drive, 0.0f, 1.0f, 0.95f, 0.80f);
     return output * tapeVolumeCompensation;
-}
-
-float WarmDistortion::applyBitCrush(float input, int channel)
-{
-    // Assicurati che l'indice del canale sia valido
-    int safeChannel = juce::jlimit(0, 1, channel);
-    float effectiveBits = BITCRUSH_BITS;
-
-    // Applica quantizzazione con dither per ridurre artefatti digitali
-    float levels = std::pow(2.0f, effectiveBits) - 1.0f;
-
-    // Aggiungi minimo dither per ridurre artefatti robotici
-    float dither = (noiseGenerator[safeChannel].nextFloat() - 0.5f) * (1.0f / levels) * 0.5f;
-
-    // Quantizza il segnale con dither
-    float crushed = std::round((input + dither) * levels) / levels;
-
-    // Mix con segnale originale
-    return input * (1.0f - BITCRUSH_MIX) + crushed * BITCRUSH_MIX;
 }
 
 void WarmDistortion::addDenormalizationNoise(float &sample, int channel)

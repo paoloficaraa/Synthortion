@@ -86,7 +86,7 @@ private:
     FilterType highCutFilter2; ///< Low-pass filter for high frequencies (second stage for 12dB/oct)
 
     // Processing state
-    double sampleRate = 44100.0;
+    double sampleRate = 0.0;  // Set by host via prepare()
     bool isPrepared = false;
 
     /**

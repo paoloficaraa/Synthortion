@@ -49,7 +49,7 @@ private:
     float peakHoldData[scopeSize];                // Peak hold values like professional analyzers
     int peakHoldTimer[scopeSize];                 // Timer for peak hold decay
     juce::Array<juce::Point<float>> cachedPoints; // Cached points for performance
-    double sampleRate = 44100.0;                  // used for frequency mapping
+    double sampleRate = 0.0;                      // used for frequency mapping (set by host)
 
     // EQ curve visualization
     ParametricEQ *eqReference = nullptr;
@@ -58,7 +58,7 @@ private:
 
     static constexpr float minFreq = 20.0f;
     static constexpr float smoothingFactor = 0.85f;    // Smoothing molto forte per interpolazione fluida
-    static constexpr int peakHoldTime = 45;            // Peak hold più lungo (1.5 secondi at 30fps)
+    static constexpr int peakHoldTime = 45;            // Peak hold più longo (1.5 secondi at 30fps)
     static constexpr float interpolationSpeed = 0.15f; // Velocità di interpolazione per fluidità perfetta
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectrumAnalyzer)

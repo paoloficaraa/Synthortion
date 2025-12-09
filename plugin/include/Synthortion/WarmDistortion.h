@@ -72,13 +72,6 @@ private:
     float tapeSaturation(float input, float drive);
 
     /**
-     * @brief Apply subtle bit crushing effect
-     * @param input Input sample
-     * @return Bit-crushed sample with 14-bit quantization at 15% mix
-     */
-    float applyBitCrush(float input, int channel);
-
-    /**
      * @brief Add denormalization noise to prevent CPU spikes
      * @param sample Reference to sample to modify
      * @param channel Channel index for independent noise generation
@@ -126,10 +119,6 @@ private:
     static constexpr float TAPE_KNEE_THRESHOLD = 0.5f;
     static constexpr float TAPE_COMPRESSION_FACTOR = 2.0f;
 
-    // Bit crush constants
-    static constexpr float BITCRUSH_BITS = 14.0f;
-    static constexpr float BITCRUSH_MIX = 0.05f;
-
     // Denormalization constants
     static constexpr float DENORM_THRESHOLD = 1.0e-20f;
     static constexpr float DENORM_NOISE_LEVEL = 1.0e-35f;
@@ -153,9 +142,6 @@ private:
     float driveAmount = 0.5f;
     bool volumeCompensationEnabled = true;
 
-    // Analog modeling state (simplified for tape)
-    int samplesSinceReset = 0; // Contatore per effetti termici
-
     // Drive-dependent filtering state (simple one-pole filters)
     float preEmphState[2] = {0.0f, 0.0f};    // Pre-emphasis filter state
     float postFilterState[2] = {0.0f, 0.0f}; // Post-filter state
@@ -168,7 +154,7 @@ private:
     juce::LinearSmoothedValue<float> compensationGain{1.0f};
 
     // Audio processing setup
-    double sampleRate = 44100.0;
+    double sampleRate = 0.0;  // Set by host via prepare()
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
     static constexpr int OVERSAMPLING_FACTOR = 3; // 2^3 = 8x oversampling
 
