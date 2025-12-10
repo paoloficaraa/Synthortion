@@ -237,8 +237,11 @@ namespace synthortion
         // Connect spectrum analyzer to audio processor
         // IMPORTANT: This creates a callback that captures 'this'.
         // The callback MUST be cleared in the destructor to prevent crashes.
-        processorRef.setSpectrumAnalyzerCallback([this](float sample)
-                                                 { spectrumAnalyzer.pushNextSampleIntoFifo(sample); });
+        processorRef.setSpectrumAnalyzerCallback([this](const float* data, int numSamples)
+                                                 {
+                                                     for (int i = 0; i < numSamples; ++i)
+                                                         spectrumAnalyzer.pushNextSampleIntoFifo(data[i]);
+                                                 });
 
         setResizable(false, false);
         setSize(720, 490);

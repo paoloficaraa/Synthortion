@@ -41,7 +41,7 @@ private:
     float fifo[fftSize];
     float fftData[2 * fftSize];
     int fifoIndex = 0;
-    bool nextFFTBlockReady = false;
+    std::atomic<bool> nextFFTBlockReady{false};
     float scopeData[scopeSize];
     float smoothedScopeData[scopeSize];           // For temporal smoothing
     float targetScopeData[scopeSize];             // Target values for interpolation

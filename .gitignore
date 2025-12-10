@@ -248,3 +248,4 @@ Temporary Items
 # ==========================================
 
 # Add any project-specific files or directories here
+*.filtergraph

@@ -14,34 +14,30 @@ namespace synthortion
                              ),
           apvts(*this, nullptr, "Parameters", createParameterLayout())
     {
-        apvts.addParameterListener("DRIVE", this);
+        // Cache parameter pointers for fast access
+        driveParam = apvts.getRawParameterValue("DRIVE");
+        inputGainParam = apvts.getRawParameterValue("INPUT_GAIN");
+        outputGainParam = apvts.getRawParameterValue("OUTPUT_GAIN");
+        colorParam = apvts.getRawParameterValue("COLOR");
+        bitCrushParam = apvts.getRawParameterValue("BITCRUSH");
+        dacNoiseParam = apvts.getRawParameterValue("DAC_NOISE");
+        delayTimeParam = apvts.getRawParameterValue("DELAY_TIME");
+        delayMixParam = apvts.getRawParameterValue("DELAY_MIX");
+        delayFeedbackParam = apvts.getRawParameterValue("DELAY_FEEDBACK");
+        chorusMixParam = apvts.getRawParameterValue("CHORUS_MIX");
+        eqBypassParam = apvts.getRawParameterValue("EQ_BYPASS");
+        volumeCompParam = apvts.getRawParameterValue("VOLUME_COMPENSATION");
 
-        apvts.addParameterListener("INPUT_GAIN", this);
-        apvts.addParameterListener("OUTPUT_GAIN", this);
-
-        // apvts.addParameterListener("PRESET", this);
-
-        apvts.addParameterListener("COLOR", this);
-        apvts.addParameterListener("BITCRUSH", this);
-        apvts.addParameterListener("DAC_NOISE", this);
-        apvts.addParameterListener("DELAY_TIME", this);
-        apvts.addParameterListener("DELAY_MIX", this);
-        apvts.addParameterListener("DELAY_FEEDBACK", this);
-        apvts.addParameterListener("CHORUS_MIX", this);
-
-        apvts.addParameterListener("EQ_BYPASS", this);
-        apvts.addParameterListener("LOW_CUT_FREQ", this);
-        apvts.addParameterListener("LOW_CUT_Q", this);
-        apvts.addParameterListener("LOW_MID_FREQ", this);
-        apvts.addParameterListener("LOW_MID_GAIN", this);
-        apvts.addParameterListener("LOW_MID_Q", this);
-        apvts.addParameterListener("HIGH_MID_FREQ", this);
-        apvts.addParameterListener("HIGH_MID_GAIN", this);
-        apvts.addParameterListener("HIGH_MID_Q", this);
-        apvts.addParameterListener("HIGH_CUT_FREQ", this);
-        apvts.addParameterListener("HIGH_CUT_Q", this);
-
-        apvts.addParameterListener("VOLUME_COMPENSATION", this);
+        lowCutFreqParam = apvts.getRawParameterValue("LOW_CUT_FREQ");
+        lowCutQParam = apvts.getRawParameterValue("LOW_CUT_Q");
+        lowMidFreqParam = apvts.getRawParameterValue("LOW_MID_FREQ");
+        lowMidGainParam = apvts.getRawParameterValue("LOW_MID_GAIN");
+        lowMidQParam = apvts.getRawParameterValue("LOW_MID_Q");
+        highMidFreqParam = apvts.getRawParameterValue("HIGH_MID_FREQ");
+        highMidGainParam = apvts.getRawParameterValue("HIGH_MID_GAIN");
+        highMidQParam = apvts.getRawParameterValue("HIGH_MID_Q");
+        highCutFreqParam = apvts.getRawParameterValue("HIGH_CUT_FREQ");
+        highCutQParam = apvts.getRawParameterValue("HIGH_CUT_Q");
     }
 
     AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
@@ -126,10 +122,9 @@ namespace synthortion
         chorus.prepare(spec);
         pingPongDelay.prepare(spec);
 
-        inputRmsLevel.reset(sampleRate, 0.1);
-        outputRmsLevel.reset(sampleRate, 0.1);
-        inputRmsLevel.setCurrentAndTargetValue(-60.0f);
-        outputRmsLevel.setCurrentAndTargetValue(-60.0f);
+        // Reset RMS levels
+        inputRmsLevel.store(-60.0f);
+        outputRmsLevel.store(-60.0f);
 
         const int distortionLatency = juce::jmax(1, warmDistortion.getLatencySamples());
         const int eqLatency = parametricEQ.getLatencySamples();
@@ -162,7 +157,7 @@ namespace synthortion
     }
 
     void AudioPluginAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
-                                                 juce::MidiBuffer &midiMessages)
+        [[maybe_unused]] juce::MidiBuffer &midiMessages)
     {
         juce::ignoreUnused(midiMessages);
 
@@ -174,44 +169,74 @@ namespace synthortion
         for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
             buffer.clear(i, 0, buffer.getNumSamples());
 
-        inputRmsLevel.skip(buffer.getNumSamples());
-        outputRmsLevel.skip(buffer.getNumSamples());
-
-        // Reading parameters
-        float inputGainValue = apvts.getRawParameterValue("INPUT_GAIN")->load();
-        float driveBase = apvts.getRawParameterValue("DRIVE")->load();
-        float color = apvts.getRawParameterValue("COLOR")->load();
+        // Reading parameters using cached pointers (lock-free)
+        float inputGainValue = inputGainParam->load(std::memory_order_relaxed);
+        float driveBase = driveParam->load(std::memory_order_relaxed);
+        float color = colorParam->load(std::memory_order_relaxed);
 
         // COLOR controls effects intensity
         // Drive increases with color (more saturation as color increases)
-        float drive = driveBase + (color * 0.3f); // Adds up to 30% extra drive at full color
+        float drive = driveBase + (color * 0.6f); // Adds up to 60% extra drive at full color
 
         // BitCrush, Delay, Chorus controlled by color as master mix
-        float bitCrushMix = apvts.getRawParameterValue("BITCRUSH")->load() * color;
+        float bitCrushMix = bitCrushParam->load(std::memory_order_relaxed) * color;
         bitCrusher.setBitCrushMix(bitCrushMix);
-        float dacNoise = apvts.getRawParameterValue("DAC_NOISE")->load();
+        
+        float dacNoise = dacNoiseParam->load(std::memory_order_relaxed);
         bitCrusher.setDACNoise(dacNoise);
-        float delayTime = apvts.getRawParameterValue("DELAY_TIME")->load();
-        float delayMix = apvts.getRawParameterValue("DELAY_MIX")->load() * color;
-        float delayFeedback = apvts.getRawParameterValue("DELAY_FEEDBACK")->load();
-        float chorusMix = apvts.getRawParameterValue("CHORUS_MIX")->load() * color;
-        float outputGainValue = apvts.getRawParameterValue("OUTPUT_GAIN")->load();
-        bool eqBypass = apvts.getRawParameterValue("EQ_BYPASS")->load() > 0.5f;
+        
+        float delayTime = delayTimeParam->load(std::memory_order_relaxed);
+        float delayMix = delayMixParam->load(std::memory_order_relaxed) * color;
+        float delayFeedback = delayFeedbackParam->load(std::memory_order_relaxed);
+        
+        float chorusMix = chorusMixParam->load(std::memory_order_relaxed) * color;
+        float outputGainValue = outputGainParam->load(std::memory_order_relaxed);
+        bool eqBypass = eqBypassParam->load(std::memory_order_relaxed) > 0.5f;
+        bool volumeComp = volumeCompParam->load(std::memory_order_relaxed) > 0.5f;
+
+        // Update EQ parameters
+        // Note: In a highly optimized plugin, we would check if these changed before updating
+        // but for this scale, updating per block is acceptable and safer than per-sample.
+        auto lowCutFreq = juce::jlimit(0.0f, 1000.0f, lowCutFreqParam->load(std::memory_order_relaxed));
+        auto lowCutQ = juce::jlimit(0.025f, 40.0f, lowCutQParam->load(std::memory_order_relaxed));
+        parametricEQ.setLowCut(lowCutFreq, lowCutQ, lowCutFreq > 0.0f);
+
+        auto lowMidFreq = juce::jlimit(100.0f, 2000.0f, lowMidFreqParam->load(std::memory_order_relaxed));
+        auto lowMidGain = juce::jlimit(-15.0f, 15.0f, lowMidGainParam->load(std::memory_order_relaxed));
+        auto lowMidQ = juce::jlimit(0.025f, 40.0f, lowMidQParam->load(std::memory_order_relaxed));
+        parametricEQ.setLowMid(lowMidFreq, lowMidGain, lowMidQ);
+
+        auto highMidFreq = juce::jlimit(1000.0f, 8000.0f, highMidFreqParam->load(std::memory_order_relaxed));
+        auto highMidGain = juce::jlimit(-15.0f, 15.0f, highMidGainParam->load(std::memory_order_relaxed));
+        auto highMidQ = juce::jlimit(0.025f, 40.0f, highMidQParam->load(std::memory_order_relaxed));
+        parametricEQ.setHighMid(highMidFreq, highMidGain, highMidQ);
+
+        auto highCutFreq = juce::jlimit(5000.0f, 20000.0f, highCutFreqParam->load(std::memory_order_relaxed));
+        auto highCutQ = juce::jlimit(0.025f, 40.0f, highCutQParam->load(std::memory_order_relaxed));
+        parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq < 20000.0f);
 
         // INPUT GAIN
         float inputGainLinear = juce::Decibels::decibelsToGain(inputGainValue);
         buffer.applyGain(inputGainLinear);
 
+        // Calculate Input RMS
         float inputRms = 0.0f;
         for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
             inputRms += buffer.getRMSLevel(ch, 0, buffer.getNumSamples());
         inputRms /= static_cast<float>(buffer.getNumChannels());
-        inputRmsLevel.setTargetValue(juce::Decibels::gainToDecibels(inputRms, -60.0f));
+        
+        // Smooth the RMS value for display (simple IIR)
+        float currentInputDb = inputRmsLevel.load(std::memory_order_relaxed);
+        float targetInputDb = juce::Decibels::gainToDecibels(inputRms, -60.0f);
+        // Smoothing factor: 0.1 roughly corresponds to the previous behavior
+        inputRmsLevel.store(currentInputDb * 0.9f + targetInputDb * 0.1f, std::memory_order_relaxed);
 
         // WARM DISTORTION
         juce::dsp::AudioBlock<float> block(buffer);
         juce::dsp::ProcessContextReplacing<float> context(block);
+        
         warmDistortion.setDrive(drive);
+        warmDistortion.setVolumeCompensation(volumeComp);
         warmDistortion.process(context);
 
         bitCrusher.process(buffer);
@@ -236,19 +261,23 @@ namespace synthortion
         float outputGainLinear = juce::Decibels::decibelsToGain(outputGainValue);
         buffer.applyGain(outputGainLinear);
 
+        // Calculate Output RMS
         float outputRms = 0.0f;
         for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
             outputRms += buffer.getRMSLevel(ch, 0, buffer.getNumSamples());
         outputRms /= static_cast<float>(buffer.getNumChannels());
-        outputRmsLevel.setTargetValue(juce::Decibels::gainToDecibels(outputRms, -60.0f));
+        
+        float currentOutputDb = outputRmsLevel.load(std::memory_order_relaxed);
+        float targetOutputDb = juce::Decibels::gainToDecibels(outputRms, -60.0f);
+        outputRmsLevel.store(currentOutputDb * 0.9f + targetOutputDb * 0.1f, std::memory_order_relaxed);
 
         // Spectrum analyzer callback
+        // Optimized: Pass the whole buffer pointer instead of per-sample callback
         auto callback = spectrumAnalyzerCallback;
         if (callback && buffer.getNumChannels() > 0)
         {
-            auto *channelData = buffer.getReadPointer(0);
-            for (int i = 0; i < buffer.getNumSamples(); ++i)
-                callback(channelData[i]);
+            // Use the first channel (mono sum would be better but this is standard)
+            callback(buffer.getReadPointer(0), buffer.getNumSamples());
         }
     }
 
@@ -319,126 +348,57 @@ namespace synthortion
         }
     }
 
-    void AudioPluginAudioProcessor::parameterChanged(const juce::String &parameterID, float newValue)
-    {
-        // Validate parameter value
-        if (!std::isfinite(newValue))
-        {
-            DBG("Warning: Non-finite parameter value for " << parameterID);
-            return; // Skip invalid parameter changes
-        }
-
-        try
-        {
-            if (parameterID == "DRIVE")
-            {
-                float validDrive = juce::jlimit(0.0f, 1.0f, newValue);
-                warmDistortion.setDrive(validDrive);
-            }
-            // else if (parameterID == "PRESET")
-            // {
-            //     loadPreset(static_cast<int>(newValue));
-            // }
-            else if (parameterID == "BITCRUSH")
-            {
-                bitCrusher.setBitCrushMix(newValue);
-            }
-            else if (parameterID == "DELAY_TIME")
-            {
-                pingPongDelay.setDelayTime(newValue);
-            }
-            else if (parameterID == "DELAY_FEEDBACK")
-            {
-                pingPongDelay.setFeedback(newValue);
-            }
-            else if (parameterID == "LOW_CUT_FREQ" || parameterID == "LOW_CUT_Q")
-            {
-                auto lowCutFreq = juce::jlimit(0.0f, 1000.0f, apvts.getRawParameterValue("LOW_CUT_FREQ")->load());
-                auto lowCutQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("LOW_CUT_Q")->load());
-                parametricEQ.setLowCut(lowCutFreq, lowCutQ, lowCutFreq > 0.0f);
-            }
-            else if (parameterID == "LOW_MID_FREQ" || parameterID == "LOW_MID_GAIN" || parameterID == "LOW_MID_Q")
-            {
-                auto lowMidFreq = juce::jlimit(100.0f, 2000.0f, apvts.getRawParameterValue("LOW_MID_FREQ")->load());
-                auto lowMidGain = juce::jlimit(-15.0f, 15.0f, apvts.getRawParameterValue("LOW_MID_GAIN")->load());
-                auto lowMidQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("LOW_MID_Q")->load());
-                parametricEQ.setLowMid(lowMidFreq, lowMidGain, lowMidQ);
-            }
-            else if (parameterID == "HIGH_MID_FREQ" || parameterID == "HIGH_MID_GAIN" || parameterID == "HIGH_MID_Q")
-            {
-                auto highMidFreq = juce::jlimit(1000.0f, 8000.0f, apvts.getRawParameterValue("HIGH_MID_FREQ")->load());
-                auto highMidGain = juce::jlimit(-15.0f, 15.0f, apvts.getRawParameterValue("HIGH_MID_GAIN")->load());
-                auto highMidQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("HIGH_MID_Q")->load());
-                parametricEQ.setHighMid(highMidFreq, highMidGain, highMidQ);
-            }
-            else if (parameterID == "HIGH_CUT_FREQ" || parameterID == "HIGH_CUT_Q")
-            {
-                auto highCutFreq = juce::jlimit(5000.0f, 20000.0f, apvts.getRawParameterValue("HIGH_CUT_FREQ")->load());
-                auto highCutQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("HIGH_CUT_Q")->load());
-                parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq < 20000.0f);
-            }
-            else if (parameterID == "VOLUME_COMPENSATION")
-            {
-                bool enabled = newValue > 0.5f;
-                warmDistortion.setVolumeCompensation(enabled);
-            }
-        }
-        catch (const std::exception &e)
-        {
-            DBG("Error processing parameter change for " << parameterID << ": " << e.what());
-            (void)e; // Suppress unused variable warning
-        }
-    }
-
     void AudioPluginAudioProcessor::updateDSPParameters()
     {
         try
         {
             // Update distortion parameters
-            auto drive = juce::jlimit(0.0f, 1.0f, apvts.getRawParameterValue("DRIVE")->load());
+            auto driveBase = driveParam->load();
+            auto color = colorParam->load();
+            auto drive = driveBase + (color * 0.6f);
             warmDistortion.setDrive(drive);
 
-            auto volumeComp = apvts.getRawParameterValue("VOLUME_COMPENSATION")->load() > 0.5f;
+            auto volumeComp = volumeCompParam->load() > 0.5f;
             warmDistortion.setVolumeCompensation(volumeComp);
 
             // BitCrusher
-            auto bitcrushMix = apvts.getRawParameterValue("BITCRUSH")->load();
+            auto bitcrushMix = bitCrushParam->load();
             bitCrusher.setBitCrushMix(bitcrushMix);
 
-            auto dacNoise = apvts.getRawParameterValue("DAC_NOISE")->load();
+            auto dacNoise = dacNoiseParam->load();
             bitCrusher.setDACNoise(dacNoise);
 
             // Delay
-            auto delayTime = apvts.getRawParameterValue("DELAY_TIME")->load();
+            auto delayTime = delayTimeParam->load();
             pingPongDelay.setDelayTime(delayTime);
 
-            auto delayMix = apvts.getRawParameterValue("DELAY_MIX")->load();
+            auto delayMix = delayMixParam->load();
             pingPongDelay.setDelayMix(delayMix);
 
-            auto delayFeedback = apvts.getRawParameterValue("DELAY_FEEDBACK")->load();
+            auto delayFeedback = delayFeedbackParam->load();
             pingPongDelay.setFeedback(delayFeedback);
 
             // Chorus
-            auto chorusMix = apvts.getRawParameterValue("CHORUS_MIX")->load();
+            auto chorusMix = chorusMixParam->load();
             chorus.setChorusMix(chorusMix);
 
             // Update EQ parameters
-            auto lowCutFreq = juce::jlimit(0.0f, 1000.0f, apvts.getRawParameterValue("LOW_CUT_FREQ")->load());
-            auto lowCutQ = juce::jlimit(0.1f, 10.0f, apvts.getRawParameterValue("LOW_CUT_Q")->load());
+            auto lowCutFreq = juce::jlimit(0.0f, 1000.0f, lowCutFreqParam->load());
+            auto lowCutQ = juce::jlimit(0.1f, 10.0f, lowCutQParam->load());
             parametricEQ.setLowCut(lowCutFreq, lowCutQ, lowCutFreq > 0.0f);
 
-            auto lowMidFreq = juce::jlimit(100.0f, 2000.0f, apvts.getRawParameterValue("LOW_MID_FREQ")->load());
-            auto lowMidGain = juce::jlimit(-15.0f, 15.0f, apvts.getRawParameterValue("LOW_MID_GAIN")->load());
-            auto lowMidQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("LOW_MID_Q")->load());
+            auto lowMidFreq = juce::jlimit(100.0f, 2000.0f, lowMidFreqParam->load());
+            auto lowMidGain = juce::jlimit(-15.0f, 15.0f, lowMidGainParam->load());
+            auto lowMidQ = juce::jlimit(0.025f, 40.0f, lowMidQParam->load());
             parametricEQ.setLowMid(lowMidFreq, lowMidGain, lowMidQ);
 
-            auto highMidFreq = juce::jlimit(1000.0f, 8000.0f, apvts.getRawParameterValue("HIGH_MID_FREQ")->load());
-            auto highMidGain = juce::jlimit(-15.0f, 15.0f, apvts.getRawParameterValue("HIGH_MID_GAIN")->load());
-            auto highMidQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("HIGH_MID_Q")->load());
+            auto highMidFreq = juce::jlimit(1000.0f, 8000.0f, highMidFreqParam->load());
+            auto highMidGain = juce::jlimit(-15.0f, 15.0f, highMidGainParam->load());
+            auto highMidQ = juce::jlimit(0.025f, 40.0f, highMidQParam->load());
             parametricEQ.setHighMid(highMidFreq, highMidGain, highMidQ);
 
-            auto highCutFreq = juce::jlimit(5000.0f, 20000.0f, apvts.getRawParameterValue("HIGH_CUT_FREQ")->load());
-            auto highCutQ = juce::jlimit(0.025f, 40.0f, apvts.getRawParameterValue("HIGH_CUT_Q")->load());
+            auto highCutFreq = juce::jlimit(5000.0f, 20000.0f, highCutFreqParam->load());
+            auto highCutQ = juce::jlimit(0.025f, 40.0f, highCutQParam->load());
             parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq < 20000.0f);
 
             DBG("DSP parameters synchronized on initialization");

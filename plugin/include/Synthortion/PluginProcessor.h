@@ -22,8 +22,7 @@ namespace synthortion
      * - Input/output level metering
      * - Full parameter automation support
      */
-    class AudioPluginAudioProcessor final : public juce::AudioProcessor,
-                                            public juce::AudioProcessorValueTreeState::Listener
+    class AudioPluginAudioProcessor final : public juce::AudioProcessor
     {
     public:
         //==============================================================================
@@ -66,19 +65,18 @@ namespace synthortion
         juce::AudioProcessorValueTreeState apvts;
 
         //==============================================================================
-        void parameterChanged(const juce::String &parameterID, float newValue) override;
-
         // Force update all DSP parameters (used during initialization)
         void updateDSPParameters();
 
         // Spectrum analyzer callback for real-time visualization
-        std::function<void(float)> spectrumAnalyzerCallback;
+        // Optimized to pass a block of samples instead of per-sample calls
+        std::function<void(const float*, int)> spectrumAnalyzerCallback;
 
         /**
          * @brief Set callback function for spectrum analyzer
          * @param callback Function to receive audio samples for analysis
          */
-        void setSpectrumAnalyzerCallback(std::function<void(float)> callback)
+        void setSpectrumAnalyzerCallback(std::function<void(const float*, int)> callback)
         {
             spectrumAnalyzerCallback = std::move(callback);
         }
@@ -93,13 +91,13 @@ namespace synthortion
          * @brief Get current input RMS level in dB
          * @return Input level [-60.0 to 0.0] dB
          */
-        float getInputRmsLevel() const { return inputRmsLevel.getCurrentValue(); }
+        float getInputRmsLevel() const { return inputRmsLevel.load(std::memory_order_relaxed); }
 
         /**
          * @brief Get current output RMS level in dB
          * @return Output level [-60.0 to 0.0] dB
          */
-        float getOutputRmsLevel() const { return outputRmsLevel.getCurrentValue(); }
+        float getOutputRmsLevel() const { return outputRmsLevel.load(std::memory_order_relaxed); }
 
     private:
         //==============================================================================
@@ -116,13 +114,39 @@ namespace synthortion
         // Global dry/wet mixer (applied at end of chain)
         juce::dsp::DryWetMixer<float> globalDryWet;
 
-        // RMS level tracking for meters (smoothed values in dB)
-        juce::LinearSmoothedValue<float> inputRmsLevel{-60.0f};
-        juce::LinearSmoothedValue<float> outputRmsLevel{-60.0f};
+        // RMS level tracking for meters (atomic for thread safety)
+        std::atomic<float> inputRmsLevel{-60.0f};
+        std::atomic<float> outputRmsLevel{-60.0f};
 
         SynthortionChorus chorus;
         PingPongDelay pingPongDelay;
         BitCrusher bitCrusher;
+
+        // Cached parameter pointers for fast access in processBlock
+        std::atomic<float>* driveParam = nullptr;
+        std::atomic<float>* inputGainParam = nullptr;
+        std::atomic<float>* outputGainParam = nullptr;
+        std::atomic<float>* colorParam = nullptr;
+        std::atomic<float>* bitCrushParam = nullptr;
+        std::atomic<float>* dacNoiseParam = nullptr;
+        std::atomic<float>* delayTimeParam = nullptr;
+        std::atomic<float>* delayMixParam = nullptr;
+        std::atomic<float>* delayFeedbackParam = nullptr;
+        std::atomic<float>* chorusMixParam = nullptr;
+        std::atomic<float>* eqBypassParam = nullptr;
+        std::atomic<float>* volumeCompParam = nullptr;
+
+        // EQ Parameters
+        std::atomic<float>* lowCutFreqParam = nullptr;
+        std::atomic<float>* lowCutQParam = nullptr;
+        std::atomic<float>* lowMidFreqParam = nullptr;
+        std::atomic<float>* lowMidGainParam = nullptr;
+        std::atomic<float>* lowMidQParam = nullptr;
+        std::atomic<float>* highMidFreqParam = nullptr;
+        std::atomic<float>* highMidGainParam = nullptr;
+        std::atomic<float>* highMidQParam = nullptr;
+        std::atomic<float>* highCutFreqParam = nullptr;
+        std::atomic<float>* highCutQParam = nullptr;
 
         // Add preset loading method
         //void loadPreset(int presetIndex);
