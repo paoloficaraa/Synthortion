@@ -2,10 +2,10 @@
 
 SynthortionChorus::SynthortionChorus()
 {
-    chorus.setCentreDelay(3.33f);
-    chorus.setDepth(0.47f);
-    chorus.setRate(1.06f);
-    chorus.setFeedback(0.33f);
+    chorus.setCentreDelay(15.02500f);
+    chorus.setDepth(2.25f);
+    chorus.setRate(0.45f);
+    chorus.setFeedback(0.0f);
     chorus.setMix(1.0f);
 }
 
