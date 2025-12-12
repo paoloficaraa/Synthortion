@@ -17,8 +17,7 @@ public:
     void setFeedback(float fb);
 
 private:
-    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLineLeft;
-    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLineRight;
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine;
 
     juce::dsp::IIR::Filter<float> dampingFilterLeft;
     juce::dsp::IIR::Filter<float> dampingFilterRight;

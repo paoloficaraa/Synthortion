@@ -19,13 +19,13 @@ public:
 private:
     float sampleRateReduction = 6000.0f;  // Rate: downsample to 6kHz
     float bitDepth = 8.0f;                // Bits: 8-bit quantization
-    float ditherAmount = 0.3f;            // Dither: noise to reduce quantization
+    float ditherAmount = 0.4f;            // Dither: noise to reduce quantization
     float adcQuality = 0.95f;             // ADC Q: analog-to-digital quality (0-1)
     float dacNoiseAmount = 0.0f;          // DAC Q: digital-to-analog quality (0-1)
     
     float bitCrushMix = 0.0f;
     
-    double sampleRate = 0.0;  // Set by host via prepare()
+    double sampleRate = 0.0;
     float quantizationStep = 1.0f;
     
     // For sample rate reduction

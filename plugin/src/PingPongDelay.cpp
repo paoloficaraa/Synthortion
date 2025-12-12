@@ -2,9 +2,6 @@
 
 PingPongDelay::PingPongDelay()
 {
-    dampingFilterLeft.coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(44100.0, 8000.0f);
-    dampingFilterRight.coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(44100.0, 8000.0f);
-
     smoothedDelayTime.setCurrentAndTargetValue(250.0f);
     smoothedMix.setCurrentAndTargetValue(0.0f);
     smoothedFeedback.setCurrentAndTargetValue(0.4f);
@@ -15,16 +12,15 @@ void PingPongDelay::prepare(const juce::dsp::ProcessSpec &spec)
     sampleRate = spec.sampleRate;
 
     int maxDelaySamples = static_cast<int>(sampleRate * 2.0);
-    delayLineLeft.setMaximumDelayInSamples(maxDelaySamples);
-    delayLineRight.setMaximumDelayInSamples(maxDelaySamples);
+    delayLine.setMaximumDelayInSamples(maxDelaySamples);
 
-    delayLineLeft.prepare(spec);
-    delayLineRight.prepare(spec);
+    delayLine.prepare(spec);
 
     dampingFilterLeft.prepare(spec);
     dampingFilterRight.prepare(spec);
-    dampingFilterLeft.coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 8000.0f);
-    dampingFilterRight.coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 8000.0f);
+    auto coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 12000.0f);
+    dampingFilterLeft.coefficients = coefficients;
+    dampingFilterRight.coefficients = coefficients;
 
     dryWetMixer.prepare(spec);
     dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
@@ -52,27 +48,26 @@ void PingPongDelay::process(juce::AudioBuffer<float> &buffer)
 
         // Convert delay time to samples
         float delaySamples = (currentDelayMs * static_cast<float>(sampleRate)) / 1000.0f;
-        delaySamples = juce::jlimit(1.0f, static_cast<float>(delayLineLeft.getMaximumDelayInSamples() - 2), delaySamples);
+        delaySamples = juce::jlimit(1.0f, static_cast<float>(delayLine.getMaximumDelayInSamples() - 2), delaySamples);
 
         // Set delay for both lines
-        delayLineLeft.setDelay(delaySamples);
-        delayLineRight.setDelay(delaySamples);
+        delayLine.setDelay(delaySamples);
 
         // Read delayed signals
-        float delayedLeft = delayLineLeft.popSample(0);
-        float delayedRight = delayLineRight.popSample(1);
+        float delayedLeft = delayLine.popSample(0);
+        float delayedRight = delayLine.popSample(1);
 
         // Apply damping
-        delayedLeft = dampingFilterLeft.processSample(delayedLeft);
-        delayedRight = dampingFilterRight.processSample(delayedRight);
+        float feedbackLeft = dampingFilterLeft.processSample(delayedLeft);
+        float feedbackRight = dampingFilterRight.processSample(delayedRight);
 
         // Ping-pong: left feedback goes to right, right goes to left
-        float leftInput = leftChannel[i] + (delayedRight * currentFeedback);
-        float rightInput = rightChannel[i] + (delayedLeft * currentFeedback);
+        float leftInput = leftChannel[i] + (feedbackRight * currentFeedback);
+        float rightInput = rightChannel[i] + (feedbackLeft * currentFeedback);
 
         // Push to delay lines
-        delayLineLeft.pushSample(0, leftInput);
-        delayLineRight.pushSample(1, rightInput);
+        delayLine.pushSample(0, leftInput);
+        delayLine.pushSample(1, rightInput);
 
         // Write delayed output
         leftChannel[i] = delayedLeft;
@@ -87,8 +82,6 @@ void PingPongDelay::process(juce::AudioBuffer<float> &buffer)
 
 void PingPongDelay::reset()
 {
-    // delayLineLeft.reset();
-    // delayLineRight.reset();
     dampingFilterLeft.reset();
     dampingFilterRight.reset();
     dryWetMixer.reset();

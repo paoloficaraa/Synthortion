@@ -108,7 +108,7 @@ float BitCrusher::applyDither(float sample)
 
 float BitCrusher::applyADCNoise(float sample)
 {
-    float noiseAmount = (1.0f - adcQuality) * 0.005f; // Ridotto a 0.005f per minima degradazione
+    float noiseAmount = (1.0f - adcQuality) * 0.005f;
     float noise = distribution(randomEngine) * noiseAmount;
     return sample + noise;
 }
