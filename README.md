@@ -21,8 +21,8 @@ Synthortion is a high-quality audio plugin combining vintage-inspired tape satur
 - **Automatic Volume Compensation**: Maintains perceived loudness across drive settings
 
 ### 🎨 Creative Effects Chain
-- **BitCrusher**: Vintage digital character with controllable bit depth reduction and DAC noise
-- **Ping-Pong Delay**: Stereo delay with damping filters and smooth parameter modulation
+- **BitCrusher**: Vintage digital character with controllable mix and DAC noise
+- **Ping-Pong Delay**: Stereo delay with **feedback loop damping** for natural tape-echo style decay and smooth parameter modulation
 - **Chorus**: Rich modulation for width and movement
 - **Color Control**: Master effects intensity knob for quick workflow
 
@@ -190,7 +190,7 @@ Input → Input Gain → Warm Distortion → BitCrusher → Parametric EQ → Ch
 | `WarmDistortion` | Tape saturation with oversampling, drive-dependent filtering, and high-frequency exciter |
 | `BitCrusher` | Digital degradation with sample rate reduction, bit depth reduction, and DAC noise |
 | `ParametricEQ` | 4-band IIR filter with frequency response visualization |
-| `PingPongDelay` | Stereo delay with damping filters and smooth parameter modulation |
+| `PingPongDelay` |  Stereo delay with **feedback-only damping** (preserving initial transient clarity) and smooth parameter modulation |
 | `SynthortionChorus` | Modulation effect with dry/wet mixing |
 | `SpectrumAnalyzer` | Real-time FFT analysis with peak hold and EQ curve overlay |
 | `VerticalDiscreteMeter` | LED-style RMS level meters |
