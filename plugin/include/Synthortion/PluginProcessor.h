@@ -111,8 +111,9 @@ namespace synthortion
         WarmDistortion warmDistortion;
         ParametricEQ parametricEQ;
 
-        // Global dry/wet mixer (applied at end of chain)
+        // Global dry/wet mixer with latency compensation (applied at end of chain)
         juce::dsp::DryWetMixer<float> globalDryWet;
+        juce::AudioBuffer<float> delayMatchedDryBuffer; // Buffer for latency-compensated dry signal
 
         // RMS level tracking for meters (atomic for thread safety)
         std::atomic<float> inputRmsLevel{-60.0f};
@@ -147,6 +148,18 @@ namespace synthortion
         std::atomic<float>* highMidQParam = nullptr;
         std::atomic<float>* highCutFreqParam = nullptr;
         std::atomic<float>* highCutQParam = nullptr;
+
+        // Parameter smoothers for critical audio-quality parameters (eliminates clicks/pops)
+        // NOTE: Color is NOT smoothed - instant response required for phase-accurate dry/wet mixing
+        juce::SmoothedValue<float> driveSmoother;
+        juce::SmoothedValue<float> inputGainSmoother;
+        juce::SmoothedValue<float> outputGainSmoother;
+        
+        // Bypass state tracking (instant switching)
+        bool previousEqBypassState = false;
+        
+        // Dynamic latency tracking
+        std::atomic<int> currentTotalLatency{0};
 
         // Add preset loading method
         //void loadPreset(int presetIndex);

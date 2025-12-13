@@ -122,13 +122,42 @@ namespace synthortion
         chorus.prepare(spec);
         pingPongDelay.prepare(spec);
 
+        // Prepare global dry/wet mixer with larger buffer for latency compensation
+        juce::dsp::ProcessSpec globalMixerSpec = spec;
+        globalMixerSpec.maximumBlockSize = spec.maximumBlockSize * 4; // Margin for latency
+        globalDryWet.prepare(globalMixerSpec);
+        globalDryWet.setMixingRule(juce::dsp::DryWetMixingRule::linear);
+        globalDryWet.reset();
+
+        // Prepare dry buffer for latency-matched signal
+        delayMatchedDryBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
+        delayMatchedDryBuffer.clear();
+
+        // Initialize parameter smoothers for audio-quality parameters (0.05s ramp time)
+        // NOTE: Color is NOT smoothed - it needs instant response for phase-accurate mixing
+        const float rampTimeSeconds = 0.05f;
+        
+        driveSmoother.reset(sampleRate, rampTimeSeconds);
+        driveSmoother.setCurrentAndTargetValue(driveParam->load());
+        
+        inputGainSmoother.reset(sampleRate, rampTimeSeconds);
+        inputGainSmoother.setCurrentAndTargetValue(inputGainParam->load());
+        
+        outputGainSmoother.reset(sampleRate, rampTimeSeconds);
+        outputGainSmoother.setCurrentAndTargetValue(outputGainParam->load());
+
+        // Initialize bypass state (instant switching)
+        previousEqBypassState = eqBypassParam->load() > 0.5f;
+
         // Reset RMS levels
         inputRmsLevel.store(-60.0f);
         outputRmsLevel.store(-60.0f);
 
+        // Calculate initial latency
         const int distortionLatency = juce::jmax(1, warmDistortion.getLatencySamples());
         const int eqLatency = parametricEQ.getLatencySamples();
         const int totalLatency = distortionLatency + eqLatency;
+        currentTotalLatency.store(totalLatency);
         setLatencySamples(totalLatency);
 
         updateDSPParameters();
@@ -169,10 +198,18 @@ namespace synthortion
         for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
             buffer.clear(i, 0, buffer.getNumSamples());
 
-        // Reading parameters using cached pointers (lock-free)
-        float inputGainValue = inputGainParam->load(std::memory_order_relaxed);
-        float driveBase = driveParam->load(std::memory_order_relaxed);
-        float color = colorParam->load(std::memory_order_relaxed);
+        // ===== INSTANT COLOR READING: No smoothing for phase-accurate response =====
+        float color = colorParam->load(std::memory_order_relaxed); // INSTANT - no ramp!
+        
+        // ===== PARAMETER SMOOTHING: Only for audio-quality parameters (prevents clicks) =====
+        driveSmoother.setTargetValue(driveParam->load(std::memory_order_relaxed));
+        inputGainSmoother.setTargetValue(inputGainParam->load(std::memory_order_relaxed));
+        outputGainSmoother.setTargetValue(outputGainParam->load(std::memory_order_relaxed));
+
+        // Get smoothed values for this block
+        float driveBase = driveSmoother.getNextValue();
+        float inputGainValue = inputGainSmoother.getNextValue();
+        float outputGainValue = outputGainSmoother.getNextValue();
 
         // COLOR controls effects intensity
         // Drive increases with color (more saturation as color increases)
@@ -190,9 +227,10 @@ namespace synthortion
         float delayFeedback = delayFeedbackParam->load(std::memory_order_relaxed);
         
         float chorusMix = chorusMixParam->load(std::memory_order_relaxed) * color;
-        float outputGainValue = outputGainParam->load(std::memory_order_relaxed);
-        bool eqBypass = eqBypassParam->load(std::memory_order_relaxed) > 0.5f;
         bool volumeComp = volumeCompParam->load(std::memory_order_relaxed) > 0.5f;
+
+        // ===== INSTANT EQ BYPASS: No ramping for immediate phase response =====
+        bool currentEqBypassState = eqBypassParam->load(std::memory_order_relaxed) > 0.5f;
 
         // Update EQ parameters
         // Note: In a highly optimized plugin, we would check if these changed before updating
@@ -215,7 +253,7 @@ namespace synthortion
         auto highCutQ = juce::jlimit(0.025f, 40.0f, highCutQParam->load(std::memory_order_relaxed));
         parametricEQ.setHighCut(highCutFreq, highCutQ, highCutFreq < 20000.0f);
 
-        // INPUT GAIN
+        // INPUT GAIN (smoothed)
         float inputGainLinear = juce::Decibels::decibelsToGain(inputGainValue);
         buffer.applyGain(inputGainLinear);
 
@@ -228,8 +266,10 @@ namespace synthortion
         // Smooth the RMS value for display (simple IIR)
         float currentInputDb = inputRmsLevel.load(std::memory_order_relaxed);
         float targetInputDb = juce::Decibels::gainToDecibels(inputRms, -60.0f);
-        // Smoothing factor: 0.1 roughly corresponds to the previous behavior
         inputRmsLevel.store(currentInputDb * 0.9f + targetInputDb * 0.1f, std::memory_order_relaxed);
+
+        // ===== COPY DRY SIGNAL BEFORE PROCESSING (for latency compensation) =====
+        delayMatchedDryBuffer.makeCopyOf(buffer);
 
         // WARM DISTORTION
         juce::dsp::AudioBlock<float> block(buffer);
@@ -241,11 +281,12 @@ namespace synthortion
 
         bitCrusher.process(buffer);
 
-        // PARAMETRIC EQ
-        if (!eqBypass)
+        // ===== PARAMETRIC EQ WITH INSTANT BYPASS (NO CROSSFADE) =====
+        if (!currentEqBypassState) // Process EQ only if NOT bypassed
         {
             parametricEQ.process(context);
         }
+        // When bypassed, signal passes through unprocessed (instant, phase-correct)
 
         // CHORUS
         chorus.setChorusMix(chorusMix);
@@ -257,7 +298,7 @@ namespace synthortion
         pingPongDelay.setFeedback(delayFeedback);
         pingPongDelay.process(buffer);
 
-        // OUTPUT GAIN
+        // OUTPUT GAIN (smoothed)
         float outputGainLinear = juce::Decibels::decibelsToGain(outputGainValue);
         buffer.applyGain(outputGainLinear);
 
@@ -270,6 +311,31 @@ namespace synthortion
         float currentOutputDb = outputRmsLevel.load(std::memory_order_relaxed);
         float targetOutputDb = juce::Decibels::gainToDecibels(outputRms, -60.0f);
         outputRmsLevel.store(currentOutputDb * 0.9f + targetOutputDb * 0.1f, std::memory_order_relaxed);
+
+        // ===== GLOBAL DRY/WET MIX WITH LATENCY COMPENSATION =====
+        // Calculate total latency from all active processors
+        const int distortionLatency = warmDistortion.getLatencySamples();
+        const int eqLatency = currentEqBypassState ? 0 : parametricEQ.getLatencySamples();
+        const int totalLatency = distortionLatency + eqLatency;
+        
+        // Update reported latency if changed (dynamic latency reporting)
+        if (totalLatency != currentTotalLatency.load())
+        {
+            currentTotalLatency.store(totalLatency);
+            setLatencySamples(totalLatency);
+        }
+        
+        // Set the latency compensation in the mixer
+        globalDryWet.setWetLatency(static_cast<float>(totalLatency));
+        
+        // When color is 0, the mix should be 100% dry (no effects)
+        globalDryWet.setWetMixProportion(colorParam->load(std::memory_order_relaxed));
+        
+        // Push the dry signal into the mixer's internal delay buffer
+        globalDryWet.pushDrySamples(juce::dsp::AudioBlock<float>(delayMatchedDryBuffer));
+        
+        // Mix the processed (wet) signal with the latency-compensated dry signal
+        globalDryWet.mixWetSamples(block);
 
         // Spectrum analyzer callback
         // Optimized: Pass the whole buffer pointer instead of per-sample callback
