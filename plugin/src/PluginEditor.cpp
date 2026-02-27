@@ -16,14 +16,7 @@ namespace synthortion
     {
         setLookAndFeel(&lookAndFeel);
 
-        // Color Knob (large central knob - master effects mix)
-        driveKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        driveKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                      juce::MathConstants<float>::pi * 2.75f,
-                                      true);
-        driveKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        driveKnob.setVelocityBasedMode(true);
-        driveKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
+        setupKnob(driveKnob);
         addAndMakeVisible(driveKnob);
         driveAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "COLOR", driveKnob);
         driveLabel.setText("", juce::dontSendNotification);
@@ -32,123 +25,20 @@ namespace synthortion
         driveLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
         addAndMakeVisible(driveLabel);
 
-        // Input Gain Knob (left side)
-        inputGainKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        inputGainKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                          juce::MathConstants<float>::pi * 2.75f,
-                                          true);
-        inputGainKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        inputGainKnob.setVelocityBasedMode(true);
-        inputGainKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
+        setupKnob(inputGainKnob);
         addAndMakeVisible(inputGainKnob);
         inputGainAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "INPUT_GAIN", inputGainKnob);
 
-        // Output Gain Knob (right side)
-        outputGainKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        outputGainKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                           juce::MathConstants<float>::pi * 2.75f,
-                                           true);
-        outputGainKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        outputGainKnob.setVelocityBasedMode(true);
-        outputGainKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
+        setupKnob(outputGainKnob);
         addAndMakeVisible(outputGainKnob);
         outputGainAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "OUTPUT_GAIN", outputGainKnob);
 
-        // DAC Noise Knob (sostituisce il vecchio noise knob)
-        noiseKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        noiseKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                      juce::MathConstants<float>::pi * 2.75f,
-                                      true);
-        noiseKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        noiseKnob.setVelocityBasedMode(true);
-        noiseKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
-        addAndMakeVisible(noiseKnob);
-        noiseAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "DAC_NOISE", noiseKnob);
-        noiseLabel.setText("", juce::dontSendNotification);
-        noiseLabel.setJustificationType(juce::Justification::centred);
-        noiseLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
-        noiseLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(noiseLabel);
-
-        // BitCrush Knob
-        bitCrushKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        bitCrushKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                         juce::MathConstants<float>::pi * 2.75f,
-                                         true);
-        bitCrushKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        bitCrushKnob.setVelocityBasedMode(true);
-        bitCrushKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
-        addAndMakeVisible(bitCrushKnob);
-        bitCrushAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "BITCRUSH", bitCrushKnob);
-        bitCrushLabel.setText("", juce::dontSendNotification);
-        bitCrushLabel.setJustificationType(juce::Justification::centred);
-        bitCrushLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
-        bitCrushLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(bitCrushLabel);
-
-        // Delay Time Knob
-        delayTimeKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        delayTimeKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                          juce::MathConstants<float>::pi * 2.75f,
-                                          true);
-        delayTimeKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        delayTimeKnob.setVelocityBasedMode(true);
-        delayTimeKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
-        addAndMakeVisible(delayTimeKnob);
-        delayTimeAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "DELAY_TIME", delayTimeKnob);
-        delayTimeLabel.setText("", juce::dontSendNotification);
-        delayTimeLabel.setJustificationType(juce::Justification::centred);
-        delayTimeLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
-        delayTimeLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(delayTimeLabel);
-
-        // Delay Mix Knob
-        delayMixKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        delayMixKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                         juce::MathConstants<float>::pi * 2.75f,
-                                         true);
-        delayMixKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        delayMixKnob.setVelocityBasedMode(true);
-        delayMixKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
-        addAndMakeVisible(delayMixKnob);
-        delayMixAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "DELAY_MIX", delayMixKnob);
-        delayMixLabel.setText("", juce::dontSendNotification);
-        delayMixLabel.setJustificationType(juce::Justification::centred);
-        delayMixLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
-        delayMixLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(delayMixLabel);
-
-        // Delay Feedback Knob
-        delayFeedbackKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        delayFeedbackKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                              juce::MathConstants<float>::pi * 2.75f,
-                                              true);
-        delayFeedbackKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        delayFeedbackKnob.setVelocityBasedMode(true);
-        delayFeedbackKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
-        addAndMakeVisible(delayFeedbackKnob);
-        delayFeedbackAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "DELAY_FEEDBACK", delayFeedbackKnob);
-        delayFeedbackLabel.setText("", juce::dontSendNotification);
-        delayFeedbackLabel.setJustificationType(juce::Justification::centred);
-        delayFeedbackLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
-        delayFeedbackLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(delayFeedbackLabel);
-
-        // Chorus Mix Knob
-        chorusMixKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        chorusMixKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                          juce::MathConstants<float>::pi * 2.75f,
-                                          true);
-        chorusMixKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        chorusMixKnob.setVelocityBasedMode(true);
-        chorusMixKnob.setVelocityModeParameters(0.5, 1, 0.1, false);
-        addAndMakeVisible(chorusMixKnob);
-        chorusMixAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "CHORUS_MIX", chorusMixKnob);
-        chorusMixLabel.setText("", juce::dontSendNotification);
-        chorusMixLabel.setJustificationType(juce::Justification::centred);
-        chorusMixLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
-        chorusMixLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(chorusMixLabel);
+        setupKnobWithLabel(noiseKnob, noiseTitleLabel, noiseLabel, "DAC NOISE", "DAC_NOISE", noiseAttachment);
+        setupKnobWithLabel(bitCrushKnob, bitCrushTitleLabel, bitCrushLabel, "BITCRUSH", "BITCRUSH", bitCrushAttachment);
+        setupKnobWithLabel(delayTimeKnob, delayTimeTitleLabel, delayTimeLabel, "DELAY TIME", "DELAY_TIME", delayTimeAttachment);
+        setupKnobWithLabel(delayMixKnob, delayMixTitleLabel, delayMixLabel, "DELAY MIX", "DELAY_MIX", delayMixAttachment);
+        setupKnobWithLabel(delayFeedbackKnob, delayFeedbackTitleLabel, delayFeedbackLabel, "DELAY FB", "DELAY_FEEDBACK", delayFeedbackAttachment);
+        setupKnobWithLabel(chorusMixKnob, chorusMixTitleLabel, chorusMixLabel, "CHORUS MIX", "CHORUS_MIX", chorusMixAttachment);
 
         // Preset Selector (commented out - to be implemented later)
         // presetSelector.addItemList({"User", "Clean Tape", "Lofi Chaos", "Ambient Wash", "Aggressive Crunch"}, 1);
@@ -244,9 +134,9 @@ namespace synthortion
                                                  });
 
         setResizable(false, false);
-        setSize(720, 490);
+        setSize(kWindowWidth, kWindowHeight);
 
-        startTimerHz(60);
+        startTimerHz(kTimerHz);
     }
 
     AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
@@ -256,6 +146,40 @@ namespace synthortion
         processorRef.setSpectrumAnalyzerCallback(nullptr);
 
         setLookAndFeel(nullptr);
+    }
+
+    void AudioPluginAudioProcessorEditor::setupKnob(juce::Slider& knob)
+    {
+        knob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        knob.setRotaryParameters(kRotaryStartAngle, kRotaryEndAngle, true);
+        knob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        knob.setVelocityBasedMode(true);
+        knob.setVelocityModeParameters(kVelocitySensitivity, kVelocityThreshold, kVelocityOffset, false);
+    }
+
+    void AudioPluginAudioProcessorEditor::setupKnobWithLabel(
+        juce::Slider& knob,
+        juce::Label& titleLabel,
+        juce::Label& valueLabel,
+        const juce::String& title,
+        const juce::String& paramId,
+        std::unique_ptr<SliderAttachment>& attachment)
+    {
+        setupKnob(knob);
+        addAndMakeVisible(knob);
+        attachment = std::make_unique<SliderAttachment>(processorRef.apvts, paramId, knob);
+
+        titleLabel.setText(title, juce::dontSendNotification);
+        titleLabel.setJustificationType(juce::Justification::centred);
+        titleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
+        titleLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(titleLabel);
+
+        valueLabel.setText("", juce::dontSendNotification);
+        valueLabel.setJustificationType(juce::Justification::centred);
+        valueLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f)));
+        valueLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
+        addAndMakeVisible(valueLabel);
     }
 
     void AudioPluginAudioProcessorEditor::paint(juce::Graphics &g)
@@ -621,161 +545,35 @@ namespace synthortion
     }
     void AudioPluginAudioProcessorEditor::setupEQControls()
     {
-        // Low Cut Frequency & Q
-        lowCutFreqKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        lowCutFreqKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                           juce::MathConstants<float>::pi * 2.75f,
-                                           true);
-        lowCutFreqKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        lowCutFreqKnob.setVelocityBasedMode(true);
-        lowCutFreqKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(lowCutFreqKnob);
-        lowCutFreqAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "LOW_CUT_FREQ", lowCutFreqKnob);
-        lowCutFreqLabel.setText("", juce::dontSendNotification);
-        lowCutFreqLabel.setJustificationType(juce::Justification::centred);
-        lowCutFreqLabel.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
-        lowCutFreqLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(lowCutFreqLabel);
+        auto setupEQKnob = [this](juce::Slider& knob, juce::Label& label, 
+                                  const juce::String& paramId, const juce::String& defaultText,
+                                  std::unique_ptr<SliderAttachment>& attachment)
+        {
+            setupKnob(knob);
+            addAndMakeVisible(knob);
+            attachment = std::make_unique<SliderAttachment>(processorRef.apvts, paramId, knob);
+            
+            label.setText(defaultText, juce::dontSendNotification);
+            label.setJustificationType(juce::Justification::centred);
+            label.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
+            label.setColour(juce::Label::textColourId, LIGHT_GREY);
+            addAndMakeVisible(label);
+        };
 
-        lowCutQKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        lowCutQKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                        juce::MathConstants<float>::pi * 2.75f,
-                                        true);
-        lowCutQKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        lowCutQKnob.setVelocityBasedMode(true);
-        lowCutQKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(lowCutQKnob);
-        lowCutQAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "LOW_CUT_Q", lowCutQKnob);
-        lowCutQLabel.setText("Q", juce::dontSendNotification);
-        lowCutQLabel.setJustificationType(juce::Justification::centred);
-        lowCutQLabel.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
-        lowCutQLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(lowCutQLabel);
+        setupEQKnob(lowCutFreqKnob, lowCutFreqLabel, "LOW_CUT_FREQ", "", lowCutFreqAttachment);
+        setupEQKnob(lowCutQKnob, lowCutQLabel, "LOW_CUT_Q", "Q", lowCutQAttachment);
 
-        // Low Mid Frequency, Gain & Q
-        lowMidFreqKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        lowMidFreqKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                           juce::MathConstants<float>::pi * 2.75f,
-                                           true);
-        lowMidFreqKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        lowMidFreqKnob.setVelocityBasedMode(true);
-        lowMidFreqKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(lowMidFreqKnob);
-        lowMidFreqAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "LOW_MID_FREQ", lowMidFreqKnob);
-        lowMidFreqLabel.setText("", juce::dontSendNotification);
-        lowMidFreqLabel.setJustificationType(juce::Justification::centred);
-        lowMidFreqLabel.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
-        lowMidFreqLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(lowMidFreqLabel);
+        setupEQKnob(lowMidFreqKnob, lowMidFreqLabel, "LOW_MID_FREQ", "", lowMidFreqAttachment);
+        setupEQKnob(lowMidGainKnob, lowMidGainLabel, "LOW_MID_GAIN", "Gain", lowMidGainAttachment);
+        setupEQKnob(lowMidQKnob, lowMidQLabel, "LOW_MID_Q", "Q", lowMidQAttachment);
 
-        lowMidGainKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        lowMidGainKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                           juce::MathConstants<float>::pi * 2.75f,
-                                           true);
-        lowMidGainKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        lowMidGainKnob.setVelocityBasedMode(true);
-        lowMidGainKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(lowMidGainKnob);
-        lowMidGainAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "LOW_MID_GAIN", lowMidGainKnob);
-        lowMidGainLabel.setText("Gain", juce::dontSendNotification);
-        lowMidGainLabel.setJustificationType(juce::Justification::centred);
-        lowMidGainLabel.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
-        lowMidGainLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(lowMidGainLabel);
+        setupEQKnob(highMidFreqKnob, highMidFreqLabel, "HIGH_MID_FREQ", "", highMidFreqAttachment);
+        setupEQKnob(highMidGainKnob, highMidGainLabel, "HIGH_MID_GAIN", "Gain", highMidGainAttachment);
+        setupEQKnob(highMidQKnob, highMidQLabel, "HIGH_MID_Q", "Q", highMidQAttachment);
 
-        lowMidQKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        lowMidQKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                        juce::MathConstants<float>::pi * 2.75f,
-                                        true);
-        lowMidQKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        lowMidQKnob.setVelocityBasedMode(true);
-        lowMidQKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(lowMidQKnob);
-        lowMidQAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "LOW_MID_Q", lowMidQKnob);
-        lowMidQLabel.setText("Q", juce::dontSendNotification);
-        lowMidQLabel.setJustificationType(juce::Justification::centred);
-        lowMidQLabel.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
-        lowMidQLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(lowMidQLabel);
+        setupEQKnob(highCutFreqKnob, highCutFreqLabel, "HIGH_CUT_FREQ", "", highCutFreqAttachment);
+        setupEQKnob(highCutQKnob, highCutQLabel, "HIGH_CUT_Q", "Q", highCutQAttachment);
 
-        // High Mid Frequency, Gain & Q
-        highMidFreqKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        highMidFreqKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                            juce::MathConstants<float>::pi * 2.75f,
-                                            true);
-        highMidFreqKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        highMidFreqKnob.setVelocityBasedMode(true);
-        highMidFreqKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(highMidFreqKnob);
-        highMidFreqAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "HIGH_MID_FREQ", highMidFreqKnob);
-        highMidFreqLabel.setText("", juce::dontSendNotification);
-        highMidFreqLabel.setJustificationType(juce::Justification::centred);
-        highMidFreqLabel.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
-        highMidFreqLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(highMidFreqLabel);
-
-        highMidGainKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        highMidGainKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                            juce::MathConstants<float>::pi * 2.75f,
-                                            true);
-        highMidGainKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        highMidGainKnob.setVelocityBasedMode(true);
-        highMidGainKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(highMidGainKnob);
-        highMidGainAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "HIGH_MID_GAIN", highMidGainKnob);
-        highMidGainLabel.setText("Gain", juce::dontSendNotification);
-        highMidGainLabel.setJustificationType(juce::Justification::centred);
-        highMidGainLabel.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
-        highMidGainLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(highMidGainLabel);
-
-        highMidQKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        highMidQKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                         juce::MathConstants<float>::pi * 2.75f,
-                                         true);
-        highMidQKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        highMidQKnob.setVelocityBasedMode(true);
-        highMidQKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(highMidQKnob);
-        highMidQAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "HIGH_MID_Q", highMidQKnob);
-        highMidQLabel.setText("Q", juce::dontSendNotification);
-        highMidQLabel.setJustificationType(juce::Justification::centred);
-        highMidQLabel.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
-        highMidQLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(highMidQLabel);
-
-        // High Cut Frequency & Q
-        highCutFreqKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        highCutFreqKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                            juce::MathConstants<float>::pi * 2.75f,
-                                            true);
-        highCutFreqKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        highCutFreqKnob.setVelocityBasedMode(true);
-        highCutFreqKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(highCutFreqKnob);
-        highCutFreqAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "HIGH_CUT_FREQ", highCutFreqKnob);
-        highCutFreqLabel.setText("", juce::dontSendNotification);
-        highCutFreqLabel.setJustificationType(juce::Justification::centred);
-        highCutFreqLabel.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
-        highCutFreqLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(highCutFreqLabel);
-
-        highCutQKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        highCutQKnob.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
-                                         juce::MathConstants<float>::pi * 2.75f,
-                                         true);
-        highCutQKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        highCutQKnob.setVelocityBasedMode(true);
-        highCutQKnob.setVelocityModeParameters(0.5, 1, 0.1, false); // More sensitive
-        addAndMakeVisible(highCutQKnob);
-        highCutQAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "HIGH_CUT_Q", highCutQKnob);
-        highCutQLabel.setText("Q", juce::dontSendNotification);
-        highCutQLabel.setJustificationType(juce::Justification::centred);
-        highCutQLabel.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
-        highCutQLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(highCutQLabel);
-
-        // EQ Bypass Button
         eqBypassButton.setButtonText("EQ BYPASS");
         eqBypassButton.setColour(juce::ToggleButton::textColourId, LIGHT_GREY);
         eqBypassButton.setColour(juce::ToggleButton::tickColourId, juce::Colours::orange);

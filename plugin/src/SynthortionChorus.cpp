@@ -2,11 +2,11 @@
 
 SynthortionChorus::SynthortionChorus()
 {
-    chorus.setCentreDelay(15.02500f);
-    chorus.setDepth(2.25f);
-    chorus.setRate(0.45f);
-    chorus.setFeedback(0.0f);
-    chorus.setMix(1.0f);
+    chorus.setCentreDelay(kDefaultCentreDelayMs);
+    chorus.setDepth(kDefaultDepth);
+    chorus.setRate(kDefaultRateHz);
+    chorus.setFeedback(kDefaultFeedback);
+    chorus.setMix(kChorusInternalMix);
 }
 
 void SynthortionChorus::prepare(const juce::dsp::ProcessSpec &spec)
@@ -32,5 +32,25 @@ void SynthortionChorus::reset()
 
 void SynthortionChorus::setChorusMix(float mix)
 {
-    chorusMix = juce::jlimit(0.0f, 1.0f, mix);
+    chorusMix = juce::jlimit(kMinMix, kMaxMix, mix);
+}
+
+void SynthortionChorus::setCentreDelay(float delayMs)
+{
+    chorus.setCentreDelay(juce::jlimit(kMinDelay, kMaxDelay, delayMs));
+}
+
+void SynthortionChorus::setDepth(float depth)
+{
+    chorus.setDepth(juce::jlimit(kMinDepth, kMaxDepth, depth));
+}
+
+void SynthortionChorus::setRate(float rateHz)
+{
+    chorus.setRate(juce::jlimit(kMinRate, kMaxRate, rateHz));
+}
+
+void SynthortionChorus::setFeedback(float feedback)
+{
+    chorus.setFeedback(juce::jlimit(kMinFeedback, kMaxFeedback, feedback));
 }

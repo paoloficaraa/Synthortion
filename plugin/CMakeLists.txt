@@ -21,6 +21,7 @@ PRIVATE
     src/BitCrusher.cpp
     src/PingPongDelay.cpp
     src/SynthortionChorus.cpp
+    src/VerticalDiscreteMeter.cpp
 )
 
 target_include_directories(Synthortion

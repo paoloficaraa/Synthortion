@@ -9,32 +9,33 @@ void WarmDistortion::setSampleRate(double newSampleRate)
 {
     sampleRate = newSampleRate;
     if (oversampler)
-    {
         oversampler->reset();
-    }
 }
 
 void WarmDistortion::reset()
 {
-    for (int ch = 0; ch < 2; ch++)
-    {
-        noiseGenerator[ch].setSeedRandomly();
-    }
+    for (auto& gen : noiseGenerator)
+        gen.setSeedRandomly();
 
-    // Reset filter states
-    std::fill(std::begin(preEmphState), std::end(preEmphState), 0.0f);
-    std::fill(std::begin(postFilterState), std::end(postFilterState), 0.0f);
-    std::fill(std::begin(exciterHighpass), std::end(exciterHighpass), 0.0f);
-    std::fill(std::begin(exciterDelay), std::end(exciterDelay), 0.0f);
+    preEmphState.fill(0.0f);
+    postFilterState.fill(0.0f);
+    exciterHighpass.fill(0.0f);
+    exciterDelay.fill(0.0f);
+    hysteresisState.fill(0.0f);
+    wowPhase.fill(0.0f);
+    flutterPhase.fill(0.0f);
+    wowFlutterWritePos.fill(0);
 
-    // Reset gain compensation
-    compensationGain.setCurrentAndTargetValue(1.0f);
+    for (auto& channelState : pinkNoiseState)
+        channelState.fill(0.0f);
 
-    // Reset oversampler
+    for (auto& buffer : wowFlutterBuffer)
+        buffer.fill(0.0f);
+
+    compensationGain.setCurrentAndTargetValue(kCompensationMax);
+
     if (oversampler)
-    {
         oversampler->reset();
-    }
 }
 
 void WarmDistortion::prepare(const juce::dsp::ProcessSpec &spec)
@@ -43,335 +44,322 @@ void WarmDistortion::prepare(const juce::dsp::ProcessSpec &spec)
 
     oversampler = std::make_unique<juce::dsp::Oversampling<float>>(
         spec.numChannels,
-        OVERSAMPLING_FACTOR,
+        kOversamplingFactor,
         juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR,
         true);
 
     oversampler->initProcessing(spec.maximumBlockSize);
 
-    // Initialize volume compensation smoothing
-    compensationGain.reset(sampleRate, 0.1); // 50ms smoothing
-    compensationGain.setCurrentAndTargetValue(1.0f);
+    compensationGain.reset(sampleRate, kCompensationSmoothingTime);
+    compensationGain.setCurrentAndTargetValue(kCompensationMax);
 }
 
 void WarmDistortion::setDrive(float newDrive)
 {
-    driveAmount = juce::jlimit(0.0f, 1.0f, newDrive);
+    driveAmount = juce::jlimit(kMinDrive, kMaxDrive, newDrive);
 
-    // Update volume compensation if enabled
     if (volumeCompensationEnabled)
     {
-        float compensation = calculateVolumeCompensation(driveAmount);
+        const float compensation = calculateVolumeCompensation(driveAmount);
         compensationGain.setTargetValue(compensation);
     }
 }
 
-void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float> &context)
+float WarmDistortion::getOversampledSampleRate() const
+{
+    return static_cast<float>(sampleRate) * (1 << kOversamplingFactor);
+}
+
+int WarmDistortion::getSafeChannel(int channel) const
+{
+    return juce::jlimit(0, kNumChannels - 1, channel);
+}
+
+void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float>& context)
 {
     juce::dsp::AudioBlock<float> block = context.getOutputBlock();
 
-    // Bypass for drive too low
-    if (driveAmount < 0.01f)
-    {
+    if (driveAmount < kMinDriveThreshold)
         return;
-    }
 
-    // Process always 100% wet here; global dry/wet mix is applied in the processor
     juce::dsp::AudioBlock<float> oversampledBlock = oversampler->processSamplesUp(block);
 
-    // =====================================================
-
-    // Process each channel using SIMD-optimized operations where possible
     for (int channel = 0; channel < oversampledBlock.getNumChannels(); ++channel)
     {
-        float *channelData = oversampledBlock.getChannelPointer(channel);
+        float* channelData = oversampledBlock.getChannelPointer(channel);
         const int numSamples = static_cast<int>(oversampledBlock.getNumSamples());
 
-        // Process in SIMD blocks where possible (4 samples at a time)
-        const int simdBlocks = numSamples / 4;
-        const int remainingSamples = numSamples % 4;
-
-        int sampleIndex = 0;
-
-        // SIMD processing for aligned blocks
-        for (int simdBlock = 0; simdBlock < simdBlocks; ++simdBlock)
+        for (int i = 0; i < numSamples; ++i)
         {
-            // Load 4 samples
-            float samples[4];
-            for (int i = 0; i < 4; ++i)
-            {
-                samples[i] = channelData[sampleIndex + i];
-                addDenormalizationNoise(samples[i], channel);
-            }
+            float s = channelData[i];
 
-            // Apply saturation to each sample
-            for (int i = 0; i < 4; ++i)
-            {
-                // Pre-filtering (pre-emphasis) prima della saturazione
-                applyDriveDependentFiltering(samples[i], driveAmount, channel);
+            addDenormalizationNoise(s, channel);
+            applyWowAndFlutter(s, driveAmount, channel);
+            applyDriveDependentFiltering(s, driveAmount, channel);
+            applyHighFrequencyExciter(s, driveAmount, channel);
+            s = applySaturation(s, driveAmount, channel);
+            addAnalogNoise(s, driveAmount, channel);
 
-                // High-frequency exciter per croccantezza
-                applyHighFrequencyExciter(samples[i], driveAmount, channel);
-
-                samples[i] = applySaturation(samples[i], driveAmount, channel);
-
-                // Add realistic analog noise
-                addAnalogNoise(samples[i], driveAmount, channel);
-            }
-
-            // Store results back
-            for (int i = 0; i < 4; ++i)
-            {
-                channelData[sampleIndex + i] = samples[i];
-            }
-
-            sampleIndex += 4;
-        }
-
-        // Process remaining samples individually
-        for (int i = 0; i < remainingSamples; ++i)
-        {
-            float inputSample = channelData[sampleIndex];
-            addDenormalizationNoise(inputSample, channel);
-
-            // Apply drive-dependent filtering prima della saturazione
-            applyDriveDependentFiltering(inputSample, driveAmount, channel);
-
-            // High-frequency exciter per croccantezza
-            applyHighFrequencyExciter(inputSample, driveAmount, channel);
-
-            // Apply saturation
-            float saturatedSample = applySaturation(inputSample, driveAmount, channel);
-
-            // Add realistic analog noise
-            addAnalogNoise(saturatedSample, driveAmount, channel);
-
-            channelData[sampleIndex] = saturatedSample;
-
-            ++sampleIndex;
+            channelData[i] = s;
         }
     }
 
     oversampler->processSamplesDown(block);
 
-    if (driveAmount > 0.05f)
+    if (driveAmount > kLowDriveThreshold)
     {
+        const float finalCompensation = juce::jmap(driveAmount, kLowDriveThreshold, kMaxDrive, 
+                                                   kCompensationMax, kFinalCompensationMin);
+
         for (int channel = 0; channel < block.getNumChannels(); ++channel)
         {
-            float *channelData = block.getChannelPointer(channel);
-            for (int sample = 0; sample < block.getNumSamples(); ++sample)
-            {
-                // Soft clipper finale più delicato per preservare il volume
-                float x = channelData[sample];
+            float* channelData = block.getChannelPointer(channel);
+            const int numSamples = static_cast<int>(block.getNumSamples());
 
-                // Clipper meno aggressivo che preserva meglio l'ampiezza
-                float clipped = std::tanh(x * 0.85f) * 1.15f;
-
-                // Compensazione finale molto più conservativa per mantenere unity gain
-                float finalCompensation = juce::jmap(driveAmount, 0.05f, 1.0f, 1.0f, 0.92f);
-                channelData[sample] = clipped * finalCompensation;
-            }
+            for (int i = 0; i < numSamples; ++i)
+                channelData[i] = std::tanh(channelData[i] * kFinalClipperGain) * kFinalClipperOutput * finalCompensation;
         }
     }
 
-    // Apply volume compensation to the downsampled signal
     if (volumeCompensationEnabled)
     {
-        // Pre-calculate gain values per sample to avoid double-smoothing in stereo
-        std::vector<float> gainValues(block.getNumSamples());
-
         if (compensationGain.isSmoothing())
         {
-            // Calculate gain values once for all channels
-            for (int sample = 0; sample < block.getNumSamples(); ++sample)
-            {
-                gainValues[sample] = compensationGain.getNextValue();
-            }
-
-            // Apply to all channels using the pre-calculated values
             for (int channel = 0; channel < block.getNumChannels(); ++channel)
             {
-                float *channelData = block.getChannelPointer(channel);
-                for (int sample = 0; sample < block.getNumSamples(); ++sample)
-                {
-                    channelData[sample] *= gainValues[sample];
-                }
+                float* channelData = block.getChannelPointer(channel);
+                const int numSamples = static_cast<int>(block.getNumSamples());
+
+                if (channel > 0)
+                    compensationGain.setCurrentAndTargetValue(compensationGain.getTargetValue());
+
+                for (int i = 0; i < numSamples; ++i)
+                    channelData[i] *= compensationGain.getNextValue();
             }
         }
         else
         {
-            // Apply constant gain using optimized vector operation
             const float gain = compensationGain.getTargetValue();
             for (int channel = 0; channel < block.getNumChannels(); ++channel)
             {
-                float *channelData = block.getChannelPointer(channel);
-                juce::FloatVectorOperations::multiply(channelData, gain, static_cast<int>(block.getNumSamples()));
+                juce::FloatVectorOperations::multiply(
+                    block.getChannelPointer(channel),
+                    gain,
+                    static_cast<int>(block.getNumSamples()));
             }
         }
     }
     else
     {
-        // Skip compensation smoothing if disabled
         compensationGain.skip(static_cast<int>(block.getNumSamples()));
     }
 }
 
 float WarmDistortion::applySaturation(float input, float drive, int channel)
 {
-    juce::ignoreUnused(channel);
-    return tapeSaturation(input, drive);
+    const int safeChannel = getSafeChannel(channel);
+
+    const float hysteresisEffect = hysteresisState[safeChannel] * kHysteresisAmount * drive;
+    const float inputWithHysteresis = input + hysteresisEffect;
+
+    const float output = tapeSaturation(inputWithHysteresis, drive);
+
+    hysteresisState[safeChannel] = output * kHysteresisInputScale + 
+                                   hysteresisState[safeChannel] * kHysteresisFeedback;
+
+    return output;
 }
 
-float WarmDistortion::tapeSaturation(float input, float drive)
+float WarmDistortion::tapeSaturation(float input, float drive) const
 {
-    // Tape-style saturation with soft knee compression
-    float driveMapped = juce::jmap(drive, 0.0f, 1.0f, TAPE_DRIVE_MIN, TAPE_DRIVE_MAX);
-    float driven = input * driveMapped;
+    const float driveMapped = juce::jmap(drive, kMinDrive, kMaxDrive, kTapeDriveMin, kTapeDriveMax);
+    const float driven = input * driveMapped;
 
-    // Soft knee saturation characteristic of tape
-    float abs_driven = std::abs(driven);
+    const float stage1 = std::tanh(driven * kTapeStage1Gain);
+
+    const float asymmetry = kTapeAsymmetryBase * drive;
+    const float stage2 = stage1 + asymmetry * stage1 * stage1;
+
+    const float abs_val = std::abs(stage2);
     float output;
 
-    if (abs_driven < TAPE_KNEE_THRESHOLD)
+    if (abs_val < kTapeHardClipKnee)
     {
-        output = driven;
+        output = stage2;
     }
     else
     {
-        float sign = (driven > 0.0f) ? 1.0f : -1.0f;
-        float compressed = TAPE_KNEE_THRESHOLD + (abs_driven - TAPE_KNEE_THRESHOLD) /
-                                                     (1.0f + (abs_driven - TAPE_KNEE_THRESHOLD) * TAPE_COMPRESSION_FACTOR);
-        output = sign * compressed;
+        const float sign = (stage2 > 0.0f) ? 1.0f : -1.0f;
+        const float excess = abs_val - kTapeHardClipKnee;
+        output = sign * (kTapeHardClipKnee + excess / (1.0f + excess * kTapeHardClipRatio));
     }
 
-    // Compensazione volume più conservativa per il tape
-    float tapeVolumeCompensation = juce::jmap(drive, 0.0f, 1.0f, 0.95f, 0.80f);
-    return output * tapeVolumeCompensation;
+    const float compensation = 1.0f / (1.0f + drive * kTapeCompensationFactor);
+    return output * compensation;
 }
 
 void WarmDistortion::addDenormalizationNoise(float &sample, int channel)
 {
-    if (std::abs(sample) < DENORM_THRESHOLD)
+    if (std::abs(sample) < kDenormThreshold)
     {
-        // Assicurati che l'indice del canale sia valido
-        int safeChannel = juce::jlimit(0, 1, channel);
-        sample += (noiseGenerator[safeChannel].nextFloat() - 0.5f) * DENORM_NOISE_LEVEL;
+        const int safeChannel = getSafeChannel(channel);
+        sample += (noiseGenerator[safeChannel].nextFloat() - kDenormNoiseOffset) * kDenormNoiseLevel;
     }
 }
 
 void WarmDistortion::addAnalogNoise(float &sample, float drive, int channel)
 {
-    // Assicurati che l'indice del canale sia valido
-    int safeChannel = juce::jlimit(0, 1, channel);
+    const int safeChannel = getSafeChannel(channel);
 
-    // Tape modulation noise
-    float tapeNoise = TAPE_MODULATION_NOISE * (1.0f + drive * 1.5f);
+    const float white = noiseGenerator[safeChannel].nextFloat() - kDenormNoiseOffset;
 
-    // High frequency bias noise
-    float biasNoise = THERMAL_NOISE_BASE * 0.5f;
+    auto& state = pinkNoiseState[safeChannel];
+    state[0] = kPinkB0 * state[0] + white * kPinkA0;
+    state[1] = kPinkB1 * state[1] + white * kPinkA1;
+    state[2] = kPinkB2 * state[2] + white * kPinkA2;
+    state[3] = kPinkB3 * state[3] + white * kPinkA3;
+    state[4] = kPinkB4 * state[4] + white * kPinkA4;
+    state[5] = kPinkB5 * state[5] - white * kPinkA5;
 
-    float noiseLevel = tapeNoise + biasNoise;
+    const float pink = state[0] + state[1] + state[2] + state[3] + state[4] + state[5] + state[6] + white * kPinkWhiteScale;
 
-    // Applica il rumore solo se il segnale è sopra una certa soglia
-    if (std::abs(sample) > 0.001f || drive > 0.3f)
-    {
-        float noise = (noiseGenerator[safeChannel].nextFloat() - 0.5f) * noiseLevel;
-        sample += noise;
-    }
+    state[6] = white * kPinkA6;
+
+    const float tapeNoise = kTapeModulationNoise * (1.0f + drive * kTapeNoiseDriveScale);
+    const float biasNoise = kThermalNoiseBase * kBiasNoiseScale;
+    const float noiseLevel = (tapeNoise + biasNoise) * kNoiseGlobalScale;
+
+    if (std::abs(sample) > kNoiseFloorThreshold || drive > kHighDriveThreshold)
+        sample += pink * noiseLevel;
 }
 
 float WarmDistortion::calculateVolumeCompensation(float drive) const
 {
-    if (drive < 0.01f)
-        return 1.0f; // Nessuna compensazione per drive molto bassi
+    if (drive < kMinDriveThreshold)
+        return kCompensationMax;
 
-    // Tape saturation ha compressione soft, compensazione minima
-    float compensationFactor = juce::jmap(drive, 0.0f, 1.0f, 1.0f, 0.85f);
+    const float compensationFactor = juce::jmap(drive, kMinDrive, kMaxDrive, kCompensationMax, kCompensationScale);
+    const float smoothedCompensation = std::pow(compensationFactor, kCompensationPower);
 
-    // Applica una curva più naturale che mantiene meglio il volume percepito
-    float smoothedCompensation = std::pow(compensationFactor, 0.9f);
-
-    // Range di compensazione più conservativo per evitare perdite eccessive
-    return juce::jlimit(0.65f, 1.0f, smoothedCompensation);
+    return juce::jlimit(kCompensationMin, kCompensationMax, smoothedCompensation);
 }
 
-void WarmDistortion::applyDriveDependentFiltering(float &sample, float drive, int channel)
+void WarmDistortion::applyDriveDependentFiltering(float& sample, float drive, int channel)
 {
-    // Assicurati che l'indice del canale sia valido
-    int safeChannel = juce::jlimit(0, 1, channel);
+    const int safeChannel = getSafeChannel(channel);
 
-    // Solo se c'è drive significativo
-    if (drive < 0.01f)
+    if (drive < kMinDriveThreshold)
         return;
 
-    // Post-filtering solo se necessario
-    if (drive > 0.1f)
-    {
-        // Pre-emphasis POTENZIATO: aumenta gli alti con il drive per più croccantezza
-        // Frequency aumenta da 1.5kHz a ~6kHz con drive max (range più ampio)
-        float preEmphFreq = PREEMPH_BASE_FREQ * 1.5f * (1.0f + drive * PREEMPH_DRIVE_FACTOR * 1.2f);
-        float preEmphAlpha = std::min(0.95f, 1.0f - std::exp(-2.0f * 3.14159f * preEmphFreq / (float)sampleRate));
+    const float oversampledSampleRate = getOversampledSampleRate();
 
-        // High-pass filter semplice per pre-emphasis
-        float preEmphOutput = sample - preEmphState[safeChannel];
-        preEmphState[safeChannel] += preEmphAlpha * preEmphOutput;
+    const float preEmphFreq = kPreEmphBaseFreq * kPreEmphFreqScale * (1.0f + drive * kPreEmphDriveFactor * kPreEmphDriveScale);
+    const float preEmphAlpha = std::min(kMaxFilterAlpha, 
+                                       1.0f - std::exp(-juce::MathConstants<float>::twoPi * preEmphFreq / oversampledSampleRate));
 
-        // Mix con l'originale - MIX PIÙ AGGRESSIVO per più croccantezza
-        float preEmphAmount = drive * 0.5f; // Aumentato da 0.3f a 0.5f
-        sample = sample * (1.0f - preEmphAmount) + preEmphOutput * preEmphAmount;
+    const float preEmphOutput = sample - preEmphState[safeChannel];
+    preEmphState[safeChannel] += preEmphAlpha * preEmphOutput;
 
-        // Post-filtering: taglia gli alti con drive alto (simula trasformatori saturi)
-        float postFilterFreq = std::max(1200.0f, POSTFILTER_BASE_FREQ * (1.0f - drive * 0.5f));
-        float postFilterAlpha = std::min(0.95f, 1.0f - std::exp(-2.0f * 3.14159f * postFilterFreq / (float)sampleRate));
+    const float preEmphAmount = drive * kPreEmphMixAmount;
+    sample = sample * (1.0f - preEmphAmount) + preEmphOutput * preEmphAmount;
 
-        float postFilterInput = sample;
-        postFilterState[safeChannel] += postFilterAlpha * (postFilterInput - postFilterState[safeChannel]);
+    const float postFilterFreq = std::max(kPostFilterMinFreq, kPostFilterBaseFreq * (1.0f - drive * kPostFilterDriveFactor));
+    const float postFilterAlpha = std::min(kMaxFilterAlpha, 
+                                          1.0f - std::exp(-juce::MathConstants<float>::twoPi * postFilterFreq / oversampledSampleRate));
 
-        // Mix con l'originale - più drive = più filtering
-        float postFilterAmount = drive * 0.6f;
-        sample = sample * (1.0f - postFilterAmount) + postFilterState[safeChannel] * postFilterAmount;
-    }
+    const float postFilterInput = sample;
+    postFilterState[safeChannel] += postFilterAlpha * (postFilterInput - postFilterState[safeChannel]);
+
+    const float postFilterAmount = drive * kPostFilterMixAmount;
+    sample = sample * (1.0f - postFilterAmount) + postFilterState[safeChannel] * postFilterAmount;
+}
+
+void WarmDistortion::applyWowAndFlutter(float& sample, float drive, int channel)
+{
+    const int safeChannel = getSafeChannel(channel);
+
+    if (drive < kMediumDriveThreshold)
+        return;
+
+    const float oversampledSampleRate = getOversampledSampleRate();
+
+    wowFlutterBuffer[safeChannel][wowFlutterWritePos[safeChannel]] = sample;
+
+    const float wowFreqRadians = juce::MathConstants<float>::twoPi * kWowFrequency / oversampledSampleRate;
+    wowPhase[safeChannel] += wowFreqRadians;
+
+    if (wowPhase[safeChannel] > juce::MathConstants<float>::twoPi)
+        wowPhase[safeChannel] -= juce::MathConstants<float>::twoPi;
+
+    const float wowModulation = std::sin(wowPhase[safeChannel]) * kWowDepthMax * drive;
+
+    const float flutterFreqRadians = juce::MathConstants<float>::twoPi * kFlutterFrequency / oversampledSampleRate;
+    flutterPhase[safeChannel] += flutterFreqRadians;
+
+    if (flutterPhase[safeChannel] > juce::MathConstants<float>::twoPi)
+        flutterPhase[safeChannel] -= juce::MathConstants<float>::twoPi;
+
+    const float flutterModulation = std::sin(flutterPhase[safeChannel]) * kFlutterDepthMax * drive;
+
+    const float totalModulation = wowModulation + flutterModulation;
+
+    const float baseDelay = (kWowFlutterBaseDelayMs / 1000.0f) * oversampledSampleRate;
+    const float modulatedDelay = juce::jlimit(kWowFlutterMinDelay, 
+                                              static_cast<float>(kWowFlutterBufferSize - kWowFlutterSafetyMargin), 
+                                              baseDelay + totalModulation);
+
+    float readPosFloat = static_cast<float>(wowFlutterWritePos[safeChannel]) - modulatedDelay;
+
+    while (readPosFloat < 0.0f)
+        readPosFloat += static_cast<float>(kWowFlutterBufferSize);
+
+    const int readPos1 = static_cast<int>(readPosFloat) % kWowFlutterBufferSize;
+    const int readPos2 = (readPos1 + 1) % kWowFlutterBufferSize;
+
+    const float frac = readPosFloat - std::floor(readPosFloat);
+
+    const float sample1 = wowFlutterBuffer[safeChannel][readPos1];
+    const float sample2 = wowFlutterBuffer[safeChannel][readPos2];
+    const float interpolatedSample = sample1 + frac * (sample2 - sample1);
+
+    const float mixAmount = drive * kWowFlutterMixAmount;
+    sample = sample * (1.0f - mixAmount) + interpolatedSample * mixAmount;
+
+    wowFlutterWritePos[safeChannel] = (wowFlutterWritePos[safeChannel] + 1) % kWowFlutterBufferSize;
 }
 
 void WarmDistortion::applyHighFrequencyExciter(float &sample, float drive, int channel)
 {
-    // Assicurati che l'indice del canale sia valido
-    int safeChannel = juce::jlimit(0, 1, channel);
+    const int safeChannel = getSafeChannel(channel);
 
-    // Applica exciter solo se c'è drive sufficiente
-    if (drive < 0.15f)
+    if (drive < kMediumDriveThreshold)
         return;
 
-    // 1. Estrai le alte frequenze con un high-pass filter
-    float cutoffFreq = EXCITER_HIGHPASS_FREQ * (0.8f + drive * 0.4f); // Varia da 2.4kHz a 4.2kHz
-    float alpha = std::min(0.95f, 1.0f - std::exp(-2.0f * 3.14159f * cutoffFreq / (float)sampleRate));
+    const float oversampledSampleRate = getOversampledSampleRate();
 
-    // High-pass filter
-    float highFreqSignal = sample - exciterHighpass[safeChannel];
+    const float cutoffFreq = kExciterHighpassFreq * (kExciterFreqDriveOffset + drive * kExciterFreqDriveRange);
+    const float alpha = std::min(kMaxFilterAlpha, 
+                                1.0f - std::exp(-juce::MathConstants<float>::twoPi * cutoffFreq / oversampledSampleRate));
+
+    const float highFreqSignal = sample - exciterHighpass[safeChannel];
     exciterHighpass[safeChannel] += alpha * highFreqSignal;
 
-    // 2. Genera armoniche delle alte frequenze con saturazione asimmetrica
-    float harmonicDrive = EXCITER_HARMONIC_DRIVE * drive;
-    float drivenHigh = highFreqSignal * harmonicDrive;
+    const float harmonicDrive = kExciterHarmonicDrive * drive;
+    const float drivenHigh = highFreqSignal * harmonicDrive;
 
-    // Saturazione asimmetrica che enfatizza le armoniche pari (più croccanti)
     float excitedSignal;
     if (drivenHigh >= 0.0f)
     {
-        // Saturazione più dolce sui positivi
-        excitedSignal = std::tanh(drivenHigh * 0.8f);
+        excitedSignal = std::tanh(drivenHigh * kExciterPositiveSaturation);
     }
     else
     {
-        // Saturazione più aggressiva sui negativi per asimmetria
-        excitedSignal = std::tanh(drivenHigh * 1.2f) * 0.85f;
+        excitedSignal = std::tanh(drivenHigh * kExciterNegativeSaturation) * kExciterNegativeAsymmetry;
     }
 
-    // 3. Aggiungi seconda armonica per più "air" e presenza
-    float secondHarmonic = std::sin(highFreqSignal * 6.28318f) * 0.1f * drive;
+    const float secondHarmonic = std::sin(highFreqSignal * juce::MathConstants<float>::twoPi) * kExciterSecondHarmonicAmp * drive;
     excitedSignal += secondHarmonic;
 
-    // 4. Mix l'exciter con il segnale originale
-    float exciterAmount = EXCITER_MIX_AMOUNT * drive * drive; // Curva quadratica
+    const float exciterAmount = kExciterMixAmount * drive * drive;
     sample += excitedSignal * exciterAmount;
 }

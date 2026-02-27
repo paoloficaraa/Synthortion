@@ -3,106 +3,74 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 
-/**
- * @brief 4-band parametric equalizer with high-quality IIR filters and optional linear phase
- *
- * Features:
- * - High-pass and low-pass filters with adjustable Q
- * - Two parametric mid-band filters with gain and Q control
- * - Linear phase mode using FIR convolution
- * - Frequency response visualization support
- * - Real-time parameter updates
- */
 class ParametricEQ
 {
 public:
     ParametricEQ();
-    ~ParametricEQ();
+    ~ParametricEQ() = default;
 
-    /**
-     * @brief Prepare the EQ for processing
-     * @param spec ProcessSpec containing sample rate, block size, and channel count
-     */
     void prepare(const juce::dsp::ProcessSpec &spec);
-
-    /**
-     * @brief Process audio buffer through the EQ
-     * @param context DSP processing context
-     */
     void process(const juce::dsp::ProcessContextReplacing<float> &context);
 
-    // EQ Band setters
-    /**
-     * @brief Set low-cut (high-pass) filter parameters
-     * @param frequency Cutoff frequency in Hz [20-1000]
-     * @param q Quality factor [0.1-10.0]
-     */
     void setLowCut(float frequency, float q, bool enabled = true);
-
-    /**
-     * @brief Set low-mid parametric band parameters
-     * @param frequency Center frequency in Hz [100-2000]
-     * @param gain Gain in dB [-15 to +15]
-     * @param q Quality factor [0.1-10.0]
-     */
     void setLowMid(float frequency, float gain, float q);
-
-    /**
-     * @brief Set high-mid parametric band parameters
-     * @param frequency Center frequency in Hz [1000-8000]
-     * @param gain Gain in dB [-15 to +15]
-     * @param q Quality factor [0.1-10.0]
-     */
     void setHighMid(float frequency, float gain, float q);
-
-    /**
-     * @brief Set high-cut (low-pass) filter parameters
-     * @param frequency Cutoff frequency in Hz [5000-20000] (20000 = disabled)
-     * @param q Quality factor [0.1-10.0]
-     */
     void setHighCut(float frequency, float q, bool enabled = true);
 
-    /**
-     * @brief Get processing latency in samples
-     * @return Latency in samples
-     */
     int getLatencySamples() const;
-
-    /**
-     * @brief Get frequency response for visualization
-     * @param frequencies Vector of frequencies to evaluate
-     * @return Vector of magnitude responses in dB
-     */
-    std::vector<float> getFrequencyResponse(const std::vector<float> &frequencies);
+    std::vector<float> getFrequencyResponse(const std::vector<float> &frequencies) const;
 
 private:
-    // 4-band EQ filters - using ProcessorDuplicator for stereo support
-    using FilterType = juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>;
-    FilterType lowCutFilter;   ///< High-pass filter for low frequencies (first stage)
-    FilterType lowCutFilter2;  ///< High-pass filter for low frequencies (second stage for 12dB/oct)
-    FilterType lowMidFilter;   ///< Parametric filter for low-mid frequencies
-    FilterType highMidFilter;  ///< Parametric filter for high-mid frequencies
-    FilterType highCutFilter;  ///< Low-pass filter for high frequencies (first stage)
-    FilterType highCutFilter2; ///< Low-pass filter for high frequencies (second stage for 12dB/oct)
+    static constexpr float kMinFrequency = 20.0f;
+    static constexpr float kMaxFrequency = 20000.0f;
+    static constexpr float kNyquistFactor = 0.45f;
+    static constexpr float kMinQ = 0.1f;
+    static constexpr float kButterworthQ = 0.707f;
+    static constexpr float kGainThreshold = 0.001f;
+    static constexpr float kQTolerance = 0.05f;
+    static constexpr float kHighCutMinFreq = 5000.0f;
 
-    // Processing state
-    double sampleRate = 0.0;  // Set by host via prepare()
+    using FilterType = juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, 
+                                                        juce::dsp::IIR::Coefficients<float>>;
+
+    // Filter instances (12dB/octave for cuts using cascaded 6dB stages)
+    FilterType lowCutFilter;
+    FilterType lowCutFilter2;
+    FilterType lowMidFilter;
+    FilterType highMidFilter;
+    FilterType highCutFilter;
+    FilterType highCutFilter2;
+
+    // Sample rate and state
+    double sampleRate = 44100.0;
     bool isPrepared = false;
 
-    /**
-     * @brief Update all filter coefficients based on current parameters
-     * Called automatically when parameters change
-     */
-    void updateFilters();
-
-    // Filter parameters with sensible defaults
-    float lowCutFreq = 20.0f, lowCutQ = 0.7f;                         ///< Low-cut: 20Hz, Q=0.7
-    float lowMidFreq = 350.0f, lowMidGain = 0.0f, lowMidQ = 1.0f;     ///< Low-mid: 350Hz, 0dB, Q=1.0
-    float highMidFreq = 3800.0f, highMidGain = 0.0f, highMidQ = 1.0f; ///< High-mid: 3.8kHz, 0dB, Q=1.0
-    float highCutFreq = 20000.0f, highCutQ = 0.7f;                    ///< High-cut: 20kHz, Q=0.7 (disabled by default)
-
+    // Filter parameters - Low Cut
+    float lowCutFreq = 100.0f;
+    float lowCutQ = kButterworthQ;
     bool lowCutEnabled = false;
+
+    // Filter parameters - Low Mid
+    float lowMidFreq = 500.0f;
+    float lowMidGain = 0.0f;
+    float lowMidQ = kButterworthQ;
+
+    // Filter parameters - High Mid
+    float highMidFreq = 2000.0f;
+    float highMidGain = 0.0f;
+    float highMidQ = kButterworthQ;
+
+    // Filter parameters - High Cut
+    float highCutFreq = kMaxFrequency;
+    float highCutQ = kButterworthQ;
     bool highCutEnabled = false;
+
+    // Cached state for optimization
+    bool lowMidActive = false;
+    bool highMidActive = false;
+
+    void updateFilters();
+    void updateActiveStates();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ParametricEQ)
 };

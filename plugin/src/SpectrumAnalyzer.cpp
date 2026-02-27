@@ -1,174 +1,146 @@
 #include "Synthortion/SpectrumAnalyzer.h"
 #include "Synthortion/SynthortionLookAndFeel.h"
 #include "Synthortion/ParametricEQ.h"
+#include <array>
 
 SpectrumAnalyzer::SpectrumAnalyzer()
-    : forwardFFT(fftOrder),
-      window(fftSize, juce::dsp::WindowingFunction<float>::hann)
 {
-    // Initialize smoothed data array to zero
-    juce::zeromem(smoothedScopeData, sizeof(smoothedScopeData));
-    juce::zeromem(targetScopeData, sizeof(targetScopeData));
-    juce::zeromem(currentScopeData, sizeof(currentScopeData));
-    juce::zeromem(peakHoldData, sizeof(peakHoldData));
-    juce::zeromem(peakHoldTimer, sizeof(peakHoldTimer));
-
-    // Pre-allocate cached points for performance
-    cachedPoints.ensureStorageAllocated(scopeSize);
-
-    startTimerHz(60); // Timer più veloce per interpolazione fluida
+    cachedPoints.ensureStorageAllocated(kScopeSize);
+    startTimerHz(kTimerHz);
 }
 
-SpectrumAnalyzer::~SpectrumAnalyzer()
+float SpectrumAnalyzer::frequencyToX(float freq, const juce::Rectangle<float>& plot) const
 {
+    const float nyquist = static_cast<float>(sampleRate * 0.5);
+    freq = juce::jlimit(kMinFreq, nyquist, freq);
+
+    const float logMin = std::log10(kMinFreq);
+    const float logMax = std::log10(nyquist);
+    const float logF = std::log10(freq);
+
+    float normalizedLog = (logF - logMin) / (logMax - logMin);
+    normalizedLog = juce::jlimit(0.0f, 1.0f, normalizedLog);
+
+    return plot.getX() + normalizedLog * plot.getWidth();
+}
+
+float SpectrumAnalyzer::gainToY(float gainDb, const juce::Rectangle<float>& plot) const
+{
+    const float norm = juce::jmap(gainDb, -kGainRangeDb, kMaxGainDb, 0.0f, 1.0f);
+    return plot.getBottom() - norm * plot.getHeight();
+}
+
+void SpectrumAnalyzer::drawGrid(juce::Graphics &g, const juce::Rectangle<float>& plot)
+{
+    if (sampleRate <= 0.0)
+        return;
+
+    const float nyquist = static_cast<float>(sampleRate * 0.5);
+
+    static constexpr std::array majorFreqs{20.f, 100.f, 1000.f, 10000.f, 20000.f};
+    static constexpr std::array minorFreqs{30.f, 40.f, 50.f, 60.f, 70.f, 80.f, 90.f, 
+                                           200.f, 300.f, 400.f, 500.f, 600.f, 700.f, 800.f, 900.f, 
+                                           2000.f, 3000.f, 4000.f, 5000.f, 6000.f, 7000.f, 8000.f, 9000.f};
+
+    g.setColour(juce::Colour(0xff2a3441).withAlpha(0.25f));
+    for (const float freq : minorFreqs)
+    {
+        if (freq <= nyquist)
+        {
+            const float x = frequencyToX(freq, plot);
+            g.drawLine(x, plot.getY(), x, plot.getBottom(), 0.5f);
+        }
+    }
+
+    g.setColour(juce::Colour(0xff2a3441).withAlpha(0.4f));
+    for (const float freq : majorFreqs)
+    {
+        if (freq <= nyquist)
+        {
+            const float x = frequencyToX(freq, plot);
+            g.drawLine(x, plot.getY(), x, plot.getBottom(), 0.8f);
+        }
+    }
+
+    g.setColour(juce::Colour(0xff2a3441).withAlpha(0.2f));
+    for (int dB = -static_cast<int>(kGainRangeDb); dB <= 0; dB += 5)
+    {
+        if (dB % 10 != 0)
+        {
+            const float y = gainToY(static_cast<float>(dB), plot);
+            g.drawLine(plot.getX(), y, plot.getRight(), y, 0.5f);
+        }
+    }
+
+    g.setColour(juce::Colour(0xff2a3441).withAlpha(0.4f));
+    for (int dB = -static_cast<int>(kGainRangeDb); dB <= 0; dB += 10)
+    {
+        const float y = gainToY(static_cast<float>(dB), plot);
+        g.drawLine(plot.getX(), y, plot.getRight(), y, 0.8f);
+    }
+}
+
+void SpectrumAnalyzer::drawFrequencyLabels(juce::Graphics &g, const juce::Rectangle<float>& plot)
+{
+    if (sampleRate <= 0.0)
+        return;
+
+    const float nyquist = static_cast<float>(sampleRate * 0.5);
+    static constexpr std::array labelFreqs{20.f, 100.f, 500.f, 1000.f, 5000.f, 10000.f, 20000.f};
+
+    g.setColour(juce::Colour(0xffB4B4B4).withAlpha(0.8f));
+    g.setFont(juce::Font(juce::FontOptions().withHeight(9.5f)));
+
+    for (const float freq : labelFreqs)
+    {
+        if (freq > nyquist)
+            continue;
+
+        const float x = frequencyToX(freq, plot);
+        juce::String label;
+
+        if (freq >= 1000.f && static_cast<int>(freq) % 1000 == 0)
+            label = juce::String(static_cast<int>(freq / 1000.f)) + "K";
+        else
+            label = juce::String(static_cast<int>(freq));
+
+        const int rx = juce::roundToInt(x - 20.0f);
+        const int ry = juce::roundToInt(plot.getBottom() + 3.0f);
+
+        g.drawFittedText(label, juce::Rectangle<int>(rx, ry, 40, 12),
+                        juce::Justification::centred, 1);
+    }
 }
 
 void SpectrumAnalyzer::paint(juce::Graphics &g)
 {
-    // Safety check for valid sample rate
     if (sampleRate <= 0.0)
     {
         g.fillAll(juce::Colours::black);
         return;
     }
 
-    auto outer = getLocalBounds().toFloat().reduced(2.0f);
+    const auto outer = getLocalBounds().toFloat().reduced(kOuterPadding);
 
-    // Enhanced background with subtle texture
     juce::ColourGradient backgroundGrad(juce::Colour(0xff1a1a1a), outer.getTopLeft(),
                                         juce::Colour(0xff0f0f0f), outer.getBottomRight(), false);
     g.setGradientFill(backgroundGrad);
-    g.fillRoundedRectangle(outer, 8.0f);
+    g.fillRoundedRectangle(outer, kCornerRadius);
 
-    // Plot area ottimizzato - padding ridotto a sinistra senza etichette Y
-    auto plot = outer.reduced(15.0f, 18.0f); // Ridotto padding sinistro da 30 a 15
+    const auto plot = outer.reduced(kPlotPaddingH, kPlotPaddingV);
 
-    // Subtle border with inner glow
     g.setColour(juce::Colour(0xff333333).withAlpha(0.8f));
-    g.drawRoundedRectangle(outer, 8.0f, 1.0f);
+    g.drawRoundedRectangle(outer, kCornerRadius, 1.0f);
 
-    // Inner subtle highlight
     g.setColour(juce::Colour(0xff444444).withAlpha(0.3f));
-    g.drawRoundedRectangle(outer.reduced(1.0f), 7.0f, 0.5f);
+    g.drawRoundedRectangle(outer.reduced(1.0f), kInnerCornerRadius, 0.5f);
 
-    // Enhanced grid with better frequency distribution like SPAN
-    const float nyquist = (float)(sampleRate * 0.5);
-
-    // More balanced frequency grid lines ottimizzato come Klangfreund
-    const float majorFreqs[] = {20.f, 100.f, 1000.f, 10000.f, 20000.f};
-    const float minorFreqs[] = {30.f, 40.f, 50.f, 60.f, 70.f, 80.f, 90.f, 200.f, 300.f, 400.f, 500.f, 600.f, 700.f, 800.f, 900.f, 2000.f, 3000.f, 4000.f, 5000.f, 6000.f, 7000.f, 8000.f, 9000.f};
-    const int numMajorFreqs = (int)(sizeof(majorFreqs) / sizeof(majorFreqs[0]));
-    const int numMinorFreqs = (int)(sizeof(minorFreqs) / sizeof(minorFreqs[0]));
-
-    auto freqToX = [&](float f) -> float
-    {
-        f = juce::jlimit(20.0f, nyquist, f);
-
-        // Safe logarithmic mapping to prevent NaN/infinite values
-        const float minFreq = 20.0f;
-        const float maxFreq = nyquist;
-
-        // Use standard log mapping with proper bounds checking
-        const float logMin = std::log10(minFreq);
-        const float logMax = std::log10(maxFreq);
-        const float logF = std::log10(f);
-
-        // Safe normalization with bounds checking
-        float normalizedLog = (logF - logMin) / (logMax - logMin);
-        normalizedLog = juce::jlimit(0.0f, 1.0f, normalizedLog);
-
-        return plot.getX() + normalizedLog * plot.getWidth();
-    };
-
-    // Minor grid lines (thinner, more transparent)
-    g.setColour(juce::Colour(0xff2a3441).withAlpha(0.25f));
-    for (int i = 0; i < numMinorFreqs; ++i)
-    {
-        if (minorFreqs[i] <= nyquist)
-        {
-            const float x = freqToX(minorFreqs[i]);
-            g.drawLine(x, plot.getY(), x, plot.getBottom(), 0.5f);
-        }
-    }
-
-    // Major grid lines (slightly thicker)
-    g.setColour(juce::Colour(0xff2a3441).withAlpha(0.4f));
-    for (int i = 0; i < numMajorFreqs; ++i)
-    {
-        if (majorFreqs[i] <= nyquist)
-        {
-            const float x = freqToX(majorFreqs[i]);
-            g.drawLine(x, plot.getY(), x, plot.getBottom(), 0.8f);
-        }
-    }
-
-    // Enhanced gain grid with major/minor lines
-    auto gainMin = -60.f;
-    auto gainMax = 0.f;
-    auto gainToY = [&](float dB)
-    {
-        float norm = juce::jmap(dB, gainMin, gainMax, 0.0f, 1.0f);
-        return plot.getBottom() - norm * plot.getHeight();
-    };
-
-    // Minor gain lines (every 5dB)
-    g.setColour(juce::Colour(0xff2a3441).withAlpha(0.2f));
-    for (int dB = (int)gainMin; dB <= (int)gainMax; dB += 5)
-    {
-        if (dB % 10 != 0) // Skip major lines
-        {
-            const float y = gainToY((float)dB);
-            g.drawLine(plot.getX(), y, plot.getRight(), y, 0.5f);
-        }
-    }
-
-    // Major gain lines (every 10dB)
-    g.setColour(juce::Colour(0xff2a3441).withAlpha(0.4f));
-    for (int dB = (int)gainMin; dB <= (int)gainMax; dB += 10)
-    {
-        const float y = gainToY((float)dB);
-        g.drawLine(plot.getX(), y, plot.getRight(), y, 0.8f);
-    }
-
-    // Enhanced axis labels with better typography
-    g.setColour(juce::Colour(0xffB4B4B4).withAlpha(0.8f));
-    juce::Font labelFont(juce::FontOptions().withHeight(9.5f));
-    g.setFont(labelFont);
-
-    // Frequency labels selezionate: 20, 100, 500, 1K, 5K, 10K, 20K
-    const float labelFreqs[] = {20.f, 100.f, 500.f, 1000.f, 5000.f, 10000.f, 20000.f};
-    const int numLabelFreqs = (int)(sizeof(labelFreqs) / sizeof(labelFreqs[0]));
-
-    for (int i = 0; i < numLabelFreqs; ++i)
-    {
-        if (labelFreqs[i] <= nyquist)
-        {
-            const float x = freqToX(labelFreqs[i]);
-            juce::String label;
-
-            // Formattazione: 1000Hz = "1K", 5000Hz = "5K", 10000Hz = "10K"
-            if (labelFreqs[i] >= 1000.f && (int)labelFreqs[i] % 1000 == 0)
-                label = juce::String((int)(labelFreqs[i] / 1000.f)) + "K";
-            else
-                label = juce::String((int)labelFreqs[i]);
-
-            const int rx = juce::roundToInt(x - 20.0f);
-            const int ry = juce::roundToInt(plot.getBottom() + 3.0f);
-
-            // Rendering diretto senza controllo sovrapposizione (abbiamo solo 7 etichette ben distanziate)
-            g.drawFittedText(label,
-                             juce::Rectangle<int>(rx, ry, 40, 12),
-                             juce::Justification::centred, 1);
-        }
-    }
-
+    drawGrid(g, plot);
+    drawFrequencyLabels(g, plot);
     drawFrame(g);
 
-    // Draw EQ curve overlay - ALWAYS visible even without audio signal
     if (eqReference != nullptr)
-    {
         drawEQCurve(g);
-    }
 }
 
 void SpectrumAnalyzer::resized()
@@ -182,59 +154,46 @@ void SpectrumAnalyzer::timerCallback()
         drawNextFrameOfSpectrum();
         nextFFTBlockReady = false;
 
-        // Aggiorna i target values ma non repaint subito
-        // L'interpolazione farà il resto
-        for (int i = 0; i < scopeSize; ++i)
-        {
+        for (int i = 0; i < kScopeSize; ++i)
             targetScopeData[i] = smoothedScopeData[i];
-        }
     }
 
-    // Sistema di interpolazione temporale continua per fluidità perfetta
     bool hasChanges = false;
 
-    for (int i = 0; i < scopeSize; ++i)
+    for (int i = 0; i < kScopeSize; ++i)
     {
-        // Interpolazione fluida verso il target
-        float oldValue = currentScopeData[i];
-        currentScopeData[i] += (targetScopeData[i] - currentScopeData[i]) * interpolationSpeed;
+        const float oldValue = currentScopeData[i];
+        currentScopeData[i] += (targetScopeData[i] - currentScopeData[i]) * kInterpolationSpeed;
 
-        // Decay continuo del target per animazione naturale
-        targetScopeData[i] *= 0.995f; // Decay molto graduale
+        targetScopeData[i] *= kTargetDecay;
 
-        // Verifica se c'è un cambiamento visibile
-        if (std::abs(oldValue - currentScopeData[i]) > 0.002f)
+        if (std::abs(oldValue - currentScopeData[i]) > kChangeThreshold)
             hasChanges = true;
 
-        // Update peak hold con interpolazione
         if (peakHoldTimer[i] > 0)
         {
             peakHoldTimer[i]--;
         }
         else
         {
-            // Peak hold decay ancora più graduale
-            peakHoldData[i] *= 0.992f; // Decay ultra-graduale per picchi
+            peakHoldData[i] *= kPeakDecay;
         }
 
-        // Aggiorna scopeData con i valori interpolati
         scopeData[i] = currentScopeData[i];
     }
 
-    // Repaint continuo per animazione fluida e per mostrare la curva EQ anche senza audio
-    // Facciamo sempre repaint per aggiornare la curva EQ quando i parametri cambiano
     if (hasChanges || eqReference != nullptr)
         repaint();
 }
 
 void SpectrumAnalyzer::pushNextSampleIntoFifo(float sample) noexcept
 {
-    if (fifoIndex == fftSize)
+    if (fifoIndex == kFftSize)
     {
         if (!nextFFTBlockReady)
         {
-            juce::zeromem(fftData, sizeof(fftData));
-            memcpy(fftData, fifo, sizeof(fifo));
+            fftData.fill(0.0f);
+            std::copy(fifo.begin(), fifo.end(), fftData.begin());
             nextFFTBlockReady = true;
         }
         fifoIndex = 0;
@@ -245,120 +204,84 @@ void SpectrumAnalyzer::pushNextSampleIntoFifo(float sample) noexcept
 
 void SpectrumAnalyzer::drawNextFrameOfSpectrum()
 {
-    window.multiplyWithWindowingTable(fftData, fftSize);
-    forwardFFT.performFrequencyOnlyForwardTransform(fftData);
+    window.multiplyWithWindowingTable(fftData.data(), kFftSize);
+    forwardFFT.performFrequencyOnlyForwardTransform(fftData.data());
 
-    const float mindB = -100.0f;
-    const float maxdB = 0.0f;
-    // Improved normalization factor accounting for window function and FFT size
-    const float scale = 2.0f / (float)fftSize;
-    const float windowCorrection = 1.5f; // Compensation for Hann window energy loss
-    const float nyquist = (float)sampleRate * 0.5f;
+    const float scale = kFftScale / static_cast<float>(kFftSize) * kWindowCorrection;
+    const float nyquist = static_cast<float>(sampleRate * 0.5);
 
-    for (int i = 0; i < scopeSize; ++i)
+    for (int i = 0; i < kScopeSize; ++i)
     {
-        // Calculate logarithmic frequency for this scope bin
-        float logPos = (float)i / (float)(scopeSize - 1); // 0 to 1
-        float freq = minFreq * std::pow(nyquist / minFreq, logPos);
+        const float logPos = static_cast<float>(i) / static_cast<float>(kScopeSize - 1);
+        const float freq = kMinFreq * std::pow(nyquist / kMinFreq, logPos);
 
-        // Convert frequency to FFT bin index
-        float binFloat = freq * (float)fftSize / (float)sampleRate;
-        int fftIndex = juce::jlimit(0, fftSize / 2 - 1, (int)binFloat);
+        const float binFloat = freq * static_cast<float>(kFftSize) / static_cast<float>(sampleRate);
+        const int fftIndex = juce::jlimit(0, kFftSize / 2 - 1, static_cast<int>(binFloat));
 
-        // Interpolate between adjacent bins for smoother results
-        float frac = binFloat - (float)fftIndex;
-        float mag1 = fftData[fftIndex] * scale * windowCorrection;
-        float mag2 = (fftIndex + 1 < fftSize / 2) ? fftData[fftIndex + 1] * scale * windowCorrection : mag1;
-        float mag = mag1 + frac * (mag2 - mag1);
+        const float frac = binFloat - static_cast<float>(fftIndex);
+        const float mag1 = fftData[fftIndex] * scale;
+        const float mag2 = (fftIndex + 1 < kFftSize / 2) ? fftData[fftIndex + 1] * scale : mag1;
+        const float mag = mag1 + frac * (mag2 - mag1);
 
-        float dB = juce::Decibels::gainToDecibels(juce::jmax(mag, 1.0e-9f));
-        float level = juce::jlimit(0.0f, 1.0f, juce::jmap(dB, mindB, maxdB, 0.0f, 1.0f));
+        const float dB = juce::Decibels::gainToDecibels(juce::jmax(mag, kMinMagnitude));
+        const float level = juce::jlimit(0.0f, 1.0f, 
+                                        juce::jmap(dB, kMinGainDb, kMaxGainDb, 0.0f, 1.0f));
 
-        // Apply temporal smoothing molto forte per evitare scatti
-        smoothedScopeData[i] = smoothedScopeData[i] * smoothingFactor + level * (1.0f - smoothingFactor);
+        smoothedScopeData[i] = smoothedScopeData[i] * kSmoothingFactor + 
+                               level * (1.0f - kSmoothingFactor);
 
-        // Peak hold logic like professional spectrum analyzers
         if (level > peakHoldData[i])
         {
-            peakHoldData[i] = level;         // New peak
-            peakHoldTimer[i] = peakHoldTime; // Reset timer
+            peakHoldData[i] = level;
+            peakHoldTimer[i] = kPeakHoldTime;
         }
-
-        // Non aggiornare direttamente scopeData - sarà fatto dall'interpolazione
-        // scopeData[i] = smoothedScopeData[i]; // Commentato per interpolazione fluida
     }
 }
 
 void SpectrumAnalyzer::drawFrame(juce::Graphics &g)
 {
-    // Safety check for valid sample rate
     if (sampleRate <= 0.0)
         return;
 
-    auto bounds = getLocalBounds().toFloat().reduced(15.0f, 18.0f); // Consistente con paint()
-    auto width = bounds.getWidth();
-    auto height = bounds.getHeight();
+    const auto bounds = getLocalBounds().toFloat().reduced(kPlotPaddingH, kPlotPaddingV);
+    const auto height = bounds.getHeight();
+    const float nyquist = static_cast<float>(sampleRate * 0.5);
 
-    const float nyquist = (float)sampleRate * 0.5f;
-
-    // Enable high-quality anti-aliasing
     g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
 
-    // Update cached points only when needed
     cachedPoints.clearQuick();
-    cachedPoints.ensureStorageAllocated(scopeSize);
+    cachedPoints.ensureStorageAllocated(kScopeSize);
 
-    // Collect points with optimized loop using consistent logarithmic mapping
-    for (int i = 1; i < scopeSize; ++i)
+    for (int i = 1; i < kScopeSize; ++i)
     {
-        // Calculate logarithmic frequency for this scope bin
-        float logPos = (float)i / (float)(scopeSize - 1); // 0 to 1
-        float freq = 20.0f * std::pow(nyquist / 20.0f, logPos);
+        const float logPos = static_cast<float>(i) / static_cast<float>(kScopeSize - 1);
+        const float freq = kMinFreq * std::pow(nyquist / kMinFreq, logPos);
 
-        // Apply the same safe logarithmic mapping as in paint() method for consistency
-        freq = juce::jlimit(20.0f, nyquist, freq);
+        const float x = frequencyToX(freq, bounds);
+        const float y = bounds.getBottom() - juce::jmap(scopeData[i], 0.0f, 1.0f, 0.0f, height);
 
-        const float maxFreq = nyquist;
-
-        // Use standard log mapping with proper bounds checking
-        const float logMin = std::log10(minFreq);
-        const float logMax = std::log10(maxFreq);
-        const float logF = std::log10(freq);
-
-        // Safe normalization with bounds checking
-        float normalizedLog = (logF - logMin) / (logMax - logMin);
-        normalizedLog = juce::jlimit(0.0f, 1.0f, normalizedLog);
-
-        auto x = bounds.getX() + normalizedLog * width;
-        auto y = bounds.getBottom() - juce::jmap(scopeData[i], 0.0f, 1.0f, 0.0f, height);
-
-        // Additional safety check for valid coordinates
         if (std::isfinite(x) && std::isfinite(y))
-        {
             cachedPoints.add({x, y});
-        }
     }
+
     juce::Path spectrumPath;
 
-    // Create ultra-smooth path usando cubic curves per fluidità massima
     if (cachedPoints.size() > 3)
     {
-        spectrumPath.preallocateSpace(cachedPoints.size() * 4); // Pre-allocate per cubic curves
+        spectrumPath.preallocateSpace(cachedPoints.size() * 4);
         spectrumPath.startNewSubPath(cachedPoints[0]);
 
-        // Use cubic curves per smoothness massima
         for (int i = 1; i < cachedPoints.size() - 2; ++i)
         {
-            auto p0 = cachedPoints[i - 1];
-            auto p1 = cachedPoints[i];
-            auto p2 = cachedPoints[i + 1];
-            auto p3 = cachedPoints[i + 2];
+            const auto p0 = cachedPoints[i - 1];
+            const auto p1 = cachedPoints[i];
+            const auto p2 = cachedPoints[i + 1];
+            const auto p3 = cachedPoints[i + 2];
 
-            // Catmull-Rom spline per smoothness naturale
-            auto cp1x = p1.x + (p2.x - p0.x) * 0.16f;
-            auto cp1y = p1.y + (p2.y - p0.y) * 0.16f;
-            auto cp2x = p2.x - (p3.x - p1.x) * 0.16f;
-            auto cp2y = p2.y - (p3.y - p1.y) * 0.16f;
+            const auto cp1x = p1.x + (p2.x - p0.x) * 0.16f;
+            const auto cp1y = p1.y + (p2.y - p0.y) * 0.16f;
+            const auto cp2x = p2.x - (p3.x - p1.x) * 0.16f;
+            const auto cp2y = p2.y - (p3.y - p1.y) * 0.16f;
 
             spectrumPath.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
         }
@@ -368,43 +291,32 @@ void SpectrumAnalyzer::drawFrame(juce::Graphics &g)
     }
     else if (cachedPoints.size() > 1)
     {
-        // Fallback per pochi punti
         spectrumPath.startNewSubPath(cachedPoints[0]);
         for (int i = 1; i < cachedPoints.size(); ++i)
-        {
             spectrumPath.lineTo(cachedPoints[i]);
-        }
     }
 
-    // Fill under the spectrum with enhanced gradient
     juce::Path filledPath = spectrumPath;
     filledPath.lineTo(bounds.getRight(), bounds.getBottom());
     filledPath.lineTo(bounds.getX(), bounds.getBottom());
     filledPath.closeSubPath();
 
-    // Multi-stop gradient for more depth
     juce::ColourGradient spectrumGradient(
-        PURPLE.withAlpha(0.45f),
-        bounds.getCentreX(), bounds.getY(),
-        PURPLE_DARK.withAlpha(0.05f),
-        bounds.getCentreX(), bounds.getBottom(), false);
-
+        PURPLE.withAlpha(0.45f), bounds.getCentreX(), bounds.getY(),
+        PURPLE_DARK.withAlpha(0.05f), bounds.getCentreX(), bounds.getBottom(), false);
     spectrumGradient.addColour(0.3, PURPLE.withAlpha(0.25f));
 
     g.setGradientFill(spectrumGradient);
     g.fillPath(filledPath);
 
-    // Draw main spectrum line with optimized glow effect
-    juce::PathStrokeType strokeType(2.0f);
+    juce::PathStrokeType strokeType(kMainLineWidth);
     strokeType.setJointStyle(juce::PathStrokeType::curved);
     strokeType.setEndStyle(juce::PathStrokeType::rounded);
 
-    // Reduced glow layers for better performance while maintaining quality
-    const int glowLayers = 2; // Reduced from 3
-    for (int glow = glowLayers; glow >= 1; --glow)
+    for (int glow = kGlowLayers; glow >= 1; --glow)
     {
-        float glowWidth = 2.0f + (glow * 1.0f); // Reduced glow spread
-        float alpha = 0.25f / glow;
+        const float glowWidth = kMainLineWidth + (glow * 1.0f);
+        const float alpha = 0.25f / glow;
 
         g.setColour(PURPLE.withAlpha(alpha));
         juce::PathStrokeType glowStroke(glowWidth);
@@ -413,7 +325,6 @@ void SpectrumAnalyzer::drawFrame(juce::Graphics &g)
         g.strokePath(spectrumPath, glowStroke);
     }
 
-    // Main line with enhanced brightness
     g.setColour(PURPLE.brighter(0.3f));
     g.strokePath(spectrumPath, strokeType);
 }
@@ -423,43 +334,29 @@ void SpectrumAnalyzer::drawEQCurve(juce::Graphics &g)
     if (eqReference == nullptr)
         return;
 
-    auto outer = getLocalBounds().toFloat().reduced(2.0f);
-    auto plot = outer.reduced(15.0f, 18.0f);
+    const auto outer = getLocalBounds().toFloat().reduced(kOuterPadding);
+    const auto plot = outer.reduced(kPlotPaddingH, kPlotPaddingV);
 
-    // Generate frequency points for EQ curve (logarithmic spacing)
     std::vector<float> frequencies;
-    const int numPoints = 200; // Smooth curve resolution
-    const float maxFreq = 20000.0f;
+    frequencies.reserve(kEqCurvePoints);
 
-    for (int i = 0; i < numPoints; ++i)
+    for (int i = 0; i < kEqCurvePoints; ++i)
     {
-        float ratio = (float)i / (float)(numPoints - 1);
-        float freq = minFreq * std::pow(maxFreq / minFreq, ratio);
+        const float ratio = static_cast<float>(i) / static_cast<float>(kEqCurvePoints - 1);
+        const float freq = kMinFreq * std::pow(kMaxFreq / kMinFreq, ratio);
         frequencies.push_back(freq);
     }
 
-    // Get frequency response from EQ
-    auto magnitudes = eqReference->getFrequencyResponse(frequencies);
+    const auto magnitudes = eqReference->getFrequencyResponse(frequencies);
 
-    // Convert to visual coordinates
     juce::Path eqPath;
     bool firstPoint = true;
 
     for (size_t i = 0; i < frequencies.size() && i < magnitudes.size(); ++i)
     {
-        float freq = frequencies[i];
-        float magnitude = magnitudes[i];
-
-        // Convert frequency to x coordinate (logarithmic scale)
-        float x = plot.getX() + plot.getWidth() *
-                                    std::log10(freq / minFreq) / std::log10(maxFreq / minFreq);
-
-        // Convert magnitude (dB) to y coordinate
-        // Assuming +/- 20dB range for visual scaling
-        float y = plot.getY() + plot.getHeight() * 0.5f * (1.0f - magnitude / 20.0f);
-
-        // Clamp y to plot area
-        y = juce::jlimit(plot.getY(), plot.getBottom(), y);
+        const float x = frequencyToX(frequencies[i], plot);
+        const float y = juce::jlimit(plot.getY(), plot.getBottom(),
+                                     plot.getY() + plot.getHeight() * 0.5f * (1.0f - magnitudes[i] / 20.0f));
 
         if (firstPoint)
         {
@@ -472,33 +369,22 @@ void SpectrumAnalyzer::drawEQCurve(juce::Graphics &g)
         }
     }
 
-    // Draw EQ curve with Pro-Q style in purple theme
     if (!eqPath.isEmpty())
     {
-        // Fill area under curve with subtle transparency (like Pro-Q)
-        juce::Path fillPath = eqPath;
-        fillPath.lineTo(plot.getRight(), plot.getY() + plot.getHeight() * 0.5f); // Center line
-        fillPath.lineTo(plot.getX(), plot.getY() + plot.getHeight() * 0.5f);     // Center line
-        fillPath.closeSubPath();
-
-        // Main EQ curve line
-        juce::PathStrokeType strokeType(2.5f); // Slightly thicker for better visibility
+        juce::PathStrokeType strokeType(kEqLineWidth);
         strokeType.setJointStyle(juce::PathStrokeType::curved);
         strokeType.setEndStyle(juce::PathStrokeType::rounded);
 
-        // Purple glow effect - stronger than spectrum
         g.setColour(PURPLE.withAlpha(0.5f));
-        juce::PathStrokeType glowStroke(5.0f);
+        juce::PathStrokeType glowStroke(kGlowWidth);
         glowStroke.setJointStyle(juce::PathStrokeType::curved);
         g.strokePath(eqPath, glowStroke);
 
-        // Main purple line - bright and visible
         g.setColour(PURPLE.brighter(0.4f));
         g.strokePath(eqPath, strokeType);
 
-        // Draw center line (0dB reference) in darker purple
         g.setColour(PURPLE_DARK.withAlpha(0.6f));
-        float centerY = plot.getY() + plot.getHeight() * 0.5f;
-        g.drawHorizontalLine((int)centerY, plot.getX(), plot.getRight());
+        const float centerY = plot.getY() + plot.getHeight() * 0.5f;
+        g.drawHorizontalLine(static_cast<int>(centerY), plot.getX(), plot.getRight());
     }
 }

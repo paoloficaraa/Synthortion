@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+#include <array>
 
 class ParametricEQ;
 
@@ -9,57 +10,83 @@ class SpectrumAnalyzer : public juce::Component, public juce::Timer
 {
 public:
     SpectrumAnalyzer();
-    ~SpectrumAnalyzer() override;
+    ~SpectrumAnalyzer() override = default;
 
     void paint(juce::Graphics &g) override;
     void resized() override;
     void timerCallback() override;
 
     void pushNextSampleIntoFifo(float sample) noexcept;
-    void drawNextFrameOfSpectrum();
-    void drawFrame(juce::Graphics &g);
 
-    // Configure analyzer with host sample rate for correct frequency axis
     void setSampleRate(double newSampleRate) { sampleRate = newSampleRate; }
-
-    // EQ curve visualization
     void setEQReference(ParametricEQ *eq) { eqReference = eq; }
-    void drawEQCurve(juce::Graphics &g);
     void setEQBypass(bool bypassed) { eqBypassed = bypassed; }
 
 private:
-    enum
-    {
-        fftOrder = 12,           // Increased from 11 for better frequency resolution
-        fftSize = 1 << fftOrder, // 4096 samples for higher resolution
-        scopeSize = 512
-    };
+    static constexpr int kFftOrder = 12;
+    static constexpr int kFftSize = 1 << kFftOrder;
+    static constexpr int kScopeSize = 512;
+    static constexpr int kTimerHz = 60;
+    static constexpr int kEqCurvePoints = 200;
+    
+    static constexpr float kMinFreq = 20.0f;
+    static constexpr float kMaxFreq = 20000.0f;
+    static constexpr float kMinGainDb = -100.0f;
+    static constexpr float kMaxGainDb = 0.0f;
+    static constexpr float kGainRangeDb = 60.0f;
+    
+    static constexpr float kSmoothingFactor = 0.85f;
+    static constexpr float kInterpolationSpeed = 0.15f;
+    static constexpr float kTargetDecay = 0.995f;
+    static constexpr float kPeakDecay = 0.992f;
+    static constexpr float kChangeThreshold = 0.002f;
+    
+    static constexpr int kPeakHoldTime = 45;
+    
+    static constexpr float kOuterPadding = 2.0f;
+    static constexpr float kPlotPaddingH = 15.0f;
+    static constexpr float kPlotPaddingV = 18.0f;
+    static constexpr float kCornerRadius = 8.0f;
+    static constexpr float kInnerCornerRadius = 7.0f;
+    
+    static constexpr float kFftScale = 2.0f;
+    static constexpr float kWindowCorrection = 1.5f;
+    static constexpr float kMinMagnitude = 1.0e-9f;
+    
+    static constexpr float kMainLineWidth = 2.0f;
+    static constexpr float kEqLineWidth = 2.5f;
+    static constexpr float kGlowWidth = 5.0f;
+    static constexpr int kGlowLayers = 2;
 
-    juce::dsp::FFT forwardFFT;
-    juce::dsp::WindowingFunction<float> window;
+    void drawNextFrameOfSpectrum();
+    void drawFrame(juce::Graphics &g);
+    void drawEQCurve(juce::Graphics &g);
+    void drawGrid(juce::Graphics &g, const juce::Rectangle<float>& plot);
+    void drawFrequencyLabels(juce::Graphics &g, const juce::Rectangle<float>& plot);
+    
+    float frequencyToX(float freq, const juce::Rectangle<float>& plot) const;
+    float gainToY(float gainDb, const juce::Rectangle<float>& plot) const;
 
-    float fifo[fftSize];
-    float fftData[2 * fftSize];
+    juce::dsp::FFT forwardFFT{kFftOrder};
+    juce::dsp::WindowingFunction<float> window{kFftSize, juce::dsp::WindowingFunction<float>::hann};
+
+    std::array<float, kFftSize> fifo{};
+    std::array<float, 2 * kFftSize> fftData{};
+    std::array<float, kScopeSize> scopeData{};
+    std::array<float, kScopeSize> smoothedScopeData{};
+    std::array<float, kScopeSize> targetScopeData{};
+    std::array<float, kScopeSize> currentScopeData{};
+    std::array<float, kScopeSize> peakHoldData{};
+    std::array<int, kScopeSize> peakHoldTimer{};
+    
     int fifoIndex = 0;
     std::atomic<bool> nextFFTBlockReady{false};
-    float scopeData[scopeSize];
-    float smoothedScopeData[scopeSize];           // For temporal smoothing
-    float targetScopeData[scopeSize];             // Target values for interpolation
-    float currentScopeData[scopeSize];            // Current interpolated values
-    float peakHoldData[scopeSize];                // Peak hold values like professional analyzers
-    int peakHoldTimer[scopeSize];                 // Timer for peak hold decay
-    juce::Array<juce::Point<float>> cachedPoints; // Cached points for performance
-    double sampleRate = 0.0;                      // used for frequency mapping (set by host)
+    
+    juce::Array<juce::Point<float>> cachedPoints;
+    double sampleRate = 0.0;
 
-    // EQ curve visualization
     ParametricEQ *eqReference = nullptr;
     bool eqBypassed = false;
-    std::vector<juce::Point<float>> eqCurvePoints;
-
-    static constexpr float minFreq = 20.0f;
-    static constexpr float smoothingFactor = 0.85f;    // Smoothing molto forte per interpolazione fluida
-    static constexpr int peakHoldTime = 45;            // Peak hold più longo (1.5 secondi at 30fps)
-    static constexpr float interpolationSpeed = 0.15f; // Velocità di interpolazione per fluidità perfetta
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectrumAnalyzer)
 };

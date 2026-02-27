@@ -2,7 +2,6 @@
 
 BitCrusher::BitCrusher()
 {
-    randomEngine.seed(std::random_device{}());
     updateParameters();
 }
 
@@ -17,48 +16,47 @@ void BitCrusher::prepare(const juce::dsp::ProcessSpec &spec)
     reset();
 }
 
-void BitCrusher::process(juce::AudioBuffer<float> &buffer)
+void BitCrusher::process(juce::AudioBuffer<float>& buffer)
 {
     const int numSamples = buffer.getNumSamples();
-    auto *leftChannel = buffer.getWritePointer(0);
-    auto *rightChannel = buffer.getWritePointer(1);
+    const int numChannels = buffer.getNumChannels();
 
     dryWetMixer.pushDrySamples(juce::dsp::AudioBlock<float>(buffer));
 
-    for (int i = 0; i < numSamples; ++i)
+    for (int ch = 0; ch < numChannels; ++ch)
     {
-        float leftSample = leftChannel[i];
-        float rightSample = rightChannel[i];
+        float* channelData = buffer.getWritePointer(ch);
+        float& holdSample = (ch == 0) ? holdSampleLeft : holdSampleRight;
+        int& holdCounter = (ch == 0) ? holdCounterLeft : holdCounterRight;
 
-        // 1. ADC Quality: add minimal noise to simulate low-quality analog-to-digital conversion
-        leftSample = applyADCNoise(leftSample);
-        rightSample = applyADCNoise(rightSample);
-
-        // 2. Sample Rate Reduction: downsample (hold samples)
-        if (sampleCounter % downsampleRatio == 0)
+        for (int i = 0; i < numSamples; ++i)
         {
-            holdSampleLeft = leftSample;
-            holdSampleRight = rightSample;
+            float sample = channelData[i];
+            
+            // ADC noise simulation
+            sample += randomGenerator.nextFloat() * cachedAdcNoiseAmount;
+
+            // Sample & Hold (downsampling)
+            if (holdCounter == 0)
+            {
+                holdSample = sample;
+                holdCounter = downsampleRatio;
+            }
+            sample = holdSample;
+            holdCounter--;
+
+            // Dithering + Quantization (bit depth reduction)
+            sample += randomGenerator.nextFloat() * cachedDitherScale;
+            sample = std::floor(sample / quantizationStep) * quantizationStep;
+            sample = juce::jlimit(-1.0f, 1.0f, sample);
+
+            // DAC noise simulation
+            sample += randomGenerator.nextFloat() * cachedDacNoiseScale;
+
+            channelData[i] = sample;
         }
-        leftSample = holdSampleLeft;
-        rightSample = holdSampleRight;
-        sampleCounter++;
-
-        // 3. Bit Depth Reduction with Dither
-        leftSample = applyDither(leftSample);
-        rightSample = applyDither(rightSample);
-        leftSample = applyBitReduction(leftSample);
-        rightSample = applyBitReduction(rightSample);
-
-        // 4. DAC Noise: controllable noise per simulare conversione digitale-analogico
-        leftSample = applyDACNoise(leftSample);
-        rightSample = applyDACNoise(rightSample);
-
-        leftChannel[i] = leftSample;
-        rightChannel[i] = rightSample;
     }
 
-    // Apply overall wet/dry mix
     dryWetMixer.setWetMixProportion(bitCrushMix);
     dryWetMixer.mixWetSamples(juce::dsp::AudioBlock<float>(buffer));
 }
@@ -67,7 +65,8 @@ void BitCrusher::reset()
 {
     holdSampleLeft = 0.0f;
     holdSampleRight = 0.0f;
-    sampleCounter = 0;
+    holdCounterLeft = 0;
+    holdCounterRight = 0;
     dryWetMixer.reset();
 }
 
@@ -79,42 +78,18 @@ void BitCrusher::setBitCrushMix(float mix)
 void BitCrusher::setDACNoise(float noise)
 {
     dacNoiseAmount = juce::jlimit(0.0f, 1.0f, noise);
+    updateParameters();
 }
 
 void BitCrusher::updateParameters()
 {
-    // Calculate quantization step for bit depth
     float levels = std::pow(2.0f, bitDepth);
     quantizationStep = 2.0f / levels;
 
-    // Calculate downsample ratio
     downsampleRatio = static_cast<int>(sampleRate / sampleRateReduction);
     downsampleRatio = juce::jmax(1, downsampleRatio);
-}
-
-float BitCrusher::applyBitReduction(float sample)
-{
-    // Quantize sample based on bit depth
-    float quantized = std::floor(sample / quantizationStep) * quantizationStep;
-    return juce::jlimit(-1.0f, 1.0f, quantized);
-}
-
-float BitCrusher::applyDither(float sample)
-{
-    // Add dithering noise before quantization to reduce harsh artifacts
-    float ditherNoise = distribution(randomEngine) * ditherAmount * quantizationStep;
-    return sample + ditherNoise;
-}
-
-float BitCrusher::applyADCNoise(float sample)
-{
-    float noiseAmount = (1.0f - adcQuality) * 0.005f;
-    float noise = distribution(randomEngine) * noiseAmount;
-    return sample + noise;
-}
-
-float BitCrusher::applyDACNoise(float sample)
-{
-    float noise = distribution(randomEngine) * dacNoiseAmount * 0.08f;
-    return sample + noise;
+    
+    cachedAdcNoiseAmount = (1.0f - adcQuality) * 0.01f;
+    cachedDacNoiseScale = dacNoiseAmount * 0.08f;
+    cachedDitherScale = ditherAmount * quantizationStep * 2.0f;
 }

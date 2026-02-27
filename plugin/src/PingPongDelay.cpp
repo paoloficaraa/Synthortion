@@ -2,32 +2,29 @@
 
 PingPongDelay::PingPongDelay()
 {
-    smoothedDelayTime.setCurrentAndTargetValue(250.0f);
+    smoothedDelayTime.setCurrentAndTargetValue(kDefaultDelayTimeMs);
     smoothedMix.setCurrentAndTargetValue(0.0f);
-    smoothedFeedback.setCurrentAndTargetValue(0.4f);
+    smoothedFeedback.setCurrentAndTargetValue(kDefaultFeedback);
 }
 
 void PingPongDelay::prepare(const juce::dsp::ProcessSpec &spec)
 {
     sampleRate = spec.sampleRate;
 
-    int maxDelaySamples = static_cast<int>(sampleRate * 2.0);
+    const int maxDelaySamples = static_cast<int>(sampleRate * kMaxDelaySeconds);
     delayLine.setMaximumDelayInSamples(maxDelaySamples);
-
     delayLine.prepare(spec);
 
     dampingFilterLeft.prepare(spec);
     dampingFilterRight.prepare(spec);
-    auto coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 12000.0f);
-    dampingFilterLeft.coefficients = coefficients;
-    dampingFilterRight.coefficients = coefficients;
+    updateDampingFilters();
 
     dryWetMixer.prepare(spec);
     dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
 
-    smoothedDelayTime.reset(sampleRate, 0.05);
-    smoothedMix.reset(sampleRate, 0.05);
-    smoothedFeedback.reset(sampleRate, 0.05);
+    smoothedDelayTime.reset(sampleRate, kSmoothingTimeSeconds);
+    smoothedMix.reset(sampleRate, kSmoothingTimeSeconds);
+    smoothedFeedback.reset(sampleRate, kSmoothingTimeSeconds);
 
     reset();
 }
@@ -35,53 +32,55 @@ void PingPongDelay::prepare(const juce::dsp::ProcessSpec &spec)
 void PingPongDelay::process(juce::AudioBuffer<float> &buffer)
 {
     const int numSamples = buffer.getNumSamples();
+    const int numChannels = buffer.getNumChannels();
+
+    if (numChannels < 2 || numSamples == 0)
+        return;
+
     auto *leftChannel = buffer.getWritePointer(0);
     auto *rightChannel = buffer.getWritePointer(1);
 
     dryWetMixer.pushDrySamples(juce::dsp::AudioBlock<float>(buffer));
 
+    const float maxDelaySamples = static_cast<float>(delayLine.getMaximumDelayInSamples()) - kDelaySamplesSafetyMargin;
+
     for (int i = 0; i < numSamples; ++i)
     {
-        // Get smoothed parameters per-sample for smooth modulation
-        float currentDelayMs = smoothedDelayTime.getNextValue();
-        float currentFeedback = smoothedFeedback.getNextValue();
+        const float currentDelayMs = smoothedDelayTime.getNextValue();
+        const float currentFeedback = smoothedFeedback.getNextValue();
+        smoothedMix.getNextValue();
 
-        // Convert delay time to samples
-        float delaySamples = (currentDelayMs * static_cast<float>(sampleRate)) / 1000.0f;
-        delaySamples = juce::jlimit(1.0f, static_cast<float>(delayLine.getMaximumDelayInSamples() - 2), delaySamples);
+        const float delaySamples = juce::jlimit(
+            kMinDelaySamples,
+            maxDelaySamples,
+            currentDelayMs * static_cast<float>(sampleRate) * kMsToSeconds
+        );
 
-        // Set delay for both lines
         delayLine.setDelay(delaySamples);
 
-        // Read delayed signals
-        float delayedLeft = delayLine.popSample(0);
-        float delayedRight = delayLine.popSample(1);
+        const float delayedLeft = delayLine.popSample(0);
+        const float delayedRight = delayLine.popSample(1);
 
-        // Apply damping
-        float feedbackLeft = dampingFilterLeft.processSample(delayedLeft);
-        float feedbackRight = dampingFilterRight.processSample(delayedRight);
+        const float feedbackLeft = dampingFilterLeft.processSample(delayedLeft);
+        const float feedbackRight = dampingFilterRight.processSample(delayedRight);
 
-        // Ping-pong: left feedback goes to right, right goes to left
-        float leftInput = leftChannel[i] + (feedbackRight * currentFeedback);
-        float rightInput = rightChannel[i] + (feedbackLeft * currentFeedback);
+        const float leftInput = leftChannel[i] + (feedbackRight * currentFeedback);
+        const float rightInput = rightChannel[i] + (feedbackLeft * currentFeedback);
 
-        // Push to delay lines
         delayLine.pushSample(0, leftInput);
         delayLine.pushSample(1, rightInput);
 
-        // Write delayed output
         leftChannel[i] = delayedLeft;
         rightChannel[i] = delayedRight;
     }
 
-    // Mix dry and wet using the mixer
-    smoothedMix.skip(numSamples);
-    dryWetMixer.setWetMixProportion(smoothedMix.getTargetValue());
+    dryWetMixer.setWetMixProportion(smoothedMix.getCurrentValue());
     dryWetMixer.mixWetSamples(juce::dsp::AudioBlock<float>(buffer));
 }
 
 void PingPongDelay::reset()
 {
+    delayLine.reset();
     dampingFilterLeft.reset();
     dampingFilterRight.reset();
     dryWetMixer.reset();
@@ -89,19 +88,38 @@ void PingPongDelay::reset()
 
 void PingPongDelay::setDelayTime(float timeMs)
 {
-    delayTimeMs = juce::jlimit(1.0f, 2000.0f, timeMs);
+    delayTimeMs = juce::jlimit(kMinDelayTimeMs, kMaxDelayTimeMs, timeMs);
     smoothedDelayTime.setTargetValue(delayTimeMs);
 }
 
 void PingPongDelay::setDelayMix(float mix)
 {
-    delayMix = juce::jlimit(0.0f, 1.0f, mix);
+    delayMix = juce::jlimit(kMinMix, kMaxMix, mix);
     smoothedMix.setTargetValue(delayMix);
 }
 
 void PingPongDelay::setFeedback(float fb)
 {
-    // Allow feedback up to 95% for longer tails
-    feedback = juce::jlimit(0.0f, 0.95f, fb);
+    feedback = juce::jlimit(kMinFeedback, kMaxFeedback, fb);
     smoothedFeedback.setTargetValue(feedback);
+}
+
+void PingPongDelay::setDampingFrequency(float frequency)
+{
+    dampingFrequency = juce::jlimit(1000.0f, 20000.0f, frequency);
+    updateDampingFilters();
+}
+
+void PingPongDelay::updateDampingFilters()
+{
+    if (sampleRate <= 0.0)
+        return;
+
+    auto coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(
+        sampleRate,
+        dampingFrequency
+    );
+
+    dampingFilterLeft.coefficients = coefficients;
+    dampingFilterRight.coefficients = coefficients;
 }
