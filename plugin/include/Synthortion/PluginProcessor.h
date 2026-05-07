@@ -57,7 +57,6 @@ namespace synthortion
         float getOutputRmsLevel() const { return outputRmsLevel.load(std::memory_order_relaxed); }
 
     private:
-        static constexpr float kColorDriveFactor = 0.6f;
         static constexpr float kRmsSmoothingCoeff = 0.9f;
         static constexpr float kRmsMinDb = -60.0f;
         static constexpr float kSmootherRampTime = 0.05f;
@@ -80,7 +79,6 @@ namespace synthortion
         std::atomic<float> inputRmsLevel{kRmsMinDb};
         std::atomic<float> outputRmsLevel{kRmsMinDb};
 
-        std::atomic<float>* driveParam = nullptr;
         std::atomic<float>* inputGainParam = nullptr;
         std::atomic<float>* outputGainParam = nullptr;
         std::atomic<float>* colorParam = nullptr;
@@ -104,9 +102,9 @@ namespace synthortion
         std::atomic<float>* highCutFreqParam = nullptr;
         std::atomic<float>* highCutQParam = nullptr;
 
-        juce::SmoothedValue<float> driveSmoother;
         juce::SmoothedValue<float> inputGainSmoother;
         juce::SmoothedValue<float> outputGainSmoother;
+        juce::LinearSmoothedValue<float> smoothedColorDrive { 0.0f };
         
         std::atomic<int> currentTotalLatency{0};
         std::function<void(const float*, int)> spectrumAnalyzerCallback;

@@ -14,29 +14,49 @@ namespace synthortion
                              ),
           apvts(*this, nullptr, "Parameters", createParameterLayout())
     {
-        driveParam = apvts.getRawParameterValue("DRIVE");
         inputGainParam = apvts.getRawParameterValue("INPUT_GAIN");
+        jassert(inputGainParam != nullptr);
         outputGainParam = apvts.getRawParameterValue("OUTPUT_GAIN");
+        jassert(outputGainParam != nullptr);
         colorParam = apvts.getRawParameterValue("COLOR");
+        jassert(colorParam != nullptr);
         bitCrushParam = apvts.getRawParameterValue("BITCRUSH");
+        jassert(bitCrushParam != nullptr);
         dacNoiseParam = apvts.getRawParameterValue("DAC_NOISE");
+        jassert(dacNoiseParam != nullptr);
         delayTimeParam = apvts.getRawParameterValue("DELAY_TIME");
+        jassert(delayTimeParam != nullptr);
         delayMixParam = apvts.getRawParameterValue("DELAY_MIX");
+        jassert(delayMixParam != nullptr);
         delayFeedbackParam = apvts.getRawParameterValue("DELAY_FEEDBACK");
+        jassert(delayFeedbackParam != nullptr);
         chorusMixParam = apvts.getRawParameterValue("CHORUS_MIX");
+        jassert(chorusMixParam != nullptr);
         eqBypassParam = apvts.getRawParameterValue("EQ_BYPASS");
+        jassert(eqBypassParam != nullptr);
         volumeCompParam = apvts.getRawParameterValue("VOLUME_COMPENSATION");
+        jassert(volumeCompParam != nullptr);
 
         lowCutFreqParam = apvts.getRawParameterValue("LOW_CUT_FREQ");
+        jassert(lowCutFreqParam != nullptr);
         lowCutQParam = apvts.getRawParameterValue("LOW_CUT_Q");
+        jassert(lowCutQParam != nullptr);
         lowMidFreqParam = apvts.getRawParameterValue("LOW_MID_FREQ");
+        jassert(lowMidFreqParam != nullptr);
         lowMidGainParam = apvts.getRawParameterValue("LOW_MID_GAIN");
+        jassert(lowMidGainParam != nullptr);
         lowMidQParam = apvts.getRawParameterValue("LOW_MID_Q");
+        jassert(lowMidQParam != nullptr);
         highMidFreqParam = apvts.getRawParameterValue("HIGH_MID_FREQ");
+        jassert(highMidFreqParam != nullptr);
         highMidGainParam = apvts.getRawParameterValue("HIGH_MID_GAIN");
+        jassert(highMidGainParam != nullptr);
         highMidQParam = apvts.getRawParameterValue("HIGH_MID_Q");
+        jassert(highMidQParam != nullptr);
         highCutFreqParam = apvts.getRawParameterValue("HIGH_CUT_FREQ");
+        jassert(highCutFreqParam != nullptr);
         highCutQParam = apvts.getRawParameterValue("HIGH_CUT_Q");
+        jassert(highCutQParam != nullptr);
     }
 
     AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
@@ -112,6 +132,9 @@ namespace synthortion
     //==============================================================================
     void AudioPluginAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     {
+        jassert(sampleRate > 0.0);
+        jassert(samplesPerBlock > 0);
+
         juce::dsp::ProcessSpec spec{sampleRate, (juce::uint32)samplesPerBlock, (juce::uint32)getTotalNumOutputChannels()};
 
         warmDistortion.prepare(spec);
@@ -131,8 +154,7 @@ namespace synthortion
         delayMatchedDryBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
         delayMatchedDryBuffer.clear();
 
-        driveSmoother.reset(sampleRate, kSmootherRampTime);
-        driveSmoother.setCurrentAndTargetValue(driveParam->load());
+        smoothedColorDrive.reset(sampleRate, 0.05); // 50ms smoothing
         
         inputGainSmoother.reset(sampleRate, kSmootherRampTime);
         inputGainSmoother.setCurrentAndTargetValue(inputGainParam->load());
@@ -190,6 +212,9 @@ namespace synthortion
     {
         juce::ignoreUnused(midiMessages);
 
+        jassert(buffer.getNumChannels() > 0);
+        jassert(buffer.getNumSamples() > 0);
+
         if (buffer.getNumSamples() == 0 || buffer.getNumChannels() == 0)
             return;
 
@@ -199,7 +224,6 @@ namespace synthortion
             buffer.clear(i, 0, buffer.getNumSamples());
 
         const float color = colorParam->load(std::memory_order_relaxed);
-        const float driveBase = driveParam->load(std::memory_order_relaxed);
         const float inputGain = inputGainParam->load(std::memory_order_relaxed);
         const float outputGain = outputGainParam->load(std::memory_order_relaxed);
         const float bitCrush = bitCrushParam->load(std::memory_order_relaxed);
@@ -211,11 +235,11 @@ namespace synthortion
         const bool volumeComp = volumeCompParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         const bool eqBypass = eqBypassParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         
-        driveSmoother.setTargetValue(driveBase);
+        smoothedColorDrive.setTargetValue(color * 2.0f);
         inputGainSmoother.setTargetValue(inputGain);
         outputGainSmoother.setTargetValue(outputGain);
 
-        const float drive = driveSmoother.getNextValue() + (color * kColorDriveFactor);
+        const float drive = smoothedColorDrive.getNextValue();
         const float inputGainLinear = juce::Decibels::decibelsToGain(inputGainSmoother.getNextValue());
         const float outputGainLinear = juce::Decibels::decibelsToGain(outputGainSmoother.getNextValue());
 
@@ -236,7 +260,7 @@ namespace synthortion
         warmDistortion.setVolumeCompensation(volumeComp);
         warmDistortion.process(context);
 
-        bitCrusher.setBitCrushMix(bitCrush * color);
+        bitCrusher.setBitCrushMix(bitCrush);
         bitCrusher.setDACNoise(dacNoise);
         bitCrusher.process(buffer);
 
@@ -255,11 +279,11 @@ namespace synthortion
         if (!eqBypass)
             parametricEQ.process(context);
 
-        chorus.setChorusMix(chorusMix * color);
+        chorus.setChorusMix(chorusMix);
         chorus.process(context);
 
         pingPongDelay.setDelayTime(delayTime);
-        pingPongDelay.setDelayMix(delayMix * color);
+        pingPongDelay.setDelayMix(delayMix);
         pingPongDelay.setFeedback(delayFeedback);
         pingPongDelay.process(buffer);
 
@@ -336,20 +360,19 @@ namespace synthortion
     void AudioPluginAudioProcessor::updateAllDSPParameters()
     {
         const float color = colorParam->load();
-        const float driveBase = driveParam->load();
-        const float drive = driveBase + (color * kColorDriveFactor);
         
-        warmDistortion.setDrive(drive);
+        smoothedColorDrive.setTargetValue(color * 2.0f);
+        warmDistortion.setDrive(smoothedColorDrive.getCurrentValue());
         warmDistortion.setVolumeCompensation(volumeCompParam->load() > kBooleanThreshold);
 
-        bitCrusher.setBitCrushMix(bitCrushParam->load() * color);
+        bitCrusher.setBitCrushMix(bitCrushParam->load());
         bitCrusher.setDACNoise(dacNoiseParam->load());
 
         pingPongDelay.setDelayTime(delayTimeParam->load());
-        pingPongDelay.setDelayMix(delayMixParam->load() * color);
+        pingPongDelay.setDelayMix(delayMixParam->load());
         pingPongDelay.setFeedback(delayFeedbackParam->load());
 
-        chorus.setChorusMix(chorusMixParam->load() * color);
+        chorus.setChorusMix(chorusMixParam->load());
 
         const float lowCutFreq = lowCutFreqParam->load();
         parametricEQ.setLowCut(lowCutFreq, lowCutQParam->load(), lowCutFreq > 0.0f);
@@ -365,7 +388,6 @@ namespace synthortion
     {
         juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>("DRIVE", "Drive", 0.0f, 1.0f, 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("INPUT_GAIN", "Input Gain", -24.0f, 24.0f, 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("COLOR", "Color", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("BITCRUSH", "BitCrush Mix", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
