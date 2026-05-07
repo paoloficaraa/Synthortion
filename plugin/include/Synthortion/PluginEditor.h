@@ -53,7 +53,6 @@ namespace synthortion
         juce::Slider driveKnob;
         juce::Slider inputGainKnob;
         juce::Slider outputGainKnob;
-        juce::Slider noiseKnob;
         juce::Slider bitCrushKnob;
         juce::Slider delayTimeKnob;
         juce::Slider delayMixKnob;
@@ -80,7 +79,6 @@ namespace synthortion
 
         // Labels
         juce::Label driveLabel;
-        juce::Label noiseLabel;
         juce::Label bitCrushLabel;
         juce::Label delayTimeLabel;
         juce::Label delayMixLabel;
@@ -88,7 +86,6 @@ namespace synthortion
         juce::Label chorusMixLabel;
         juce::Label presetLabel;
 
-        juce::Label noiseTitleLabel;
         juce::Label bitCrushTitleLabel;
         juce::Label delayTimeTitleLabel;
         juce::Label delayMixTitleLabel;
@@ -118,7 +115,6 @@ namespace synthortion
         std::unique_ptr<SliderAttachment> driveAttachment;
         std::unique_ptr<SliderAttachment> inputGainAttachment;
         std::unique_ptr<SliderAttachment> outputGainAttachment;
-        std::unique_ptr<SliderAttachment> noiseAttachment;
         std::unique_ptr<SliderAttachment> bitCrushAttachment;
         std::unique_ptr<SliderAttachment> delayTimeAttachment;
         std::unique_ptr<SliderAttachment> delayMixAttachment;

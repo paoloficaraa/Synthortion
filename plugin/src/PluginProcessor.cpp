@@ -22,8 +22,6 @@ namespace synthortion
         jassert(colorParam != nullptr);
         bitCrushParam = apvts.getRawParameterValue("BITCRUSH");
         jassert(bitCrushParam != nullptr);
-        dacNoiseParam = apvts.getRawParameterValue("DAC_NOISE");
-        jassert(dacNoiseParam != nullptr);
         delayTimeParam = apvts.getRawParameterValue("DELAY_TIME");
         jassert(delayTimeParam != nullptr);
         delayMixParam = apvts.getRawParameterValue("DELAY_MIX");
@@ -154,7 +152,7 @@ namespace synthortion
         delayMatchedDryBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
         delayMatchedDryBuffer.clear();
 
-        smoothedColorDrive.reset(sampleRate, 0.05); // 50ms smoothing
+        smoothedColorDrive.reset(sampleRate, kSmootherRampTime);
         
         inputGainSmoother.reset(sampleRate, kSmootherRampTime);
         inputGainSmoother.setCurrentAndTargetValue(inputGainParam->load());
@@ -227,7 +225,6 @@ namespace synthortion
         const float inputGain = inputGainParam->load(std::memory_order_relaxed);
         const float outputGain = outputGainParam->load(std::memory_order_relaxed);
         const float bitCrush = bitCrushParam->load(std::memory_order_relaxed);
-        const float dacNoise = dacNoiseParam->load(std::memory_order_relaxed);
         const float delayTime = delayTimeParam->load(std::memory_order_relaxed);
         const float delayMix = delayMixParam->load(std::memory_order_relaxed);
         const float delayFeedback = delayFeedbackParam->load(std::memory_order_relaxed);
@@ -261,7 +258,6 @@ namespace synthortion
         warmDistortion.process(context);
 
         bitCrusher.setBitCrushMix(bitCrush);
-        bitCrusher.setDACNoise(dacNoise);
         bitCrusher.process(buffer);
 
         // Update EQ parameters every frame
@@ -366,7 +362,6 @@ namespace synthortion
         warmDistortion.setVolumeCompensation(volumeCompParam->load() > kBooleanThreshold);
 
         bitCrusher.setBitCrushMix(bitCrushParam->load());
-        bitCrusher.setDACNoise(dacNoiseParam->load());
 
         pingPongDelay.setDelayTime(delayTimeParam->load());
         pingPongDelay.setDelayMix(delayMixParam->load());
@@ -391,7 +386,6 @@ namespace synthortion
         layout.add(std::make_unique<juce::AudioParameterFloat>("INPUT_GAIN", "Input Gain", -24.0f, 24.0f, 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("COLOR", "Color", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("BITCRUSH", "BitCrush Mix", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
-        layout.add(std::make_unique<juce::AudioParameterFloat>("DAC_NOISE", "DAC Noise", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("DELAY_TIME", "Delay Time", juce::NormalisableRange<float>(1.0f, 2000.0f, 1.0f), 250.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("DELAY_MIX", "Delay Mix", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
         layout.add(std::make_unique<juce::AudioParameterFloat>("DELAY_FEEDBACK", "Delay Feedback", juce::NormalisableRange<float>(0.0f, 0.95f, 0.01f), 0.4f));

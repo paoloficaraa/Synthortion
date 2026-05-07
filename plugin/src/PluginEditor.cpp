@@ -33,7 +33,6 @@ namespace synthortion
         addAndMakeVisible(outputGainKnob);
         outputGainAttachment = std::make_unique<SliderAttachment>(processorRef.apvts, "OUTPUT_GAIN", outputGainKnob);
 
-        setupKnobWithLabel(noiseKnob, noiseTitleLabel, noiseLabel, "DAC NOISE", "DAC_NOISE", noiseAttachment);
         setupKnobWithLabel(bitCrushKnob, bitCrushTitleLabel, bitCrushLabel, "BITCRUSH", "BITCRUSH", bitCrushAttachment);
         setupKnobWithLabel(delayTimeKnob, delayTimeTitleLabel, delayTimeLabel, "DELAY TIME", "DELAY_TIME", delayTimeAttachment);
         setupKnobWithLabel(delayMixKnob, delayMixTitleLabel, delayMixLabel, "DELAY MIX", "DELAY_MIX", delayMixAttachment);
@@ -49,12 +48,6 @@ namespace synthortion
         // addAndMakeVisible(presetLabel);
 
         // Effects title labels (static titles above knobs)
-        noiseTitleLabel.setText("DAC NOISE", juce::dontSendNotification); // Aggiornato
-        noiseTitleLabel.setJustificationType(juce::Justification::centred);
-        noiseTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
-        noiseTitleLabel.setColour(juce::Label::textColourId, LIGHT_GREY);
-        addAndMakeVisible(noiseTitleLabel);
-
         bitCrushTitleLabel.setText("BITCRUSH", juce::dontSendNotification);
         bitCrushTitleLabel.setJustificationType(juce::Justification::centred);
         bitCrushTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
@@ -337,7 +330,7 @@ namespace synthortion
             driveLabel.setBounds(colorLabelBounds);
         }
 
-        // EFFECTS SECTION - Layout 3 righe: Noise+BitCrush / Delay Time+Delay Mix / Delay Feedback+Chorus
+        // EFFECTS SECTION - Layout 3 righe: BitCrush / Delay Time+Delay Mix / Delay Feedback+Chorus
         {
             const int knobSize = 46;
             const int titleH = 10;
@@ -382,15 +375,9 @@ namespace synthortion
                 valueLabel.setBounds(valueBounds);
             };
 
-            // ROW 1: Noise, BitCrush
+            // ROW 1: BitCrush (Centrato)
             {
-                int halfWidth = row1.getWidth() / 2;
-
-                auto noiseArea = row1.removeFromLeft(halfWidth);
-                auto bitCrushArea = row1;
-
-                placeKnob(noiseArea, noiseKnob, noiseTitleLabel, noiseLabel);
-                placeKnob(bitCrushArea, bitCrushKnob, bitCrushTitleLabel, bitCrushLabel);
+                placeKnob(row1, bitCrushKnob, bitCrushTitleLabel, bitCrushLabel);
             }
 
             // ROW 2: Delay Time, Delay Feedback
@@ -699,10 +686,6 @@ namespace synthortion
     {
         auto colorValue = processorRef.apvts.getRawParameterValue("COLOR")->load();
         driveLabel.setText(formatPercentage(colorValue), juce::dontSendNotification);
-
-        // DAC Noise knob
-        auto dacNoiseValue = processorRef.apvts.getRawParameterValue("DAC_NOISE")->load();
-        noiseLabel.setText(formatPercentage(dacNoiseValue), juce::dontSendNotification);
 
         // BitCrush knob
         auto bitCrushValue = processorRef.apvts.getRawParameterValue("BITCRUSH")->load();

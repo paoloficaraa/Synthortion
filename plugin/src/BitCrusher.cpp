@@ -7,6 +7,10 @@ BitCrusher::BitCrusher()
 
 void BitCrusher::prepare(const juce::dsp::ProcessSpec &spec)
 {
+    jassert(spec.sampleRate > 0.0);
+    jassert(spec.maximumBlockSize > 0);
+    jassert(spec.numChannels > 0);
+
     sampleRate = spec.sampleRate;
 
     dryWetMixer.prepare(spec);
@@ -32,9 +36,6 @@ void BitCrusher::process(juce::AudioBuffer<float>& buffer)
         for (int i = 0; i < numSamples; ++i)
         {
             float sample = channelData[i];
-            
-            // ADC noise simulation
-            sample += randomGenerator.nextFloat() * cachedAdcNoiseAmount;
 
             // Sample & Hold (downsampling)
             if (holdCounter == 0)
@@ -45,13 +46,9 @@ void BitCrusher::process(juce::AudioBuffer<float>& buffer)
             sample = holdSample;
             holdCounter--;
 
-            // Dithering + Quantization (bit depth reduction)
-            sample += randomGenerator.nextFloat() * cachedDitherScale;
+            // Quantization (bit depth reduction)
             sample = std::floor(sample / quantizationStep) * quantizationStep;
             sample = juce::jlimit(-1.0f, 1.0f, sample);
-
-            // DAC noise simulation
-            sample += randomGenerator.nextFloat() * cachedDacNoiseScale;
 
             channelData[i] = sample;
         }
@@ -75,12 +72,6 @@ void BitCrusher::setBitCrushMix(float mix)
     bitCrushMix = juce::jlimit(0.0f, 1.0f, mix);
 }
 
-void BitCrusher::setDACNoise(float noise)
-{
-    dacNoiseAmount = juce::jlimit(0.0f, 1.0f, noise);
-    updateParameters();
-}
-
 void BitCrusher::updateParameters()
 {
     float levels = std::pow(2.0f, bitDepth);
@@ -88,8 +79,4 @@ void BitCrusher::updateParameters()
 
     downsampleRatio = static_cast<int>(sampleRate / sampleRateReduction);
     downsampleRatio = juce::jmax(1, downsampleRatio);
-    
-    cachedAdcNoiseAmount = (1.0f - adcQuality) * 0.01f;
-    cachedDacNoiseScale = dacNoiseAmount * 0.08f;
-    cachedDitherScale = ditherAmount * quantizationStep * 2.0f;
 }
