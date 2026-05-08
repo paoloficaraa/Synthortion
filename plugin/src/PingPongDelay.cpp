@@ -37,6 +37,18 @@ void PingPongDelay::process(juce::AudioBuffer<float> &buffer)
     if (numChannels < 2 || numSamples == 0)
         return;
 
+    // Check if delay is completely bypassed
+    if (smoothedMix.getCurrentValue() <= 0.0001f && smoothedMix.getTargetValue() <= 0.0001f) {
+        // Clear delay line to prevent feedback build-up while muted
+        if (!isDelayLineClear) {
+            delayLine.reset();
+            isDelayLineClear = true;
+        }
+        return; // Buffer is untouched, meaning 100% dry signal passes through
+    }
+
+    isDelayLineClear = false;
+
     auto *leftChannel = buffer.getWritePointer(0);
     auto *rightChannel = buffer.getWritePointer(1);
 

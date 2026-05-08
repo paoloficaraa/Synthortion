@@ -50,6 +50,7 @@ private:
     float feedback = kDefaultFeedback;
     float dampingFrequency = kDefaultDampingFreq;
     double sampleRate = 44100.0;
+    bool isDelayLineClear = false;
 
     void updateDampingFilters();
 };
