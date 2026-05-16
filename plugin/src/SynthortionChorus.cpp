@@ -53,67 +53,75 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer)
     auto* rightData = numChannels > 1 ? buffer.getWritePointer(1) : nullptr;
 
     const float maxModSamples = static_cast<float>(sampleRate) * 0.01f; // 10ms max modulation
-
     const float phaseIncrement = juce::MathConstants<float>::twoPi * targetRateHz / static_cast<float>(sampleRate);
 
     for (int i = 0; i < numSamples; ++i)
     {
         const float mix = smoothedMix.getNextValue();
-        
+
+        // Interpolate depth and phase from mix
+        interpolatedDepth = mix * 0.25f; // Depth target 0.25
+        interpolatedPhaseOffsetRad = mix * juce::MathConstants<float>::pi * (targetPhaseOffsetDeg / 180.0f); // 45° → π/4
+
         // Advance LFO phase
         lfoPhase += phaseIncrement;
         if (lfoPhase >= juce::MathConstants<float>::twoPi)
             lfoPhase -= juce::MathConstants<float>::twoPi;
 
+        // Split input via crossover per channel
+        float lowL = 0.0f, highL = 0.0f;
+        float lowR = 0.0f, highR = 0.0f;
+
+        crossoverFilter[0].processSample(0, leftData[i], lowL, highL);
+        if (rightData != nullptr)
+            crossoverFilter[1].processSample(1, rightData[i], lowR, highR);
+
+        // Process high band through chorus (fixed delay + multi sine LFO)
         float voiceOutL = 0.0f;
         float voiceOutR = 0.0f;
 
-        // Multiple voices with phase offsets
         for (int v = 0; v < numVoices; ++v)
         {
-            // Spread voices evenly across the LFO phase
             float phaseOffset = v * (juce::MathConstants<float>::twoPi / numVoices);
-            
-            // Left and right channels get different phase for stereo width
-            float lfoValL = std::sin(lfoPhase + phaseOffset);
-            float lfoValR = std::sin(lfoPhase + phaseOffset + juce::MathConstants<float>::pi * 0.5f); // 90 deg offset for right
 
-            float delayTimeSamplesL = baseSamples + (lfoValL * interpolatedDepth * maxModSamples);
-            float delayTimeSamplesR = baseSamples + (lfoValR * interpolatedDepth * maxModSamples);
+            // Multi-sine LFO: A*(sin(ωt) + 0.5*sin(3ωt))
+            float lfoL = std::sin(lfoPhase + phaseOffset) + 0.5f * std::sin(3.0f * (lfoPhase + phaseOffset));
+            float lfoR = std::sin(lfoPhase + phaseOffset + interpolatedPhaseOffsetRad) + 0.5f * std::sin(3.0f * (lfoPhase + phaseOffset + interpolatedPhaseOffsetRad));
 
-            // Pop samples for each voice without advancing the read pointer
+            float delayTimeSamplesL = baseSamples + (lfoL * interpolatedDepth * maxModSamples);
+            float delayTimeSamplesR = baseSamples + (lfoR * interpolatedDepth * maxModSamples);
+
             voiceOutL += delayLine.popSample(0, delayTimeSamplesL, false);
             if (rightData != nullptr)
-            {
                 voiceOutR += delayLine.popSample(1, delayTimeSamplesR, false);
-            }
         }
-        
-        // Average the voices to match volume
+
         voiceOutL /= numVoices;
         voiceOutR /= numVoices;
 
-        // Main input samples
-        const float inL = leftData[i];
-        const float inR = rightData != nullptr ? rightData[i] : 0.0f;
-
-        // Feedback path
+        // Feedback path with tanh saturation
         const float saturatedL = std::tanh(voiceOutL * 1.5f);
         const float filteredL = feedbackFilter[0].processSample(saturatedL);
-        delayLine.pushSample(0, inL + (filteredL * 0.3f)); // Advance write/read pointers for Left
 
-        // Constant power panning for wet/dry
-        const float dryGain = std::cos(mix * juce::MathConstants<float>::halfPi);
-        const float wetGain = std::sin(mix * juce::MathConstants<float>::halfPi);
-
-        leftData[i] = (inL * dryGain) + (filteredL * wetGain);
-
+        float filteredR = 0.0f;
         if (rightData != nullptr)
         {
             const float saturatedR = std::tanh(voiceOutR * 1.5f);
-            const float filteredR = feedbackFilter[1].processSample(saturatedR);
-            delayLine.pushSample(1, inR + (filteredR * 0.3f)); // Advance write/read pointers for Right
-            rightData[i] = (inR * dryGain) + (filteredR * wetGain);
+            filteredR = feedbackFilter[1].processSample(saturatedR);
+            delayLine.pushSample(1, highR + (filteredR * 0.3f));
+        }
+
+        delayLine.pushSample(0, highL + (filteredL * 0.3f));
+
+        // Dry/wet mixing: low stays dry; high band crossfades
+        const float dryGain = std::cos(mix * juce::MathConstants<float>::halfPi);
+        const float wetGain = std::sin(mix * juce::MathConstants<float>::halfPi);
+
+        leftData[i] = lowL + (highL * dryGain) + (filteredL * wetGain);
+
+        if (rightData != nullptr)
+        {
+            rightData[i] = lowR + (highR * dryGain) + (filteredR * wetGain);
         }
     }
 }
