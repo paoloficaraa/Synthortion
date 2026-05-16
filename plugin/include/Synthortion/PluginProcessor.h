@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_core/juce_core.h>
 #include <functional>
+#include <array>
 #include <juce_dsp/juce_dsp.h>
 
 #include "Synthortion/WarmDistortion.h"
@@ -73,8 +74,6 @@ namespace synthortion
         PingPongDelay pingPongDelay;
         BitCrusher bitCrusher;
 
-        // Effects are now independent, no global dry/wet mixer needed
-
         juce::AudioProcessorValueTreeState apvts;
 
         std::atomic<float> inputRmsLevel{kRmsMinDb};
@@ -108,7 +107,8 @@ namespace synthortion
         std::atomic<int> currentTotalLatency{0};
 
         static constexpr int kSpectrumFifoSize = 4096;
-        juce::AbstractFifo<float> spectrumFifo(kSpectrumFifoSize);
+        juce::AbstractFifo spectrumFifo { kSpectrumFifoSize };
+        std::array<float, kSpectrumFifoSize> spectrumBuffer;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessor)
     };

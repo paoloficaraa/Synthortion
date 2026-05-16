@@ -16,7 +16,7 @@ public:
 
     void setDrive(float drive);
     void setVolumeCompensation(bool enabled) { volumeCompensationEnabled = enabled; }
-    void process(const juce::dsp::ProcessContextReplacing<float> &context);
+    void process(const juce::dsp::ProcessContextReplacing<float> &context, juce::LinearSmoothedValue<float>* driveSmoother = nullptr);
     int getLatencySamples() const { return oversampler ? static_cast<int>(oversampler->getLatencyInSamples()) : 0; }
 
 private:
@@ -40,7 +40,7 @@ private:
     static constexpr float kTapeCompensationFactor = 0.35f;
     
     static constexpr float kDenormThreshold = 1.0e-20f;
-    static constexpr float kDenormNoiseLevel = 1.0e-35f;
+    static constexpr float kDenormNoiseLevel = 1.0e-18f;
     static constexpr float kDenormNoiseOffset = 0.5f;
     
     static constexpr float kTapeModulationNoise = 3.0e-6f;
@@ -120,7 +120,7 @@ private:
     float calculateVolumeCompensation(float drive) const;
     
     float getOversampledSampleRate() const;
-    int getSafeChannel(int channel) const;
+    size_t getSafeChannel(size_t channel) const;
 
     float driveAmount = 0.5f;
     bool volumeCompensationEnabled = true;
@@ -135,13 +135,16 @@ private:
     std::array<float, kNumChannels> wowPhase{};
     std::array<float, kNumChannels> flutterPhase{};
     std::array<std::array<float, kWowFlutterBufferSize>, kNumChannels> wowFlutterBuffer{};
-    std::array<int, kNumChannels> wowFlutterWritePos{};
+    std::array<size_t, kNumChannels> wowFlutterWritePos{};
+
+    std::array<juce::dsp::FirstOrderTPTFilter<float>, kNumChannels> dcBlockers;
 
     juce::LinearSmoothedValue<float> compensationGain{1.0f};
 
     double sampleRate = 0.0;
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
     std::array<juce::Random, kNumChannels> noiseGenerator;
+    std::vector<float> blockDriveValues;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WarmDistortion)
 };

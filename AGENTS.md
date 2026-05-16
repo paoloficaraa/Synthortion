@@ -1,38 +1,51 @@
 # OpenCode Agent Instructions: Synthortion
 
-This repository contains a JUCE 8+ C++20 audio plugin (Synthortion). 
+JUCE 8+ C++20 audio plugin (VST3, AU). Processing chain: `Input -> Gain -> WarmDistortion -> BitCrusher -> ParametricEQ -> Chorus -> PingPongDelay -> OutputGain -> Output` with global `COLOR` macro blending dry/wet.
 
-## Architecture & Layout
-- **Headers:** `plugin/include/Synthortion/`
-- **Sources:** `plugin/src/`
-- **Entrypoints:** `PluginProcessor.cpp` (audio logic/DSP) and `PluginEditor.cpp` (UI/GUI).
-- **Submodules:** JUCE is included as a git submodule in `libs/juce`. If JUCE headers are missing, verify the submodule is initialized.
+## Critical Setup
 
-## Build Setup (CMake)
-The project uses CMake (minimum 3.22) and requires C++20. 
-
-### First-time Setup
-Always initialize JUCE submodule before configuring:
+**Always** initialize JUCE submodule before building:
 ```bash
 git submodule update --init --recursive
 ```
 
-### Local Building
+## Build
+
 ```bash
-# Configure (Ninja recommended for speed)
+# Configure (Ninja recommended)
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 
 # Build
 cmake --build build
 ```
-*Note: The CI workflow omits `-G Ninja`; both approaches work. For faster local builds, install Ninja.*
 
-### Artifact Locations
-After building, the plugin binaries (VST3, AU) will be located in:
-`build/plugin/Synthortion_artefacts/<Config>/` (e.g., `build/plugin/Synthortion_artefacts/Debug/VST3/Synthortion.vst3`).
+**Artifacts location:** `build/plugin/Synthortion_artefacts/<Config>/<FORMAT>/`  
+(e.g., `build/plugin/Synthortion_artefacts/Debug/VST3/Synthortion.vst3`)
 
-## Project Quirks & Conventions
-- **No Standalone Target:** The `CMakeLists.txt` only configures `VST3` and `AU` formats (`FORMATS AU VST3`). There is currently no standalone app target.
-- **Copy After Build:** `COPY_PLUGIN_AFTER_BUILD TRUE` is set. On macOS and Windows, CMake will try to automatically copy the compiled plugin to the user's local plugin folders (e.g., `~/Library/Audio/Plug-Ins/VST3/` or `%LOCALAPPDATA%\Programs\Common\VST3\`). On Linux, artifacts remain in `build/plugin/Synthortion_artefacts/<Config>/` and are not copied automatically.
-- **Tests/Linting:** There are currently no automated unit tests (`tests` directory) or custom formatters (`.clang-format`) in the repository, rely on JUCE conventions and manual verification via a plugin host.
-- **JUCE Modules:** Uses `juce_audio_utils`, `juce_audio_processors`, `juce_gui_extra`, and `juce_dsp`. These are linked via the submodule at `libs/juce`.
+## Platform Quirks
+
+- **Linux:** Build artifacts remain in `build/` directory (no auto-copy to system plugin folders)
+- **macOS/Windows:** `COPY_PLUGIN_AFTER_BUILD TRUE` may copy plugins to local folders automatically
+- **No standalone target:** Only `AU` and `VST3` formats configured
+
+## Linux Dependencies
+
+On Linux, install system packages for WebKit/GTK/CURL before configuring:
+```bash
+sudo apt-get install libwebkit2gtk-4.1-dev libgtk-3-dev libcurl4-openssl-dev
+```
+CMake uses `pkg-config` to find these.
+
+## Architecture
+
+- **DSP core:** `plugin/src/PluginProcessor.cpp` — `AudioPluginAudioProcessor` owns all effects
+- **UI:** `plugin/src/PluginEditor.cpp` — fixed 720×490 window, `Timer` refresh at 60Hz
+- **Headers:** `plugin/include/Synthortion/`
+- **Effects:** `WarmDistortion`, `BitCrusher`, `ParametricEQ`, `PingPongDelay`, `SynthortionChorus`
+- **JUCE modules:** `juce_audio_utils`, `juce_audio_processors`, `juce_gui_extra`, `juce_dsp`
+
+## Testing & Quality
+
+- No automated tests exist
+- No `.clang-format` — follow existing code style in the codebase
+- Manual verification requires a DAW/plugin host; spectrum analyzer runs at 4096 FFT size

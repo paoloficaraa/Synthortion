@@ -238,12 +238,22 @@ namespace synthortion
 
         // Drain spectrum data from processor's lock-free FIFO into the spectrum analyzer
         auto& fifo = processorRef.spectrumFifo;
-        while (fifo.getReadSpace() > 0)
+        int numReady = fifo.getNumReady();
+        if (numReady > 0)
         {
-            float sample;
-            int read = fifo.read(&sample, 1);
-            if (read > 0)
-                spectrumAnalyzer.pushNextSampleIntoFifo(sample);
+            auto readOp = fifo.read(numReady);
+            
+            auto readData = [&](int startIndex, int bSize) {
+                for (int i = 0; i < bSize; ++i)
+                {
+                    spectrumAnalyzer.pushNextSampleIntoFifo(processorRef.spectrumBuffer[(size_t)(startIndex + i)]);
+                }
+            };
+            
+            if (readOp.blockSize1 > 0)
+                readData(readOp.startIndex1, readOp.blockSize1);
+            if (readOp.blockSize2 > 0)
+                readData(readOp.startIndex2, readOp.blockSize2);
         }
     }
 

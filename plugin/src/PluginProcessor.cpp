@@ -82,8 +82,8 @@ namespace synthortion
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"LOW_CUT_FREQ", 1},
             "Low Cut Freq",
-            juce::NormalisableRange<float>(20.0f, 20000.0f, 1.0f, 0.2f),
-            20.0f));
+            juce::NormalisableRange<float>(10.0f, 100.0f, 1.0f, 0.3f),
+            10.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"LOW_CUT_Q", 1},
@@ -94,7 +94,7 @@ namespace synthortion
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"LOW_MID_FREQ", 1},
             "Low Mid Freq",
-            juce::NormalisableRange<float>(100.0f, 2000.0f, 1.0f, 0.3f),
+            juce::NormalisableRange<float>(100.0f, 1000.0f, 1.0f, 0.3f),
             500.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
@@ -112,7 +112,7 @@ namespace synthortion
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"HIGH_MID_FREQ", 1},
             "High Mid Freq",
-            juce::NormalisableRange<float>(2000.0f, 12000.0f, 1.0f, 0.3f),
+            juce::NormalisableRange<float>(1000.0f, 10000.0f, 1.0f, 0.3f),
             5000.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
@@ -130,8 +130,8 @@ namespace synthortion
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"HIGH_CUT_FREQ", 1},
             "High Cut Freq",
-            juce::NormalisableRange<float>(20.0f, 20000.0f, 1.0f, 0.2f),
-            20000.0f));
+            juce::NormalisableRange<float>(10000.0f, 30000.0f, 1.0f, 0.3f),
+            30000.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"HIGH_CUT_Q", 1},
@@ -366,7 +366,6 @@ namespace synthortion
         outputGainSmoother.setTargetValue(outputGain);
 
         smoothedColorDrive.setTargetValue(color * 2.0f); // Scale color 0-1 to 0-2 drive range if needed, adjust to taste
-        const float drive = smoothedColorDrive.getNextValue();
         const float inputGainLinear = juce::Decibels::decibelsToGain(inputGainSmoother.getNextValue());
         const float outputGainLinear = juce::Decibels::decibelsToGain(outputGainSmoother.getNextValue());
 
@@ -383,7 +382,7 @@ namespace synthortion
 
         // Update EQ parameters every frame
         const float lowCutFreq = lowCutFreqParam->load(std::memory_order_relaxed);
-        parametricEQ.setLowCut(lowCutFreq, lowCutQParam->load(std::memory_order_relaxed), lowCutFreq > 20.0f);
+        parametricEQ.setLowCut(lowCutFreq, lowCutQParam->load(std::memory_order_relaxed), lowCutFreq > 10.0f);
         parametricEQ.setLowMid(lowMidFreqParam->load(std::memory_order_relaxed),
                                lowMidGainParam->load(std::memory_order_relaxed),
                                lowMidQParam->load(std::memory_order_relaxed));
@@ -391,14 +390,13 @@ namespace synthortion
                                 highMidGainParam->load(std::memory_order_relaxed),
                                 highMidQParam->load(std::memory_order_relaxed));
         const float highCutFreq = highCutFreqParam->load(std::memory_order_relaxed);
-        parametricEQ.setHighCut(highCutFreq, highCutQParam->load(std::memory_order_relaxed), highCutFreq < 20000.0f);
+        parametricEQ.setHighCut(highCutFreq, highCutQParam->load(std::memory_order_relaxed), highCutFreq < 30000.0f);
 
         if (!eqBypass)
             parametricEQ.process(context);
 
-        warmDistortion.setDrive(drive);
         warmDistortion.setVolumeCompensation(volumeComp);
-        warmDistortion.process(context);
+        warmDistortion.process(context, &smoothedColorDrive);
 
         bitCrusher.setBitCrushMix(bitCrush);
         bitCrusher.process(buffer);
@@ -416,26 +414,29 @@ pingPongDelay.setDelayTime(delayTime);
         // Feed spectrum analyzer via lock-free FIFO (mono mix)
         int numChannels = buffer.getNumChannels();
         int numSamples = buffer.getNumSamples();
-        float* left = buffer.getWritePointer(0);
-        float* right = (numChannels > 1) ? buffer.getWritePointer(1) : nullptr;
+        const float* left = buffer.getReadPointer(0);
+        const float* right = (numChannels > 1) ? buffer.getReadPointer(1) : nullptr;
 
-        int space = spectrumFifo.getWriteSpace();
+        int space = spectrumFifo.getFreeSpace();
         if (space > 0)
         {
-            int toWrite = jmin(numSamples, space);
+            int toWrite = juce::jmin(numSamples, space);
+            auto writeOp = spectrumFifo.write(toWrite);
             
-            if (numChannels == 1)
-            {
-                spectrumFifo.write(left, toWrite);
-            }
-            else
-            {
-                for (int i = 0; i < toWrite; ++i)
+            auto writeData = [&](int startIndex, int bSize, int sourceOffset) {
+                for (int i = 0; i < bSize; ++i)
                 {
-                    float sample = (left[i] + right[i]) * 0.5f;
-                    spectrumFifo.write(&sample, 1);
+                    if (numChannels == 1)
+                        spectrumBuffer[(size_t)(startIndex + i)] = left[sourceOffset + i];
+                    else
+                        spectrumBuffer[(size_t)(startIndex + i)] = (left[sourceOffset + i] + right[sourceOffset + i]) * 0.5f;
                 }
-            }
+            };
+            
+            if (writeOp.blockSize1 > 0)
+                writeData(writeOp.startIndex1, writeOp.blockSize1, 0);
+            if (writeOp.blockSize2 > 0)
+                writeData(writeOp.startIndex2, writeOp.blockSize2, writeOp.blockSize1);
         }
 
         const float outputRms = calculateRMS(buffer);
@@ -471,13 +472,43 @@ void AudioPluginAudioProcessor::updateAllDSPParameters()
         chorus.setChorusMix(chorusMixParam->load());
 
         const float lowCutFreq = lowCutFreqParam->load();
-        parametricEQ.setLowCut(lowCutFreq, lowCutQParam->load(), lowCutFreq > 20.0f);
+        parametricEQ.setLowCut(lowCutFreq, lowCutQParam->load(), lowCutFreq > 10.0f);
         
         parametricEQ.setLowMid(lowMidFreqParam->load(), lowMidGainParam->load(), lowMidQParam->load());
         parametricEQ.setHighMid(highMidFreqParam->load(), highMidGainParam->load(), highMidQParam->load());
         
         const float highCutFreq = highCutFreqParam->load();
-        parametricEQ.setHighCut(highCutFreq, highCutQParam->load(), highCutFreq < 20000.0f);
+        parametricEQ.setHighCut(highCutFreq, highCutQParam->load(), highCutFreq < 30000.0f);
+    }
+
+    juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor()
+    {
+        return new AudioPluginAudioProcessorEditor(*this);
+    }
+
+    bool AudioPluginAudioProcessor::hasEditor() const
+    {
+        return true;
+    }
+
+    void AudioPluginAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
+    {
+        auto state = apvts.copyState();
+        std::unique_ptr<juce::XmlElement> xml(state.createXml());
+        copyXmlToBinary(*xml, destData);
+    }
+
+    void AudioPluginAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
+    {
+        std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
+
+        if (xmlState != nullptr)
+        {
+            if (xmlState->hasTagName(apvts.state.getType()))
+            {
+                apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
+            }
+        }
     }
 }
 

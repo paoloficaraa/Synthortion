@@ -52,7 +52,6 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer)
     auto* leftData = buffer.getWritePointer(0);
     auto* rightData = numChannels > 1 ? buffer.getWritePointer(1) : nullptr;
 
-    const float maxModSamples = static_cast<float>(sampleRate) * 0.01f; // 10ms max modulation
     const float phaseIncrement = juce::MathConstants<float>::twoPi * targetRateHz / static_cast<float>(sampleRate);
 
     for (int i = 0; i < numSamples; ++i)
@@ -60,7 +59,7 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer)
         const float mix = smoothedMix.getNextValue();
 
         // Interpolate depth and phase from mix
-        interpolatedDepth = mix * 0.25f; // Depth target 0.25
+        interpolatedDepth = mix * 0.25f; // Depth target 0.25 (fraction of base delay)
         interpolatedPhaseOffsetRad = mix * juce::MathConstants<float>::pi * (targetPhaseOffsetDeg / 180.0f); // 45° → π/4
 
         // Advance LFO phase
@@ -88,8 +87,12 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer)
             float lfoL = std::sin(lfoPhase + phaseOffset) + 0.5f * std::sin(3.0f * (lfoPhase + phaseOffset));
             float lfoR = std::sin(lfoPhase + phaseOffset + interpolatedPhaseOffsetRad) + 0.5f * std::sin(3.0f * (lfoPhase + phaseOffset + interpolatedPhaseOffsetRad));
 
-            float delayTimeSamplesL = baseSamples + (lfoL * interpolatedDepth * maxModSamples);
-            float delayTimeSamplesR = baseSamples + (lfoR * interpolatedDepth * maxModSamples);
+            // Modulation depth: interpolatedDepth (0-0.25) * baseSamples
+            float modulationL = lfoL * interpolatedDepth * baseSamples;
+            float modulationR = lfoR * interpolatedDepth * baseSamples;
+
+            float delayTimeSamplesL = baseSamples + modulationL;
+            float delayTimeSamplesR = baseSamples + modulationR;
 
             voiceOutL += delayLine.popSample(0, delayTimeSamplesL, false);
             if (rightData != nullptr)

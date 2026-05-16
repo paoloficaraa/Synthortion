@@ -45,3 +45,13 @@ target_compile_definitions(Synthortion
 PUBLIC
     JUCE_VST3_CAN_REPLACE_VST2=0
 )
+
+if(UNIX AND NOT APPLE)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(WEBKIT2GTK REQUIRED webkit2gtk-4.1)
+    pkg_check_modules(GTK3 REQUIRED gtk+-x11-3.0)
+    pkg_check_modules(CURL REQUIRED libcurl)
+
+    target_include_directories(Synthortion PRIVATE ${WEBKIT2GTK_INCLUDE_DIRS} ${GTK3_INCLUDE_DIRS} ${CURL_INCLUDE_DIRS})
+    target_link_libraries(Synthortion PRIVATE ${WEBKIT2GTK_LIBRARIES} ${GTK3_LIBRARIES} ${CURL_LIBRARIES})
+endif()
