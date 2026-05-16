@@ -46,7 +46,8 @@ void BitCrusher::process(juce::AudioBuffer<float>& buffer)
             sample = holdSample;
             holdCounter--;
 
-            // Quantization (bit depth reduction)
+            // Dithering + Quantization (bit depth reduction)
+            sample += randomGenerator.nextFloat() * cachedDitherScale;
             sample = std::floor(sample / quantizationStep) * quantizationStep;
             sample = juce::jlimit(-1.0f, 1.0f, sample);
 
@@ -79,4 +80,6 @@ void BitCrusher::updateParameters()
 
     downsampleRatio = static_cast<int>(sampleRate / sampleRateReduction);
     downsampleRatio = juce::jmax(1, downsampleRatio);
+
+    cachedDitherScale = ditherAmount * quantizationStep * 2.0f;
 }

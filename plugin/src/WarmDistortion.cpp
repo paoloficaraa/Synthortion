@@ -40,6 +40,10 @@ void WarmDistortion::reset()
 
 void WarmDistortion::prepare(const juce::dsp::ProcessSpec &spec)
 {
+    jassert(spec.sampleRate > 0.0);
+    jassert(spec.maximumBlockSize > 0);
+    jassert(spec.numChannels > 0);
+
     sampleRate = spec.sampleRate;
 
     oversampler = std::make_unique<juce::dsp::Oversampling<float>>(

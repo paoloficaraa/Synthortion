@@ -117,14 +117,7 @@ namespace synthortion
         // Connect EQ reference for curve visualization
         spectrumAnalyzer.setEQReference(&processorRef.getEQ());
 
-        // Connect spectrum analyzer to audio processor
-        // IMPORTANT: This creates a callback that captures 'this'.
-        // The callback MUST be cleared in the destructor to prevent crashes.
-        processorRef.setSpectrumAnalyzerCallback([this](const float* data, int numSamples)
-                                                 {
-                                                     for (int i = 0; i < numSamples; ++i)
-                                                         spectrumAnalyzer.pushNextSampleIntoFifo(data[i]);
-                                                 });
+
 
         setResizable(false, false);
         setSize(kWindowWidth, kWindowHeight);
@@ -134,10 +127,6 @@ namespace synthortion
 
     AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
     {
-        // CRITICAL: Clear the spectrum analyzer callback to prevent crashes
-        // when the editor is destroyed while audio is still processing
-        processorRef.setSpectrumAnalyzerCallback(nullptr);
-
         setLookAndFeel(nullptr);
     }
 
@@ -246,6 +235,16 @@ namespace synthortion
         // Update EQ bypass state in spectrum analyzer
         auto eqBypass = processorRef.apvts.getRawParameterValue("EQ_BYPASS")->load() > 0.5f;
         spectrumAnalyzer.setEQBypass(eqBypass);
+
+        // Drain spectrum data from processor's lock-free FIFO into the spectrum analyzer
+        auto& fifo = processorRef.spectrumFifo;
+        while (fifo.getReadSpace() > 0)
+        {
+            float sample;
+            int read = fifo.read(&sample, 1);
+            if (read > 0)
+                spectrumAnalyzer.pushNextSampleIntoFifo(sample);
+        }
     }
 
     void AudioPluginAudioProcessorEditor::resized()
@@ -330,7 +329,7 @@ namespace synthortion
             driveLabel.setBounds(colorLabelBounds);
         }
 
-        // EFFECTS SECTION - Layout 3 righe: BitCrush / Delay Time+Delay Mix / Delay Feedback+Chorus
+        // EFFECTS SECTION - Layout 3 righe: Noise+BitCrush / Delay Time+Delay Mix / Delay Feedback+Chorus
         {
             const int knobSize = 46;
             const int titleH = 10;
@@ -375,7 +374,7 @@ namespace synthortion
                 valueLabel.setBounds(valueBounds);
             };
 
-            // ROW 1: BitCrush (Centrato)
+            // ROW 1: BitCrush
             {
                 placeKnob(row1, bitCrushKnob, bitCrushTitleLabel, bitCrushLabel);
             }

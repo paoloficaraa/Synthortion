@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_core/juce_core.h>
 #include <functional>
 #include <juce_dsp/juce_dsp.h>
 
@@ -18,6 +19,8 @@ namespace synthortion
     public:
         AudioPluginAudioProcessor();
         ~AudioPluginAudioProcessor() override;
+
+        friend class AudioPluginAudioProcessorEditor;
 
         void prepareToPlay(double sampleRate, int samplesPerBlock) override;
         void releaseResources() override;
@@ -43,14 +46,11 @@ namespace synthortion
         void getStateInformation(juce::MemoryBlock &destData) override;
         void setStateInformation(const void *data, int sizeInBytes) override;
 
-        juce::AudioProcessorValueTreeState apvts;
+        juce::LinearSmoothedValue<float> smoothedColorDrive { 0.0f };
 
         void updateDSPParameters();
 
-        void setSpectrumAnalyzerCallback(std::function<void(const float*, int)> callback)
-        {
-            spectrumAnalyzerCallback = std::move(callback);
-        }
+
 
         ParametricEQ &getEQ() { return parametricEQ; }
         float getInputRmsLevel() const { return inputRmsLevel.load(std::memory_order_relaxed); }
@@ -73,8 +73,9 @@ namespace synthortion
         PingPongDelay pingPongDelay;
         BitCrusher bitCrusher;
 
-        juce::dsp::DryWetMixer<float> globalDryWet;
-        juce::AudioBuffer<float> delayMatchedDryBuffer;
+        // Effects are now independent, no global dry/wet mixer needed
+
+        juce::AudioProcessorValueTreeState apvts;
 
         std::atomic<float> inputRmsLevel{kRmsMinDb};
         std::atomic<float> outputRmsLevel{kRmsMinDb};
@@ -103,10 +104,11 @@ namespace synthortion
 
         juce::SmoothedValue<float> inputGainSmoother;
         juce::SmoothedValue<float> outputGainSmoother;
-        juce::LinearSmoothedValue<float> smoothedColorDrive { 0.0f };
         
         std::atomic<int> currentTotalLatency{0};
-        std::function<void(const float*, int)> spectrumAnalyzerCallback;
+
+        static constexpr int kSpectrumFifoSize = 4096;
+        juce::AbstractFifo<float> spectrumFifo(kSpectrumFifoSize);
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessor)
     };

@@ -331,6 +331,7 @@ void SpectrumAnalyzer::drawFrame(juce::Graphics &g)
 
 void SpectrumAnalyzer::drawEQCurve(juce::Graphics &g)
 {
+    jassert(eqReference != nullptr);
     if (eqReference == nullptr)
         return;
 

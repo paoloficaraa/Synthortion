@@ -7,6 +7,10 @@ ParametricEQ::ParametricEQ()
 
 void ParametricEQ::prepare(const juce::dsp::ProcessSpec &spec)
 {
+    jassert(spec.sampleRate > 0.0);
+    jassert(spec.maximumBlockSize > 0);
+    jassert(spec.numChannels > 0);
+
     sampleRate = spec.sampleRate;
 
     lowCutFilter.prepare(spec);

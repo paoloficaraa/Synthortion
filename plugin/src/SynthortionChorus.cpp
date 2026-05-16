@@ -1,56 +1,117 @@
 #include "Synthortion/SynthortionChorus.h"
 
-SynthortionChorus::SynthortionChorus()
+void SynthortionChorus::prepare(const juce::dsp::ProcessSpec& spec)
 {
-    chorus.setCentreDelay(kDefaultCentreDelayMs);
-    chorus.setDepth(kDefaultDepth);
-    chorus.setRate(kDefaultRateHz);
-    chorus.setFeedback(kDefaultFeedback);
-    chorus.setMix(kChorusInternalMix);
-}
+    sampleRate = spec.sampleRate;
+    
+    delayLine.prepare(spec);
+    delayLine.setMaximumDelayInSamples(static_cast<int>(sampleRate * 0.1)); // 100ms max
 
-void SynthortionChorus::prepare(const juce::dsp::ProcessSpec &spec)
-{
-    chorus.prepare(spec);
-    dryWetMixer.prepare(spec);
-    dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
-}
+    feedbackFilter[0].prepare(spec);
+    feedbackFilter[0].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 4000.0f); // 6dB LPF for warmth
+    feedbackFilter[1].prepare(spec);
+    feedbackFilter[1].coefficients = feedbackFilter[0].coefficients;
 
-void SynthortionChorus::process(const juce::dsp::ProcessContextReplacing<float> &context)
-{
-    dryWetMixer.setWetMixProportion(chorusMix);
-    dryWetMixer.pushDrySamples(context.getInputBlock());
-    chorus.process(context);
-    dryWetMixer.mixWetSamples(context.getOutputBlock());
+    smoothedMix.reset(sampleRate, 0.05);
+    reset();
 }
 
 void SynthortionChorus::reset()
 {
-    chorus.reset();
-    dryWetMixer.reset();
+    delayLine.reset();
+    feedbackFilter[0].reset();
+    feedbackFilter[1].reset();
+    lfoPhase = 0.0f;
 }
 
 void SynthortionChorus::setChorusMix(float mix)
 {
-    chorusMix = juce::jlimit(kMinMix, kMaxMix, mix);
-}
-
-void SynthortionChorus::setCentreDelay(float delayMs)
-{
-    chorus.setCentreDelay(juce::jlimit(kMinDelay, kMaxDelay, delayMs));
-}
-
-void SynthortionChorus::setDepth(float depth)
-{
-    chorus.setDepth(juce::jlimit(kMinDepth, kMaxDepth, depth));
+    smoothedMix.setTargetValue(juce::jlimit(0.0f, 1.0f, mix));
 }
 
 void SynthortionChorus::setRate(float rateHz)
 {
-    chorus.setRate(juce::jlimit(kMinRate, kMaxRate, rateHz));
+    currentRate = juce::jlimit(0.1f, 10.0f, rateHz);
 }
 
-void SynthortionChorus::setFeedback(float feedback)
+void SynthortionChorus::setDepth(float depth)
 {
-    chorus.setFeedback(juce::jlimit(kMinFeedback, kMaxFeedback, feedback));
+    currentDepth = juce::jlimit(0.0f, 1.0f, depth);
+}
+
+void SynthortionChorus::process(juce::AudioBuffer<float>& buffer)
+{
+    const int numChannels = buffer.getNumChannels();
+    const int numSamples = buffer.getNumSamples();
+
+    if (numChannels == 0 || numSamples == 0) return;
+
+    auto* leftData = buffer.getWritePointer(0);
+    auto* rightData = numChannels > 1 ? buffer.getWritePointer(1) : nullptr;
+
+    const float maxModSamples = static_cast<float>(sampleRate) * 0.01f; // 10ms max modulation
+    const float baseSamples = static_cast<float>(sampleRate) * (baseDelayMs / 1000.0f);
+
+    const float phaseIncrement = juce::MathConstants<float>::twoPi * currentRate / static_cast<float>(sampleRate);
+
+    for (int i = 0; i < numSamples; ++i)
+    {
+        const float mix = smoothedMix.getNextValue();
+        
+        // Advance LFO phase
+        lfoPhase += phaseIncrement;
+        if (lfoPhase >= juce::MathConstants<float>::twoPi)
+            lfoPhase -= juce::MathConstants<float>::twoPi;
+
+        float voiceOutL = 0.0f;
+        float voiceOutR = 0.0f;
+
+        // Multiple voices with phase offsets
+        for (int v = 0; v < numVoices; ++v)
+        {
+            // Spread voices evenly across the LFO phase
+            float phaseOffset = v * (juce::MathConstants<float>::twoPi / numVoices);
+            
+            // Left and right channels get different phase for stereo width
+            float lfoValL = std::sin(lfoPhase + phaseOffset);
+            float lfoValR = std::sin(lfoPhase + phaseOffset + juce::MathConstants<float>::pi * 0.5f); // 90 deg offset for right
+
+            float delayTimeSamplesL = baseSamples + (lfoValL * currentDepth * maxModSamples);
+            float delayTimeSamplesR = baseSamples + (lfoValR * currentDepth * maxModSamples);
+
+            // Pop samples for each voice without advancing the read pointer
+            voiceOutL += delayLine.popSample(0, delayTimeSamplesL, false);
+            if (rightData != nullptr)
+            {
+                voiceOutR += delayLine.popSample(1, delayTimeSamplesR, false);
+            }
+        }
+        
+        // Average the voices to match volume
+        voiceOutL /= numVoices;
+        voiceOutR /= numVoices;
+
+        // Main input samples
+        const float inL = leftData[i];
+        const float inR = rightData != nullptr ? rightData[i] : 0.0f;
+
+        // Feedback path
+        const float saturatedL = std::tanh(voiceOutL * 1.5f);
+        const float filteredL = feedbackFilter[0].processSample(saturatedL);
+        delayLine.pushSample(0, inL + (filteredL * 0.3f)); // Advance write/read pointers for Left
+
+        // Constant power panning for wet/dry
+        const float dryGain = std::cos(mix * juce::MathConstants<float>::halfPi);
+        const float wetGain = std::sin(mix * juce::MathConstants<float>::halfPi);
+
+        leftData[i] = (inL * dryGain) + (filteredL * wetGain);
+
+        if (rightData != nullptr)
+        {
+            const float saturatedR = std::tanh(voiceOutR * 1.5f);
+            const float filteredR = feedbackFilter[1].processSample(saturatedR);
+            delayLine.pushSample(1, inR + (filteredR * 0.3f)); // Advance write/read pointers for Right
+            rightData[i] = (inR * dryGain) + (filteredR * wetGain);
+        }
+    }
 }

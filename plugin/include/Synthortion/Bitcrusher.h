@@ -14,19 +14,15 @@ public:
     void reset();
     
     void setBitCrushMix(float mix);
-    void setDACNoise(float noise);
     
 private:
     float sampleRateReduction = 6000.0f;
     float bitDepth = 8.0f;
     float ditherAmount = 0.4f;
     float adcQuality = 0.95f;
-    float dacNoiseAmount = 0.0f;
-    
     float bitCrushMix = 0.0f;
     
-    double sampleRate = 0.0;
-    float quantizationStep = 1.0f;
+    double sampleRate = 44100.0;
     
     float holdSampleLeft = 0.0f;
     float holdSampleRight = 0.0f;
@@ -35,8 +31,8 @@ private:
     int downsampleRatio = 1;
     
     float cachedAdcNoiseAmount = 0.0f;
-    float cachedDacNoiseScale = 0.0f;
     float cachedDitherScale = 0.0f;
+    float quantizationStep = 0.0f;
     
     juce::dsp::DryWetMixer<float> dryWetMixer;
     
