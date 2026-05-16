@@ -419,10 +419,22 @@ pingPongDelay.setDelayTime(delayTime);
         float* left = buffer.getWritePointer(0);
         float* right = (numChannels > 1) ? buffer.getWritePointer(1) : nullptr;
 
-        for (int i = 0; i < numSamples; ++i) {
-            if (spectrumFifo.getWriteSpace() > 0) {
-                float sample = (numChannels == 1) ? left[i] : (left[i] + right[i]) * 0.5f;
-                spectrumFifo.write(&sample, 1);
+        int space = spectrumFifo.getWriteSpace();
+        if (space > 0)
+        {
+            int toWrite = jmin(numSamples, space);
+            
+            if (numChannels == 1)
+            {
+                spectrumFifo.write(left, toWrite);
+            }
+            else
+            {
+                for (int i = 0; i < toWrite; ++i)
+                {
+                    float sample = (left[i] + right[i]) * 0.5f;
+                    spectrumFifo.write(&sample, 1);
+                }
             }
         }
 
@@ -437,8 +449,6 @@ pingPongDelay.setDelayTime(delayTime);
         const int totalLatency = distortionLatency + eqLatency;
         currentTotalLatency.store(totalLatency);
         setLatencySamples(totalLatency);
-
-        spectrumFifo.reset(); // Ensure FIFO starts empty
 
         updateAllDSPParameters();
     }
