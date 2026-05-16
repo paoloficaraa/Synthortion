@@ -4,8 +4,19 @@ void SynthortionChorus::prepare(const juce::dsp::ProcessSpec& spec)
 {
     sampleRate = spec.sampleRate;
     
+    // Compute base samples using targetDelayMs
+    baseSamples = sampleRate * (targetDelayMs / 1000.0f);
+
     delayLine.prepare(spec);
     delayLine.setMaximumDelayInSamples(static_cast<int>(sampleRate * 0.1)); // 100ms max
+
+    // Prepare crossover filters (highpass)
+    crossoverFilter[0].prepare(spec);
+    crossoverFilter[0].setType(juce::dsp::LinkwitzRileyFilterType::highpass);
+    crossoverFilter[0].setCutoffFrequency(crossoverFreq);
+    crossoverFilter[1].prepare(spec);
+    crossoverFilter[1].setType(juce::dsp::LinkwitzRileyFilterType::highpass);
+    crossoverFilter[1].setCutoffFrequency(crossoverFreq);
 
     feedbackFilter[0].prepare(spec);
     feedbackFilter[0].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 4000.0f); // 6dB LPF for warmth
@@ -19,24 +30,16 @@ void SynthortionChorus::prepare(const juce::dsp::ProcessSpec& spec)
 void SynthortionChorus::reset()
 {
     delayLine.reset();
-    feedbackFilter[0].reset();
-    feedbackFilter[1].reset();
+    crossoverFilter[0].reset();
+    crossoverFilter[1].reset();
     lfoPhase = 0.0f;
+    interpolatedDepth = 0.0f;
+    interpolatedPhaseOffsetRad = 0.0f;
 }
 
 void SynthortionChorus::setChorusMix(float mix)
 {
     smoothedMix.setTargetValue(juce::jlimit(0.0f, 1.0f, mix));
-}
-
-void SynthortionChorus::setRate(float rateHz)
-{
-    currentRate = juce::jlimit(0.1f, 10.0f, rateHz);
-}
-
-void SynthortionChorus::setDepth(float depth)
-{
-    currentDepth = juce::jlimit(0.0f, 1.0f, depth);
 }
 
 void SynthortionChorus::process(juce::AudioBuffer<float>& buffer)
@@ -50,9 +53,8 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer)
     auto* rightData = numChannels > 1 ? buffer.getWritePointer(1) : nullptr;
 
     const float maxModSamples = static_cast<float>(sampleRate) * 0.01f; // 10ms max modulation
-    const float baseSamples = static_cast<float>(sampleRate) * (baseDelayMs / 1000.0f);
 
-    const float phaseIncrement = juce::MathConstants<float>::twoPi * currentRate / static_cast<float>(sampleRate);
+    const float phaseIncrement = juce::MathConstants<float>::twoPi * targetRateHz / static_cast<float>(sampleRate);
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -76,8 +78,8 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer)
             float lfoValL = std::sin(lfoPhase + phaseOffset);
             float lfoValR = std::sin(lfoPhase + phaseOffset + juce::MathConstants<float>::pi * 0.5f); // 90 deg offset for right
 
-            float delayTimeSamplesL = baseSamples + (lfoValL * currentDepth * maxModSamples);
-            float delayTimeSamplesR = baseSamples + (lfoValR * currentDepth * maxModSamples);
+            float delayTimeSamplesL = baseSamples + (lfoValL * interpolatedDepth * maxModSamples);
+            float delayTimeSamplesR = baseSamples + (lfoValR * interpolatedDepth * maxModSamples);
 
             // Pop samples for each voice without advancing the read pointer
             voiceOutL += delayLine.popSample(0, delayTimeSamplesL, false);
