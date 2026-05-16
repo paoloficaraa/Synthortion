@@ -45,7 +45,10 @@
 *.dwo
 
 # Libraries
-libs/
+# Ignore third-party dependency folders by default but keep the JUCE submodule
+libs/*
+!libs/juce/
+!libs/juce/**
 
 # ==========================================
 # BUILD DIRECTORIES
@@ -55,6 +58,10 @@ libs/
 build/
 Build/
 Builds/
+
+# Git worktree isolated workspaces
+.worktrees/
+worktrees/
 
 # CMake generated files
 CMakeFiles/
@@ -242,6 +249,12 @@ Temporary Items
 *.bak
 *.backup
 *.old
+
+# Understand Anything artifacts (local analysis/knowledge graph)
+.understand-anything/
+
+# Local helper script output
+format-context.js
 
 # ==========================================
 # CUSTOM PROJECT SPECIFIC
