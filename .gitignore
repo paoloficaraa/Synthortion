@@ -262,3 +262,6 @@ format-context.js
 
 # Add any project-specific files or directories here
 *.filtergraph
+
+docs/superpowers/plans/
+AGENT.MD

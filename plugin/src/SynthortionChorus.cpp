@@ -4,24 +4,24 @@ void SynthortionChorus::prepare(const juce::dsp::ProcessSpec& spec)
 {
     sampleRate = spec.sampleRate;
     
-    // Compute base samples using targetDelayMs
-    baseSamples = sampleRate * (targetDelayMs / 1000.0f);
+    baseDelaySamples = sampleRate * (kDelayMs / 1000.0f);
+    depthSamples = sampleRate * (kDepthMs / 1000.0f);
+    stereoPhaseOffsetRad = kStereoPhaseOffsetDeg * (juce::MathConstants<float>::pi / 180.0f);
 
+    delayLine.setMaximumDelayInSamples(static_cast<int>(sampleRate * 0.1));
     delayLine.prepare(spec);
-    delayLine.setMaximumDelayInSamples(static_cast<int>(sampleRate * 0.1)); // 100ms max
 
-    // Prepare crossover filters (highpass)
-    crossoverFilter[0].prepare(spec);
-    crossoverFilter[0].setType(juce::dsp::LinkwitzRileyFilterType::highpass);
-    crossoverFilter[0].setCutoffFrequency(crossoverFreq);
-    crossoverFilter[1].prepare(spec);
-    crossoverFilter[1].setType(juce::dsp::LinkwitzRileyFilterType::highpass);
-    crossoverFilter[1].setCutoffFrequency(crossoverFreq);
+    // Prepare Crossover: Two filters per channel to guarantee flat phase sum
+    for (int i = 0; i < 2; ++i)
+    {
+        crossoverLP[i].prepare(spec);
+        crossoverLP[i].setType(juce::dsp::LinkwitzRileyFilterType::lowpass);
+        crossoverLP[i].setCutoffFrequency(kCrossoverFreq);
 
-    feedbackFilter[0].prepare(spec);
-    feedbackFilter[0].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 4000.0f); // 6dB LPF for warmth
-    feedbackFilter[1].prepare(spec);
-    feedbackFilter[1].coefficients = feedbackFilter[0].coefficients;
+        crossoverHP[i].prepare(spec);
+        crossoverHP[i].setType(juce::dsp::LinkwitzRileyFilterType::highpass);
+        crossoverHP[i].setCutoffFrequency(kCrossoverFreq);
+    }
 
     smoothedMix.reset(sampleRate, 0.05);
     reset();
@@ -30,11 +30,12 @@ void SynthortionChorus::prepare(const juce::dsp::ProcessSpec& spec)
 void SynthortionChorus::reset()
 {
     delayLine.reset();
-    crossoverFilter[0].reset();
-    crossoverFilter[1].reset();
-    lfoPhase = 0.0f;
-    interpolatedDepth = 0.0f;
-    interpolatedPhaseOffsetRad = 0.0f;
+    for (int i = 0; i < 2; ++i)
+    {
+        crossoverLP[i].reset();
+        crossoverHP[i].reset();
+    }
+    lfo1Phase = 0.0f; lfo2Phase = 0.0f; lfo3Phase = 0.0f;
 }
 
 void SynthortionChorus::setChorusMix(float mix)
@@ -52,79 +53,71 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer)
     auto* leftData = buffer.getWritePointer(0);
     auto* rightData = numChannels > 1 ? buffer.getWritePointer(1) : nullptr;
 
-    const float phaseIncrement = juce::MathConstants<float>::twoPi * targetRateHz / static_cast<float>(sampleRate);
+    const float phaseInc1 = juce::MathConstants<float>::twoPi * kLfo1FreqHz / static_cast<float>(sampleRate);
+    const float phaseInc2 = juce::MathConstants<float>::twoPi * kLfo2FreqHz / static_cast<float>(sampleRate);
+    const float phaseInc3 = juce::MathConstants<float>::twoPi * kLfo3FreqHz / static_cast<float>(sampleRate);
 
     for (int i = 0; i < numSamples; ++i)
     {
         const float mix = smoothedMix.getNextValue();
 
-        // Interpolate depth and phase from mix
-        interpolatedDepth = mix * 0.25f; // Depth target 0.25 (fraction of base delay)
-        interpolatedPhaseOffsetRad = mix * juce::MathConstants<float>::pi * (targetPhaseOffsetDeg / 180.0f); // 45° → π/4
+        // 1. Avanzamento fasi LFO
+        lfo1Phase += phaseInc1;
+        if (lfo1Phase >= juce::MathConstants<float>::twoPi) lfo1Phase -= juce::MathConstants<float>::twoPi;
+        
+        lfo2Phase += phaseInc2;
+        if (lfo2Phase >= juce::MathConstants<float>::twoPi) lfo2Phase -= juce::MathConstants<float>::twoPi;
+        
+        lfo3Phase += phaseInc3;
+        if (lfo3Phase >= juce::MathConstants<float>::twoPi) lfo3Phase -= juce::MathConstants<float>::twoPi;
 
-        // Advance LFO phase
-        lfoPhase += phaseIncrement;
-        if (lfoPhase >= juce::MathConstants<float>::twoPi)
-            lfoPhase -= juce::MathConstants<float>::twoPi;
+        // Salvataggio segnale Dry intatto
+        const float inputL = leftData[i];
+        const float inputR = rightData != nullptr ? rightData[i] : 0.0f;
 
-        // Split input via crossover per channel
-        float lowL = 0.0f, highL = 0.0f;
-        float lowR = 0.0f, highR = 0.0f;
+        // 2. Highpass SOLO per l'ingresso del delay (Process HF)
+        const float highL = crossoverHP[0].processSample(0, inputL);
+        const float highR = rightData != nullptr ? crossoverHP[1].processSample(1, inputR) : 0.0f;
 
-        crossoverFilter[0].processSample(0, leftData[i], lowL, highL);
-        if (rightData != nullptr)
-            crossoverFilter[1].processSample(1, rightData[i], lowR, highR);
+        // (Opzionale) Mantieni in sync i filtri LP anche se non usati
+        crossoverLP[0].processSample(0, inputL);
+        if (rightData != nullptr) crossoverLP[1].processSample(1, inputR);
 
-        // Process high band through chorus (fixed delay + multi sine LFO)
-        float voiceOutL = 0.0f;
-        float voiceOutR = 0.0f;
+        // 3. PUSH: Inseriamo il campione nella delay line PRIMA di leggere
+        delayLine.pushSample(0, highL);
+        if (rightData != nullptr) delayLine.pushSample(1, highR);
 
-        for (int v = 0; v < numVoices; ++v)
-        {
-            float phaseOffset = v * (juce::MathConstants<float>::twoPi / numVoices);
+        // 4. POP: Lettura delle 3 voci
+        float voiceOutL = 0.0f, voiceOutR = 0.0f;
 
-            // Multi-sine LFO: A*(sin(ωt) + 0.5*sin(3ωt))
-            float lfoL = std::sin(lfoPhase + phaseOffset) + 0.5f * std::sin(3.0f * (lfoPhase + phaseOffset));
-            float lfoR = std::sin(lfoPhase + phaseOffset + interpolatedPhaseOffsetRad) + 0.5f * std::sin(3.0f * (lfoPhase + phaseOffset + interpolatedPhaseOffsetRad));
+        // Voice 1 (Lettura senza far avanzare il delay: false)
+        float delayL1 = baseDelaySamples + (std::sin(lfo1Phase) * depthSamples);
+        float delayR1 = baseDelaySamples + (std::sin(lfo1Phase + stereoPhaseOffsetRad) * depthSamples);
+        voiceOutL += delayLine.popSample(0, delayL1, false);
+        if (rightData != nullptr) voiceOutR += delayLine.popSample(1, delayR1, false);
 
-            // Modulation depth: interpolatedDepth (0-0.25) * baseSamples
-            float modulationL = lfoL * interpolatedDepth * baseSamples;
-            float modulationR = lfoR * interpolatedDepth * baseSamples;
+        // Voice 2 (Lettura senza far avanzare il delay: false)
+        float delayL2 = baseDelaySamples + (std::sin(lfo2Phase) * depthSamples);
+        float delayR2 = baseDelaySamples + (std::sin(lfo2Phase + stereoPhaseOffsetRad) * depthSamples);
+        voiceOutL += delayLine.popSample(0, delayL2, false);
+        if (rightData != nullptr) voiceOutR += delayLine.popSample(1, delayR2, false);
 
-            float delayTimeSamplesL = baseSamples + modulationL;
-            float delayTimeSamplesR = baseSamples + modulationR;
+        // Voice 3 (Lettura CON AVANZAMENTO del delay: TRUE) - Questo elimina i click!
+        float delayL3 = baseDelaySamples + (std::sin(lfo3Phase) * depthSamples);
+        float delayR3 = baseDelaySamples + (std::sin(lfo3Phase + stereoPhaseOffsetRad) * depthSamples);
+        voiceOutL += delayLine.popSample(0, delayL3, true);
+        if (rightData != nullptr) voiceOutR += delayLine.popSample(1, delayR3, true);
 
-            voiceOutL += delayLine.popSample(0, delayTimeSamplesL, false);
-            if (rightData != nullptr)
-                voiceOutR += delayLine.popSample(1, delayTimeSamplesR, false);
-        }
+        // Media per mantenere il volume
+        voiceOutL /= 3.0f;
+        voiceOutR /= 3.0f;
 
-        voiceOutL /= numVoices;
-        voiceOutR /= numVoices;
-
-        // Feedback path with tanh saturation
-        const float saturatedL = std::tanh(voiceOutL * 1.5f);
-        const float filteredL = feedbackFilter[0].processSample(saturatedL);
-
-        float filteredR = 0.0f;
-        if (rightData != nullptr)
-        {
-            const float saturatedR = std::tanh(voiceOutR * 1.5f);
-            filteredR = feedbackFilter[1].processSample(saturatedR);
-            delayLine.pushSample(1, highR + (filteredR * 0.3f));
-        }
-
-        delayLine.pushSample(0, highL + (filteredL * 0.3f));
-
-        // Dry/wet mixing: low stays dry; high band crossfades
-        const float dryGain = std::cos(mix * juce::MathConstants<float>::halfPi);
-        const float wetGain = std::sin(mix * juce::MathConstants<float>::halfPi);
-
-        leftData[i] = lowL + (highL * dryGain) + (filteredL * wetGain);
-
+        // 5. MIX Finale: Segnale DRY completo + (Segnale WET filtrato * Mix)
+        // Questo ripristina la massima brillantezza sulle alte e preserva i bassi solidi.
+        leftData[i] = inputL + (voiceOutL * mix);
         if (rightData != nullptr)
         {
-            rightData[i] = lowR + (highR * dryGain) + (filteredR * wetGain);
+            rightData[i] = inputR + (voiceOutR * mix);
         }
     }
 }

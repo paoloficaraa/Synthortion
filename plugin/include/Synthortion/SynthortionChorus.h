@@ -16,28 +16,28 @@ public:
 
 private:
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { 48000 };
-    juce::dsp::IIR::Filter<float> feedbackFilter[2];
-    juce::dsp::LinkwitzRileyFilter<float> crossoverFilter[2];
+    juce::dsp::LinkwitzRileyFilter<float> crossoverLP[2];
+    juce::dsp::LinkwitzRileyFilter<float> crossoverHP[2];
 
     juce::SmoothedValue<float> smoothedMix;
-    
 
     double sampleRate = 44100.0;
-    float lfoPhase = 0.0f;
 
-    static constexpr float baseDelayMs = 15.0f;
-    static constexpr int numVoices = 3;
+    // Fixed Chorus constants
+    static constexpr float kDelayMs = 15.025f;
+    static constexpr float kDepthMs = 2.25f;
+    static constexpr float kLfo1FreqHz = 0.45f;
+    static constexpr float kLfo2FreqHz = 1.25f;
+    static constexpr float kLfo3FreqHz = 2.45f;
+    static constexpr float kCrossoverFreq = 320.24371f;
+    static constexpr float kStereoPhaseOffsetDeg = 59.0f;
 
-    // Fixed engine constants
-    static constexpr float targetDelayMs = 5.1f;
-    static constexpr float targetRateHz = 1.1f;
-    static constexpr float crossoverFreq = 400.0f;
-    static constexpr float targetPhaseOffsetDeg = 45.0f;
+    // State variables
+    float lfo1Phase = 0.0f;
+    float lfo2Phase = 0.0f;
+    float lfo3Phase = 0.0f;
 
-    // Interpolated state based on CHORUS_MIX (0-1)
-    float interpolatedDepth = 0.0f;
-    float interpolatedPhaseOffsetRad = 0.0f;
-
-    // Precomputed samples for base delay
-    float baseSamples = 0.0f;
+    float baseDelaySamples = 0.0f;
+    float depthSamples = 0.0f;
+    float stereoPhaseOffsetRad = 0.0f;
 };
