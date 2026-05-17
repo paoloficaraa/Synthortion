@@ -35,7 +35,7 @@ namespace synthortion
             juce::ParameterID{"COLOR", 1},
             "Color",
             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-            0.5f));
+            0.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"BITCRUSH", 1},
@@ -365,7 +365,7 @@ namespace synthortion
         inputGainSmoother.setTargetValue(inputGain);
         outputGainSmoother.setTargetValue(outputGain);
 
-        smoothedColorDrive.setTargetValue(color * 2.0f); // Scale color 0-1 to 0-2 drive range if needed, adjust to taste
+        smoothedColorDrive.setTargetValue(color); // Color (0-1) directly maps to drive (0-1)
         const float inputGainLinear = juce::Decibels::decibelsToGain(inputGainSmoother.getNextValue());
         const float outputGainLinear = juce::Decibels::decibelsToGain(outputGainSmoother.getNextValue());
 
@@ -457,7 +457,7 @@ pingPongDelay.setDelayTime(delayTime);
 void AudioPluginAudioProcessor::updateAllDSPParameters()
     {
         const float color = colorParam->load();
-        smoothedColorDrive.setCurrentAndTargetValue(color * 2.0f); // Scale color 0-1 to 0-2 drive range
+        smoothedColorDrive.setCurrentAndTargetValue(color); // Color (0-1) directly maps to drive (0-1)
         const float drive = smoothedColorDrive.getCurrentValue();
         
         warmDistortion.setDrive(drive);

@@ -32,12 +32,12 @@ private:
     static constexpr float kHighDriveThreshold = 0.3f;
     
     static constexpr float kTapeDriveMin = 1.0f;
-    static constexpr float kTapeDriveMax = 8.0f;
-    static constexpr float kTapeStage1Gain = 1.2f;
-    static constexpr float kTapeAsymmetryBase = 0.05f;
-    static constexpr float kTapeHardClipKnee = 0.7f;
-    static constexpr float kTapeHardClipRatio = 2.5f;
-    static constexpr float kTapeCompensationFactor = 0.35f;
+    static constexpr float kTapeDriveMax = 5.0f;
+    static constexpr float kTapeStage1Gain = 1.0f;
+    static constexpr float kTapeAsymmetryBase = 0.12f;
+    static constexpr float kTapeHardClipKnee = 0.92f;
+    static constexpr float kTapeHardClipRatio = 1.2f;
+    static constexpr float kTapeCompensationFactor = 0.25f;
     
     static constexpr float kDenormThreshold = 1.0e-20f;
     static constexpr float kDenormNoiseLevel = 1.0e-18f;
@@ -64,12 +64,12 @@ private:
     static constexpr float kExciterHighpassFreq = 3000.0f;
     static constexpr float kExciterFreqDriveRange = 0.4f;
     static constexpr float kExciterFreqDriveOffset = 0.8f;
-    static constexpr float kExciterHarmonicDrive = 2.5f;
+    static constexpr float kExciterHarmonicDrive = 1.2f;
     static constexpr float kExciterPositiveSaturation = 0.8f;
     static constexpr float kExciterNegativeSaturation = 1.2f;
     static constexpr float kExciterNegativeAsymmetry = 0.85f;
     static constexpr float kExciterSecondHarmonicAmp = 0.1f;
-    static constexpr float kExciterMixAmount = 0.15f;
+    static constexpr float kExciterMixAmount = 0.07f;
     
     static constexpr float kWowFrequency = 1.5f;
     static constexpr float kFlutterFrequency = 10.0f;
@@ -81,7 +81,7 @@ private:
     static constexpr float kWowFlutterMinDelay = 1.0f;
     static constexpr int kWowFlutterSafetyMargin = 2;
     
-    static constexpr float kHysteresisAmount = 0.15f;
+    static constexpr float kHysteresisAmount = 0.25f;
     static constexpr float kHysteresisFeedback = 0.7f;
     static constexpr float kHysteresisInputScale = 0.3f;
     
