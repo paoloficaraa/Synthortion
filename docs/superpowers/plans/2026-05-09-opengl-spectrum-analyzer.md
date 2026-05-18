@@ -17,7 +17,3 @@ Update `PluginEditor` to instantiate and use `OpenGLSpectrumAnalyzer` in place o
 ## Task 3: Delete the legacy CPU analyzer and its build references
 
 Remove `plugin/include/Synthortion/SpectrumAnalyzer.h` and `plugin/src/SpectrumAnalyzer.cpp`, then remove them from any CMake or source lists so the old analyzer no longer ships or compiles.
-
-## Task 4: Build and fix the integration
-
-Build the plugin, resolve compile errors, and verify the OpenGL analyzer is now the only spectrum visualization path. Do not add documentation or manual test-plan files.

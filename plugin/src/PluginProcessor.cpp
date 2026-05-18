@@ -366,10 +366,25 @@ namespace synthortion
         outputGainSmoother.setTargetValue(outputGain);
 
         smoothedColorDrive.setTargetValue(color); // Color (0-1) directly maps to drive (0-1)
-        const float inputGainLinear = juce::Decibels::decibelsToGain(inputGainSmoother.getNextValue());
-        const float outputGainLinear = juce::Decibels::decibelsToGain(outputGainSmoother.getNextValue());
 
-        buffer.applyGain(inputGainLinear);
+        // Apply input gain with proper per-sample smoothing
+        if (inputGainSmoother.isSmoothing())
+        {
+            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+            {
+                auto* channelData = buffer.getWritePointer(channel);
+                for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+                {
+                    const float gain = juce::Decibels::decibelsToGain(inputGainSmoother.getNextValue());
+                    channelData[sample] *= gain;
+                }
+            }
+        }
+        else
+        {
+            const float inputGainLinear = juce::Decibels::decibelsToGain(inputGainSmoother.getCurrentValue());
+            buffer.applyGain(inputGainLinear);
+        }
 
         const float inputRms = calculateRMS(buffer);
         const float currentInputDb = inputRmsLevel.load(std::memory_order_relaxed);
@@ -404,12 +419,29 @@ namespace synthortion
         chorus.setChorusMix(chorusMix);
         chorus.process(buffer);
 
-pingPongDelay.setDelayTime(delayTime);
+        pingPongDelay.setDelayTime(delayTime);
         pingPongDelay.setDelayMix(delayMix);
         pingPongDelay.setFeedback(delayFeedback);
         pingPongDelay.process(buffer);
 
-        buffer.applyGain(outputGainLinear);
+        // Apply output gain with proper per-sample smoothing
+        if (outputGainSmoother.isSmoothing())
+        {
+            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+            {
+                auto* channelData = buffer.getWritePointer(channel);
+                for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+                {
+                    const float gain = juce::Decibels::decibelsToGain(outputGainSmoother.getNextValue());
+                    channelData[sample] *= gain;
+                }
+            }
+        }
+        else
+        {
+            const float outputGainLinear = juce::Decibels::decibelsToGain(outputGainSmoother.getCurrentValue());
+            buffer.applyGain(outputGainLinear);
+        }
 
         // Feed spectrum analyzer via lock-free FIFO (mono mix)
         int numChannels = buffer.getNumChannels();
