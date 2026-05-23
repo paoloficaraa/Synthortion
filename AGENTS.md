@@ -1,51 +1,12 @@
-# OpenCode Agent Instructions: Synthortion
+## graphify
 
-JUCE 8+ C++20 audio plugin (VST3, AU). Effects chain: Gain -> WarmDistortion -> BitCrusher -> ParametricEQ -> Chorus -> PingPongDelay -> OutputGain, with global `COLOR` macro blending dry/wet.
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
-## Critical Setup
+When the user types `/graphify`, invoke the `skill` tool with `skill: "graphify"` before doing anything else.
 
-- **Always initialize JUCE submodule before building:**
-  ```bash
-  git submodule update --init --recursive
-  ```
-
-## Build Commands
-
-```bash
-# Configure (Ninja recommended)
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-
-# Build
-cmake --build build
-```
-
-**Artifacts:** `build/plugin/Synthortion_artefacts/<Config>/<FORMAT>/`  
-(e.g., `build/plugin/Synthortion_artefacts/Debug/VST3/Synthortion.vst3`)
-
-## Platform quirks
-
-- **Linux:** Build artifacts stay in `build/` (no auto-copy to system folders)
-- **macOS/Windows:** `COPY_PLUGIN_AFTER_BUILD TRUE` may copy plugins automatically
-- **No standalone target:** Only AU and VST3 formats configured
-
-## Linux dependencies
-
-Install before configuring:
-```bash
-sudo apt-get install libwebkit2gtk-4.1-dev libgtk-3-dev libcurl4-openssl-dev
-```
-CMake uses `pkg-config`.
-
-## Architecture (entrypoints)
-
-- **DSP core:** `plugin/src/PluginProcessor.cpp` — `AudioPluginAudioProcessor` owns all effects
-- **UI:** `plugin/src/PluginEditor.cpp` — fixed 720×490 window, 60Hz `Timer` refresh
-- **Headers:** `plugin/include/Synthortion/`
-- **Effects:** `WarmDistortion`, `BitCrusher`, `ParametricEQ`, `PingPongDelay`, `SynthortionChorus`
-- **JUCE modules:** `juce_audio_utils`, `juce_audio_processors`, `juce_gui_extra`, `juce_dsp`
-
-## Testing & quality
-
-- **No automated tests exist** — manual verification only
-- **No `.clang-format`** — follow existing code style in the codebase
-- Manual verification requires a DAW/plugin host; spectrum analyzer runs at 4096 FFT size
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

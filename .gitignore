@@ -258,4 +258,7 @@ format-context.js
 *.filtergraph
 
 docs/superpowers/plans/
-AGENT.MD
+AGENTS.md
+.opencode/
+graphify-out/
+build_wsl/

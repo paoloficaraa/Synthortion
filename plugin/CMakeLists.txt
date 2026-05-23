@@ -16,12 +16,9 @@ PRIVATE
     src/PluginEditor.cpp
     src/WarmDistortion.cpp
     src/SynthortionLookAndFeel.cpp
-    src/SpectrumAnalyzer.cpp
-    src/ParametricEQ.cpp
     src/BitCrusher.cpp
     src/PingPongDelay.cpp
     src/SynthortionChorus.cpp
-    src/VerticalDiscreteMeter.cpp
 )
 
 target_include_directories(Synthortion
@@ -35,6 +32,10 @@ PRIVATE
     juce::juce_audio_processors
     juce::juce_gui_extra
     juce::juce_dsp
+    gin
+    gin_plugin      # For audio plugins
+    gin_dsp         # For DSP components
+    gin_gui         # For UI components
 PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags

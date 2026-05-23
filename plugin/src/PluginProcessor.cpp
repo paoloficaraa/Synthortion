@@ -1,146 +1,76 @@
 #include "Synthortion/PluginProcessor.h"
 #include "Synthortion/PluginEditor.h"
+#include <thread>
+#include <vector>
 
 namespace synthortion
 {
     juce::AudioProcessorValueTreeState::ParameterLayout AudioPluginAudioProcessor::createParameterLayout()
-    {
-        juce::AudioProcessorValueTreeState::ParameterLayout layout;
+     {
+         juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-        auto makeGainRange = []() {
-            juce::NormalisableRange<float> r(-60.0f, 12.0f, 0.1f);
-            r.setSkewForCentre(0.0f);
-            return r;
-        };
+         auto makeGainRange = []() {
+             juce::NormalisableRange<float> r(-60.0f, 12.0f, 0.1f);
+             r.setSkewForCentre(0.0f);
+             return r;
+         };
 
-        auto makeQRange = []() {
-            juce::NormalisableRange<float> r(0.1f, 10.0f, 0.1f);
-            r.setSkewForCentre(1.0f);
-            return r;
-        };
+         layout.add(std::make_unique<juce::AudioParameterFloat>(
+             juce::ParameterID{"INPUT_GAIN", 1},
+             "Input Gain",
+             makeGainRange(),
+             0.0f));
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"INPUT_GAIN", 1},
-            "Input Gain",
-            makeGainRange(),
-            0.0f));
+         layout.add(std::make_unique<juce::AudioParameterFloat>(
+             juce::ParameterID{"OUTPUT_GAIN", 1},
+             "Output Gain",
+             makeGainRange(),
+             0.0f));
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"OUTPUT_GAIN", 1},
-            "Output Gain",
-            makeGainRange(),
-            0.0f));
+         layout.add(std::make_unique<juce::AudioParameterFloat>(
+             juce::ParameterID{"COLOR", 1},
+             "Color",
+             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+             0.0f));
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"COLOR", 1},
-            "Color",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-            0.0f));
+         layout.add(std::make_unique<juce::AudioParameterFloat>(
+             juce::ParameterID{"BITCRUSH", 1},
+             "Bitcrush",
+             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+             0.0f));
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"BITCRUSH", 1},
-            "Bitcrush",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-            0.0f));
+         layout.add(std::make_unique<juce::AudioParameterFloat>(
+             juce::ParameterID{"DELAY_TIME", 1},
+             "Delay Time",
+             juce::NormalisableRange<float>(1.0f, 2000.0f, 1.0f),
+             250.0f));
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"DELAY_TIME", 1},
-            "Delay Time",
-            juce::NormalisableRange<float>(1.0f, 2000.0f, 1.0f),
-            250.0f));
+         layout.add(std::make_unique<juce::AudioParameterFloat>(
+             juce::ParameterID{"DELAY_MIX", 1},
+             "Delay Mix",
+             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+             0.0f));
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"DELAY_MIX", 1},
-            "Delay Mix",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-            0.0f));
+         layout.add(std::make_unique<juce::AudioParameterFloat>(
+             juce::ParameterID{"DELAY_FEEDBACK", 1},
+             "Delay Feedback",
+             juce::NormalisableRange<float>(0.0f, 0.95f, 0.01f),
+             0.4f));
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"DELAY_FEEDBACK", 1},
-            "Delay Feedback",
-            juce::NormalisableRange<float>(0.0f, 0.95f, 0.01f),
-            0.4f));
+         layout.add(std::make_unique<juce::AudioParameterFloat>(
+             juce::ParameterID{"CHORUS_MIX", 1},
+             "Chorus Mix",
+             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+             0.0f));
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"CHORUS_MIX", 1},
-            "Chorus Mix",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-            0.0f));
+         layout.add(std::make_unique<juce::AudioParameterFloat>(
+             juce::ParameterID{"VOLUME_COMPENSATION", 1},
+             "Volume Compensation",
+             juce::NormalisableRange<float>(0.0f, 1.0f, 1.0f),
+             1.0f));
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"EQ_BYPASS", 1},
-            "EQ Bypass",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 1.0f),
-            0.0f));
-
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"VOLUME_COMPENSATION", 1},
-            "Volume Compensation",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 1.0f),
-            1.0f));
-
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"LOW_CUT_FREQ", 1},
-            "Low Cut Freq",
-            juce::NormalisableRange<float>(10.0f, 100.0f, 1.0f, 0.3f),
-            10.0f));
-
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"LOW_CUT_Q", 1},
-            "Low Cut Q",
-            makeQRange(),
-            1.0f));
-
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"LOW_MID_FREQ", 1},
-            "Low Mid Freq",
-            juce::NormalisableRange<float>(100.0f, 1000.0f, 1.0f, 0.3f),
-            500.0f));
-
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"LOW_MID_GAIN", 1},
-            "Low Mid Gain",
-            juce::NormalisableRange<float>(-24.0f, 24.0f, 0.1f),
-            0.0f));
-
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"LOW_MID_Q", 1},
-            "Low Mid Q",
-            makeQRange(),
-            1.0f));
-
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"HIGH_MID_FREQ", 1},
-            "High Mid Freq",
-            juce::NormalisableRange<float>(1000.0f, 10000.0f, 1.0f, 0.3f),
-            5000.0f));
-
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"HIGH_MID_GAIN", 1},
-            "High Mid Gain",
-            juce::NormalisableRange<float>(-24.0f, 24.0f, 0.1f),
-            0.0f));
-
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"HIGH_MID_Q", 1},
-            "High Mid Q",
-            makeQRange(),
-            1.0f));
-
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"HIGH_CUT_FREQ", 1},
-            "High Cut Freq",
-            juce::NormalisableRange<float>(10000.0f, 30000.0f, 1.0f, 0.3f),
-            30000.0f));
-
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"HIGH_CUT_Q", 1},
-            "High Cut Q",
-            makeQRange(),
-            1.0f));
-
-        return layout;
-    }
+         return layout;
+     }
 
     AudioPluginAudioProcessor::AudioPluginAudioProcessor()
         : AudioProcessor(BusesProperties()
@@ -169,31 +99,11 @@ namespace synthortion
         jassert(delayFeedbackParam != nullptr);
         chorusMixParam = apvts.getRawParameterValue("CHORUS_MIX");
         jassert(chorusMixParam != nullptr);
-        eqBypassParam = apvts.getRawParameterValue("EQ_BYPASS");
-        jassert(eqBypassParam != nullptr);
+
         volumeCompParam = apvts.getRawParameterValue("VOLUME_COMPENSATION");
         jassert(volumeCompParam != nullptr);
 
-        lowCutFreqParam = apvts.getRawParameterValue("LOW_CUT_FREQ");
-        jassert(lowCutFreqParam != nullptr);
-        lowCutQParam = apvts.getRawParameterValue("LOW_CUT_Q");
-        jassert(lowCutQParam != nullptr);
-        lowMidFreqParam = apvts.getRawParameterValue("LOW_MID_FREQ");
-        jassert(lowMidFreqParam != nullptr);
-        lowMidGainParam = apvts.getRawParameterValue("LOW_MID_GAIN");
-        jassert(lowMidGainParam != nullptr);
-        lowMidQParam = apvts.getRawParameterValue("LOW_MID_Q");
-        jassert(lowMidQParam != nullptr);
-        highMidFreqParam = apvts.getRawParameterValue("HIGH_MID_FREQ");
-        jassert(highMidFreqParam != nullptr);
-        highMidGainParam = apvts.getRawParameterValue("HIGH_MID_GAIN");
-        jassert(highMidGainParam != nullptr);
-        highMidQParam = apvts.getRawParameterValue("HIGH_MID_Q");
-        jassert(highMidQParam != nullptr);
-        highCutFreqParam = apvts.getRawParameterValue("HIGH_CUT_FREQ");
-        jassert(highCutFreqParam != nullptr);
-        highCutQParam = apvts.getRawParameterValue("HIGH_CUT_Q");
-        jassert(highCutQParam != nullptr);
+
     }
 
     AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
@@ -275,7 +185,6 @@ namespace synthortion
 
         warmDistortion.prepare(spec);
         bitCrusher.prepare(spec);
-        parametricEQ.prepare(spec);
         chorus.prepare(spec);
         pingPongDelay.prepare(spec);
 
@@ -292,11 +201,9 @@ namespace synthortion
 
         const int distortionLatency = juce::jmax(1, warmDistortion.getLatencySamples());
 
-        // Calculate initial latency
-        const int eqLatency = parametricEQ.getLatencySamples();
-        const int totalLatency = distortionLatency + eqLatency;
-        currentTotalLatency.store(totalLatency);
-        setLatencySamples(totalLatency);
+        // Set latency based on distortion only
+        currentTotalLatency.store(distortionLatency);
+        setLatencySamples(distortionLatency);
 
         updateAllDSPParameters();
     }
@@ -323,17 +230,7 @@ namespace synthortion
 #endif
     }
 
-    float AudioPluginAudioProcessor::calculateRMS(const juce::AudioBuffer<float>& buffer)
-    {
-        if (buffer.getNumChannels() == 0 || buffer.getNumSamples() == 0)
-            return 0.0f;
 
-        float rmsSum = 0.0f;
-        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
-            rmsSum += buffer.getRMSLevel(ch, 0, buffer.getNumSamples());
-        
-        return rmsSum / static_cast<float>(buffer.getNumChannels());
-    }
 
     void AudioPluginAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         [[maybe_unused]] juce::MidiBuffer &midiMessages)
@@ -360,7 +257,6 @@ namespace synthortion
         const float delayFeedback = delayFeedbackParam->load(std::memory_order_relaxed);
         const float chorusMix = chorusMixParam->load(std::memory_order_relaxed);
         const bool volumeComp = volumeCompParam->load(std::memory_order_relaxed) > kBooleanThreshold;
-        const bool eqBypass = eqBypassParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         
         inputGainSmoother.setTargetValue(inputGain);
         outputGainSmoother.setTargetValue(outputGain);
@@ -386,29 +282,12 @@ namespace synthortion
             buffer.applyGain(inputGainLinear);
         }
 
-        const float inputRms = calculateRMS(buffer);
-        const float currentInputDb = inputRmsLevel.load(std::memory_order_relaxed);
-        const float targetInputDb = juce::Decibels::gainToDecibels(inputRms, kRmsMinDb);
-        inputRmsLevel.store(currentInputDb * kRmsSmoothingCoeff + targetInputDb * (1.0f - kRmsSmoothingCoeff), 
-                           std::memory_order_relaxed);
+
 
         juce::dsp::AudioBlock<float> block(buffer);
         juce::dsp::ProcessContextReplacing<float> context(block);
 
-        // Update EQ parameters every frame
-        const float lowCutFreq = lowCutFreqParam->load(std::memory_order_relaxed);
-        parametricEQ.setLowCut(lowCutFreq, lowCutQParam->load(std::memory_order_relaxed), lowCutFreq > 10.0f);
-        parametricEQ.setLowMid(lowMidFreqParam->load(std::memory_order_relaxed),
-                               lowMidGainParam->load(std::memory_order_relaxed),
-                               lowMidQParam->load(std::memory_order_relaxed));
-        parametricEQ.setHighMid(highMidFreqParam->load(std::memory_order_relaxed),
-                                highMidGainParam->load(std::memory_order_relaxed),
-                                highMidQParam->load(std::memory_order_relaxed));
-        const float highCutFreq = highCutFreqParam->load(std::memory_order_relaxed);
-        parametricEQ.setHighCut(highCutFreq, highCutQParam->load(std::memory_order_relaxed), highCutFreq < 30000.0f);
 
-        if (!eqBypass)
-            parametricEQ.process(context);
 
         warmDistortion.setVolumeCompensation(volumeComp);
         warmDistortion.process(context, &smoothedColorDrive);
@@ -443,45 +322,13 @@ namespace synthortion
             buffer.applyGain(outputGainLinear);
         }
 
-        // Feed spectrum analyzer via lock-free FIFO (mono mix)
-        int numChannels = buffer.getNumChannels();
-        int numSamples = buffer.getNumSamples();
-        const float* left = buffer.getReadPointer(0);
-        const float* right = (numChannels > 1) ? buffer.getReadPointer(1) : nullptr;
 
-        int space = spectrumFifo.getFreeSpace();
-        if (space > 0)
-        {
-            int toWrite = juce::jmin(numSamples, space);
-            auto writeOp = spectrumFifo.write(toWrite);
-            
-            auto writeData = [&](int startIndex, int bSize, int sourceOffset) {
-                for (int i = 0; i < bSize; ++i)
-                {
-                    if (numChannels == 1)
-                        spectrumBuffer[(size_t)(startIndex + i)] = left[sourceOffset + i];
-                    else
-                        spectrumBuffer[(size_t)(startIndex + i)] = (left[sourceOffset + i] + right[sourceOffset + i]) * 0.5f;
-                }
-            };
-            
-            if (writeOp.blockSize1 > 0)
-                writeData(writeOp.startIndex1, writeOp.blockSize1, 0);
-            if (writeOp.blockSize2 > 0)
-                writeData(writeOp.startIndex2, writeOp.blockSize2, writeOp.blockSize1);
-        }
 
-        const float outputRms = calculateRMS(buffer);
-        const float currentOutputDb = outputRmsLevel.load(std::memory_order_relaxed);
-        const float targetOutputDb = juce::Decibels::gainToDecibels(outputRms, kRmsMinDb);
-        outputRmsLevel.store(currentOutputDb * kRmsSmoothingCoeff + targetOutputDb * (1.0f - kRmsSmoothingCoeff), 
-                            std::memory_order_relaxed);
+
 
         const int distortionLatency = warmDistortion.getLatencySamples();
-        const int eqLatency = parametricEQ.getLatencySamples();
-        const int totalLatency = distortionLatency + eqLatency;
-        currentTotalLatency.store(totalLatency);
-        setLatencySamples(totalLatency);
+        currentTotalLatency.store(distortionLatency);
+        setLatencySamples(distortionLatency);
 
         updateAllDSPParameters();
     }
@@ -502,15 +349,6 @@ void AudioPluginAudioProcessor::updateAllDSPParameters()
         pingPongDelay.setFeedback(delayFeedbackParam->load());
 
         chorus.setChorusMix(chorusMixParam->load());
-
-        const float lowCutFreq = lowCutFreqParam->load();
-        parametricEQ.setLowCut(lowCutFreq, lowCutQParam->load(), lowCutFreq > 10.0f);
-        
-        parametricEQ.setLowMid(lowMidFreqParam->load(), lowMidGainParam->load(), lowMidQParam->load());
-        parametricEQ.setHighMid(highMidFreqParam->load(), highMidGainParam->load(), highMidQParam->load());
-        
-        const float highCutFreq = highCutFreqParam->load();
-        parametricEQ.setHighCut(highCutFreq, highCutQParam->load(), highCutFreq < 30000.0f);
     }
 
     juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor()
@@ -532,15 +370,20 @@ void AudioPluginAudioProcessor::updateAllDSPParameters()
 
     void AudioPluginAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
     {
-        std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
+        // Copy the data to a local buffer for background processing
+        std::vector<char> buffer(static_cast<const char*>(data), static_cast<const char*>(data) + sizeInBytes);
 
-        if (xmlState != nullptr)
-        {
-            if (xmlState->hasTagName(apvts.state.getType()))
+        std::thread([this, buffer = std::move(buffer)]() mutable {
+            std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(buffer.data(), static_cast<int>(buffer.size())));
+
+            if (xmlState != nullptr && xmlState->hasTagName(apvts.state.getType()))
             {
-                apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
+                auto newState = juce::ValueTree::fromXml(*xmlState);
+                juce::MessageManager::callAsync([this, state = std::move(newState)]() mutable {
+                    apvts.replaceState(state);
+                });
             }
-        }
+        }).detach();
     }
 }
 
