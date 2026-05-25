@@ -6,14 +6,16 @@ on:
 jobs:
   build-macos:
     runs-on: macos-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout (with submodules)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Set up CMake
-        uses: lukka/get-cmake@v4.1.1
+        uses: lukka/get-cmake@v4.3.3
 
       - name: Configure (Universal build)
         run: |
@@ -50,14 +52,14 @@ jobs:
       #     codesign -dv build/plugin/Synthortion_artefacts/Release/AU/Synthortion.component || true
 
       - name: Upload VST3 artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Synthortion-macOS-VST3
           path: build/plugin/Synthortion_artefacts/Release/VST3/Synthortion_mac_universal_vst3.zip
           if-no-files-found: error
 
       - name: Upload AU artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Synthortion-macOS-AU
           path: build/plugin/Synthortion_artefacts/Release/AU/Synthortion_mac_universal_au.zip
