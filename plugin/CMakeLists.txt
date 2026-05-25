@@ -10,15 +10,17 @@ juce_add_plugin(Synthortion
     COPY_PLUGIN_AFTER_BUILD TRUE
 )
 
-target_sources(Synthortion 
+target_sources(Synthortion
 PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
+    src/AnalogLookAndFeel.cpp
     src/WarmDistortion.cpp
-    src/SynthortionLookAndFeel.cpp
-    src/BitCrusher.cpp
     src/PingPongDelay.cpp
+    src/BitCrusher.cpp
     src/SynthortionChorus.cpp
+
+
 )
 
 target_include_directories(Synthortion

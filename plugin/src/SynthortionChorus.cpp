@@ -4,8 +4,8 @@ void SynthortionChorus::prepare(const juce::dsp::ProcessSpec& spec)
 {
     sampleRate = spec.sampleRate;
     
-    baseDelaySamples = sampleRate * (kDelayMs / 1000.0f);
-    depthSamples = sampleRate * (kDepthMs / 1000.0f);
+    baseDelaySamples = static_cast<float>(sampleRate) * (kDelayMs / 1000.0f);
+    depthSamples = static_cast<float>(sampleRate) * (kDepthMs / 1000.0f);
     stereoPhaseOffsetRad = kStereoPhaseOffsetDeg * (juce::MathConstants<float>::pi / 180.0f);
 
     delayLine.setMaximumDelayInSamples(static_cast<int>(sampleRate * 0.1));

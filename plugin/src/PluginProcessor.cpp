@@ -63,13 +63,18 @@ namespace synthortion
              juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
              0.0f));
 
-         layout.add(std::make_unique<juce::AudioParameterFloat>(
-             juce::ParameterID{"VOLUME_COMPENSATION", 1},
-             "Volume Compensation",
-             juce::NormalisableRange<float>(0.0f, 1.0f, 1.0f),
-             1.0f));
+layout.add(std::make_unique<juce::AudioParameterFloat>(
+              juce::ParameterID{"VOLUME_COMPENSATION", 1},
+              "Volume Compensation",
+              juce::NormalisableRange<float>(0.0f, 1.0f, 1.0f),
+              1.0f));
 
-         return layout;
+          layout.add(std::make_unique<juce::AudioParameterBool>(
+              juce::ParameterID{"PLUGIN_BYPASS", 1},
+              "Bypass",
+              false));
+
+          return layout;
      }
 
     AudioPluginAudioProcessor::AudioPluginAudioProcessor()
@@ -103,7 +108,8 @@ namespace synthortion
         volumeCompParam = apvts.getRawParameterValue("VOLUME_COMPENSATION");
         jassert(volumeCompParam != nullptr);
 
-
+        bypassParam = apvts.getRawParameterValue("PLUGIN_BYPASS");
+        jassert(bypassParam != nullptr);
     }
 
     AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
@@ -257,7 +263,8 @@ namespace synthortion
         const float delayFeedback = delayFeedbackParam->load(std::memory_order_relaxed);
         const float chorusMix = chorusMixParam->load(std::memory_order_relaxed);
         const bool volumeComp = volumeCompParam->load(std::memory_order_relaxed) > kBooleanThreshold;
-        
+        const bool bypass = bypassParam->load(std::memory_order_relaxed) > kBooleanThreshold;
+
         inputGainSmoother.setTargetValue(inputGain);
         outputGainSmoother.setTargetValue(outputGain);
 
@@ -284,24 +291,27 @@ namespace synthortion
 
 
 
-        juce::dsp::AudioBlock<float> block(buffer);
+juce::dsp::AudioBlock<float> block(buffer);
         juce::dsp::ProcessContextReplacing<float> context(block);
 
 
 
-        warmDistortion.setVolumeCompensation(volumeComp);
-        warmDistortion.process(context, &smoothedColorDrive);
+        if (!bypass)
+        {
+            warmDistortion.setVolumeCompensation(volumeComp);
+            warmDistortion.process(context, &smoothedColorDrive);
 
-        bitCrusher.setBitCrushMix(bitCrush);
-        bitCrusher.process(buffer);
+            bitCrusher.setBitCrushMix(bitCrush);
+            bitCrusher.process(buffer);
 
-        chorus.setChorusMix(chorusMix);
-        chorus.process(buffer);
+            chorus.setChorusMix(chorusMix);
+            chorus.process(buffer);
 
-        pingPongDelay.setDelayTime(delayTime);
-        pingPongDelay.setDelayMix(delayMix);
-        pingPongDelay.setFeedback(delayFeedback);
-        pingPongDelay.process(buffer);
+            pingPongDelay.setDelayTime(delayTime);
+            pingPongDelay.setDelayMix(delayMix);
+            pingPongDelay.setFeedback(delayFeedback);
+            pingPongDelay.process(buffer);
+        }
 
         // Apply output gain with proper per-sample smoothing
         if (outputGainSmoother.isSmoothing())

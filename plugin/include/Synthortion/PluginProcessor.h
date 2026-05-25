@@ -76,6 +76,7 @@ namespace synthortion
             std::atomic<float>* delayFeedbackParam = nullptr;
             std::atomic<float>* chorusMixParam = nullptr;
             std::atomic<float>* volumeCompParam = nullptr;
+            std::atomic<float>* bypassParam = nullptr;
 
             juce::SmoothedValue<float> inputGainSmoother;
             juce::SmoothedValue<float> outputGainSmoother;
