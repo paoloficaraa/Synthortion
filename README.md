@@ -62,6 +62,7 @@ A global dry/wet stage (driven by `COLOR`) blends the latency-matched dry signal
 ### Main
 | Parameter | Range | Description |
 |---|---|---|
+| `PLUGIN_BYPASS` | bool | Global bypass toggle |
 | `COLOR` | 0..1 | Global macro; increases wet blend and adds extra distortion drive |
 | `INPUT_GAIN` | -24..+24 dB | Input level |
 | `OUTPUT_GAIN` | -24..+24 dB | Output level |
@@ -69,14 +70,13 @@ A global dry/wet stage (driven by `COLOR`) blends the latency-matched dry signal
 ### Distortion
 | Parameter | Range | Description |
 |---|---|---|
-| `DRIVE` | 0..1 | Distortion intensity (not exposed as front-panel knob) |
+| `DRIVE` | 0..1 | Distortion intensity (exposed as front-panel knob) |
 | `VOLUME_COMPENSATION` | bool | Automatic output level compensation |
 
 ### FX
 | Parameter | Range | Description |
 |---|---|---|
 | `BITCRUSH` | 0..1 | Bit crushing intensity |
-| `DAC_NOISE` | 0..1 | DAC noise floor |
 | `DELAY_TIME` | 1..2000 ms | Delay time |
 | `DELAY_MIX` | 0..1 | Delay wet/dry mix |
 | `DELAY_FEEDBACK` | 0..0.95 | Delay feedback |
@@ -131,7 +131,7 @@ Synthortion/
     │   ├── Bitcrusher.h
     │   ├── PingPongDelay.h
     │   ├── SynthortionChorus.h
-    │   └── SynthortionLookAndFeel.h
+    │   └── AnalogLookAndFeel.h
     └── src/
         ├── PluginProcessor.cpp
         ├── PluginEditor.cpp
@@ -139,7 +139,7 @@ Synthortion/
         ├── BitCrusher.cpp
         ├── PingPongDelay.cpp
         ├── SynthortionChorus.cpp
-        └── SynthortionLookAndFeel.cpp
+        └── AnalogLookAndFeel.cpp
 ```
 
 ---
@@ -148,7 +148,7 @@ Synthortion/
 
 - Preset browser/management: not implemented yet
 - Standalone app target: not enabled in current CMake configuration
-- Main UI: fixed-size (non-resizable)
+- Main UI: fixed-size (660x260, hardware rack style)
 
 ---
 
