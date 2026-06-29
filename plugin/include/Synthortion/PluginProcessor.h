@@ -9,7 +9,7 @@
 #include "Synthortion/WarmDistortion.h"
 #include "Synthortion/SynthortionChorus.h"
 #include "Synthortion/PingPongDelay.h"
-#include "Synthortion/BitCrusher.h"
+#include "Synthortion/Bitcrusher.h"
 
 namespace synthortion
 {

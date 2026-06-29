@@ -2,6 +2,8 @@
 
 #include "Synthortion/PluginProcessor.h"
 #include "Synthortion/AnalogLookAndFeel.h"
+#include "Synthortion/PanelComponent.h"
+#include "Synthortion/BypassComponent.h"
 #include <gin_plugin/gin_plugin.h>
 #include <juce_gui_extra/juce_gui_extra.h>
 
@@ -22,11 +24,18 @@ namespace synthortion
         static constexpr float kRotaryStartAngle = juce::MathConstants<float>::pi * 1.25f;
         static constexpr float kRotaryEndAngle = juce::MathConstants<float>::pi * 2.75f;
         static constexpr int kTimerHz = 60;
-        static constexpr int kWindowWidth = 660;
-        static constexpr int kWindowHeight = 260;
+        static constexpr int kWindowWidth = 540;
+        static constexpr int kWindowHeight = 334;
         static constexpr int kRackEarWidth = 15;
 
+        static constexpr int kColumnDistortion = 134;
+        static constexpr int kColumnModulation = 217;
+        static constexpr int kColumnGain = 134;
         static constexpr int kSectionGap = 12;
+        static constexpr int kBypassBarHeight = 24;
+
+        static constexpr int kKnobLarge = 75;
+        static constexpr int kKnobSmall = 55;
 
         void setupKnob(juce::Slider& knob);
         void setupKnobWithLabel(juce::Slider& knob, juce::Label& titleLabel, juce::Label& valueLabel,
@@ -43,12 +52,16 @@ namespace synthortion
         AudioPluginAudioProcessor &processorRef;
         AnalogLookAndFeel lookAndFeel;
 
-        // WARM DIST section - Large drive knob
+        BypassComponent bypassComponent;
+
+        PanelComponent distortionPanel;
+        PanelComponent modulationPanel;
+        PanelComponent gainPanel;
+
         juce::Slider driveKnob;
         juce::Label driveTitleLabel;
         juce::Label driveLabel;
 
-        // EFFECTS section - BitCrush (row 1) and Delay controls (row 2)
         juce::Slider bitCrushKnob;
         juce::Label bitCrushTitleLabel;
         juce::Label bitCrushLabel;
@@ -69,7 +82,6 @@ namespace synthortion
         juce::Label delayMixTitleLabel;
         juce::Label delayMixLabel;
 
-        // GAIN section
         juce::Slider inputGainKnob;
         juce::Label inputGainTitleLabel;
         juce::Label inputGainLabel;
@@ -78,16 +90,7 @@ namespace synthortion
         juce::Label outputGainTitleLabel;
         juce::Label outputGainLabel;
 
-        // Global bypass toggle
-        juce::ToggleButton pluginBypassButton;
-
-        juce::Rectangle<int> warmDistBounds;
-        juce::Rectangle<int> effectsBounds;
-        juce::Rectangle<int> gainBounds;
-        juce::Rectangle<int> warmDistTitleBounds;
-
         using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-        using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
         using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
         std::unique_ptr<SliderAttachment> driveAttachment;
@@ -98,7 +101,6 @@ namespace synthortion
         std::unique_ptr<SliderAttachment> delayMixAttachment;
         std::unique_ptr<SliderAttachment> inputGainAttachment;
         std::unique_ptr<SliderAttachment> outputGainAttachment;
-        std::unique_ptr<ButtonAttachment> bypassAttachment;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessorEditor)
     };

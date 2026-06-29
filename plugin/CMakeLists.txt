@@ -10,17 +10,26 @@ juce_add_plugin(Synthortion
     COPY_PLUGIN_AFTER_BUILD TRUE
 )
 
+juce_add_binary_data(SynthortionResources
+    HEADER_NAME SynthortionResources.h
+    NAMESPACE SynthortionResources
+    SOURCES
+        resources/BebasNeue-Regular.ttf
+        resources/Montserrat-Medium.ttf
+        resources/Montserrat-Regular.ttf
+)
+
 target_sources(Synthortion
 PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
     src/AnalogLookAndFeel.cpp
+    src/PanelComponent.cpp
+    src/BypassComponent.cpp
     src/WarmDistortion.cpp
     src/PingPongDelay.cpp
     src/BitCrusher.cpp
     src/SynthortionChorus.cpp
-
-
 )
 
 target_include_directories(Synthortion
@@ -30,6 +39,7 @@ PRIVATE
 
 target_link_libraries(Synthortion
 PRIVATE
+    SynthortionResources
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_gui_extra
@@ -48,6 +58,14 @@ target_compile_definitions(Synthortion
 PUBLIC
     JUCE_VST3_CAN_REPLACE_VST2=0
 )
+
+option(JUCE_ENABLE_UNIT_TESTS "Enable JUCE unit tests" OFF)
+if(JUCE_ENABLE_UNIT_TESTS)
+    target_sources(Synthortion
+    PRIVATE
+        tests/AudioPluginTest.h
+    )
+endif()
 
 if(UNIX AND NOT APPLE)
     find_package(PkgConfig REQUIRED)

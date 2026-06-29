@@ -1,17 +1,18 @@
 #include "Synthortion/AnalogLookAndFeel.h"
+#include "SynthortionResources.h"
 
 namespace
 {
-    const juce::Colour ANTHRACITE(0xFF130D1A);     // Dark purplish black
-    const juce::Colour GUNMETAL(0xFF1A1325);       // Deep violet-grey
-    const juce::Colour DEEP_SHADOW(0xFF0A070D);    // Very dark shadow
-    const juce::Colour COPPER(0xFF9B5DE5);         // Vibrant Purple (replacing copper)
-    const juce::Colour COPPER_BRIGHT(0xFFF15BB5);  // Bright Pink/Magenta (replacing bright copper)
-    const juce::Colour CREAM(0xFFE0E0E0);          // Light grey/white for text
-    const juce::Colour WARM_GRAY(0xFF5A4A6A);      // Purple-tinted grey
-    const juce::Colour GRAPHITE(0xFF251A35);       // Dark violet for knobs
-    const juce::Colour BRUSHED_SILVER(0xFF8A7A9A); // Lighter purple-grey
-    const juce::Colour LED_GREEN(0xFF00F5D4);      // Cyberpunk cyan/teal for LED
+    const juce::Colour ANTHRACITE(0xFF130D1A);
+    const juce::Colour GUNMETAL(0xFF1A1325);
+    const juce::Colour DEEP_SHADOW(0xFF0A070D);
+    const juce::Colour COPPER(0xFF7C3AED);
+    const juce::Colour COPPER_BRIGHT(0xFFFF2D78);
+    const juce::Colour CREAM(0xFFE0E0E0);
+    const juce::Colour WARM_GRAY(0xFF5A4A6A);
+    const juce::Colour GRAPHITE(0xFF251A35);
+    const juce::Colour BRUSHED_SILVER(0xFF8A7A9A);
+    const juce::Colour LED_GREEN(0xFF00F5D4);
     const juce::Colour LED_OFF(0xFF1A1A1A);
 
     constexpr float kRotaryStartAngle = juce::MathConstants<float>::pi * 1.25f;
@@ -20,6 +21,14 @@ namespace
 
 AnalogLookAndFeel::AnalogLookAndFeel()
 {
+    bebasNeueTypeface = juce::Typeface::createSystemTypefaceFor(
+        SynthortionResources::BebasNeueRegular_ttf,
+        SynthortionResources::BebasNeueRegular_ttfSize);
+
+    montserratTypeface = juce::Typeface::createSystemTypefaceFor(
+        SynthortionResources::MontserratMedium_ttf,
+        SynthortionResources::MontserratMedium_ttfSize);
+
     setColour(juce::ResizableWindow::backgroundColourId, ANTHRACITE);
     setColour(juce::DocumentWindow::backgroundColourId, ANTHRACITE);
     setColour(juce::DialogWindow::backgroundColourId, ANTHRACITE);
@@ -49,6 +58,19 @@ AnalogLookAndFeel::AnalogLookAndFeel()
     setColour(copperBrightColourId, COPPER_BRIGHT);
     setColour(creamTextColourId, CREAM);
     setColour(graphiteKnobColourId, GRAPHITE);
+
+    titleFont = juce::Font(juce::FontOptions(bebasNeueTypeface).withHeight(18.0f));
+    bypassButtonFont = juce::Font(juce::FontOptions(montserratTypeface).withHeight(13.0f));
+}
+
+juce::Typeface::Ptr AnalogLookAndFeel::getTypefaceForFont(const juce::Font& font)
+{
+    auto fontName = font.getTypefaceName();
+
+    if (fontName.containsIgnoreCase("Bebas"))
+        return bebasNeueTypeface;
+
+    return montserratTypeface;
 }
 
 void AnalogLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
@@ -176,9 +198,9 @@ void AnalogLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& 
     if (button.getButtonText().isNotEmpty())
     {
         auto textArea = bounds;
-        textArea.removeFromLeft(kSwitchWidth + 8.0f); // Move text to the right of the switch
+        textArea.removeFromLeft(kSwitchWidth + 8.0f);
         g.setColour(CREAM);
-        g.setFont(10.0f);
+        g.setFont(bypassButtonFont);
         g.drawFittedText(button.getButtonText(), textArea.toNearestInt(),
                          juce::Justification::centredLeft, 1);
     }
@@ -251,6 +273,8 @@ void AnalogLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Recta
 {
     auto r = bounds.toFloat();
 
+    g.fillAll(isRecessed ? DEEP_SHADOW : GUNMETAL);
+
     if (isRecessed)
     {
         g.setColour(DEEP_SHADOW);
@@ -280,10 +304,10 @@ void AnalogLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Recta
 
     if (title.isNotEmpty())
     {
-        auto labelArea = r.removeFromTop(16.0f).reduced(8.0f, 0.0f);
+        auto labelArea = r.removeFromTop(20.0f).reduced(8.0f, 0.0f);
 
         g.setColour(CREAM.withAlpha(0.6f));
-        g.setFont(juce::Font(juce::FontOptions(9.0f).withStyle("Bold")));
+        g.setFont(juce::Font(juce::FontOptions(bebasNeueTypeface).withHeight(18.0f)));
         g.drawFittedText(title, labelArea.toNearestInt(),
                          juce::Justification::centredLeft, 1);
     }

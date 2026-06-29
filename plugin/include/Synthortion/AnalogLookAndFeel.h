@@ -7,6 +7,8 @@ class AnalogLookAndFeel : public gin::CopperLookAndFeel
 public:
     AnalogLookAndFeel();
 
+    juce::Typeface::Ptr getTypefaceForFont(const juce::Font&) override;
+
     enum ColourIds
     {
         backgroundColourId     = 0x1501001,
@@ -37,6 +39,11 @@ private:
                     float startAngle, float endAngle, float sliderPos) const;
     void drawSwitchHandle(juce::Graphics& g, const juce::Rectangle<float>& bounds,
                           bool isOn, bool isHighlighted, bool isDown) const;
+
+    juce::Typeface::Ptr bebasNeueTypeface;
+    juce::Typeface::Ptr montserratTypeface;
+    juce::Font titleFont;
+    juce::Font bypassButtonFont;
 
     static constexpr float kKnobReduction = 2.0f;
     static constexpr float kKnobFaceReduction = 1.5f;
