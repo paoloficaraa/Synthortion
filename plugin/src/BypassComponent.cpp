@@ -14,6 +14,7 @@ BypassComponent::BypassComponent(juce::AudioProcessorValueTreeState& apvts)
 {
     bypassLabel.setText("BYPASS", juce::dontSendNotification);
     bypassLabel.setJustificationType(juce::Justification::centred);
+    bypassLabel.setFont(juce::Font(juce::FontOptions().withName("Montserrat Medium").withHeight(13.0f)));
     addAndMakeVisible(bypassLabel);
 
     bypassButton.setColour(juce::ToggleButton::textColourId, CREAM);

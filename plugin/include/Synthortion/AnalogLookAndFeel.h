@@ -42,6 +42,7 @@ private:
 
     juce::Typeface::Ptr bebasNeueTypeface;
     juce::Typeface::Ptr montserratTypeface;
+    juce::Typeface::Ptr montserratRegularTypeface;
     juce::Font titleFont;
     juce::Font bypassButtonFont;
 

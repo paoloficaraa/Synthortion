@@ -245,7 +245,7 @@ namespace synthortion
 
         valueLabel.setText("", juce::dontSendNotification);
         valueLabel.setJustificationType(juce::Justification::centred);
-        valueLabel.setFont(juce::Font(juce::FontOptions().withName("Montserrat").withHeight(12.0f)));
+        valueLabel.setFont(juce::Font(juce::FontOptions().withName("Montserrat Regular").withHeight(12.0f)));
         valueLabel.setColour(juce::Label::textColourId, CREAM);
         addAndMakeVisible(valueLabel);
     }

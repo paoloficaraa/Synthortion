@@ -29,6 +29,10 @@ AnalogLookAndFeel::AnalogLookAndFeel()
         SynthortionResources::MontserratMedium_ttf,
         SynthortionResources::MontserratMedium_ttfSize);
 
+    montserratRegularTypeface = juce::Typeface::createSystemTypefaceFor(
+        SynthortionResources::MontserratRegular_ttf,
+        SynthortionResources::MontserratRegular_ttfSize);
+
     setColour(juce::ResizableWindow::backgroundColourId, ANTHRACITE);
     setColour(juce::DocumentWindow::backgroundColourId, ANTHRACITE);
     setColour(juce::DialogWindow::backgroundColourId, ANTHRACITE);
@@ -69,6 +73,9 @@ juce::Typeface::Ptr AnalogLookAndFeel::getTypefaceForFont(const juce::Font& font
 
     if (fontName.containsIgnoreCase("Bebas"))
         return bebasNeueTypeface;
+
+    if (fontName.containsIgnoreCase("Regular"))
+        return montserratRegularTypeface;
 
     return montserratTypeface;
 }
@@ -307,7 +314,7 @@ void AnalogLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Recta
         auto labelArea = r.removeFromTop(20.0f).reduced(8.0f, 0.0f);
 
         g.setColour(CREAM.withAlpha(0.6f));
-        g.setFont(juce::Font(juce::FontOptions(bebasNeueTypeface).withHeight(18.0f)));
+        g.setFont(titleFont);
         g.drawFittedText(title, labelArea.toNearestInt(),
                          juce::Justification::centredLeft, 1);
     }
