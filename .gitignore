@@ -132,3 +132,6 @@ ehthumbs.db
 # modules/
 
 .understand-anything/
+.agents/
+.sandcastle/
+node_modules/
