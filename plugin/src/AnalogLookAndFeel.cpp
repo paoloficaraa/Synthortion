@@ -15,8 +15,6 @@ namespace
     const juce::Colour LED_GREEN(0xFF00F5D4);      // Cyberpunk cyan/teal for LED
     const juce::Colour LED_OFF(0xFF1A1A1A);
 
-    constexpr float kRotaryStartAngle = juce::MathConstants<float>::pi * 1.25f;
-    constexpr float kRotaryEndAngle = juce::MathConstants<float>::pi * 2.75f;
 }
 
 AnalogLookAndFeel::AnalogLookAndFeel()
