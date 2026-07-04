@@ -3,7 +3,7 @@
 void SynthortionChorus::prepare(const juce::dsp::ProcessSpec& spec)
 {
     sampleRate = spec.sampleRate;
-    
+
     baseDelaySamples = static_cast<float>(sampleRate) * (kDelayMs / 1000.0f);
     depthSamples = static_cast<float>(sampleRate) * (kDepthMs / 1000.0f);
     stereoPhaseOffsetRad = kStereoPhaseOffsetDeg * (juce::MathConstants<float>::pi / 180.0f);
@@ -35,7 +35,9 @@ void SynthortionChorus::reset()
         crossoverLP[i].reset();
         crossoverHP[i].reset();
     }
-    lfo1Phase = 0.0f; lfo2Phase = 0.0f; lfo3Phase = 0.0f;
+    lfo1Phase = 0.0f;
+    lfo2Phase = 0.0f;
+    lfo3Phase = 0.0f;
 }
 
 void SynthortionChorus::setChorusMix(float mix)
@@ -61,59 +63,59 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer)
     {
         const float mix = smoothedMix.getNextValue();
 
-        // 1. Avanzamento fasi LFO
+        // Advance LFO phases
         lfo1Phase += phaseInc1;
         if (lfo1Phase >= juce::MathConstants<float>::twoPi) lfo1Phase -= juce::MathConstants<float>::twoPi;
-        
+
         lfo2Phase += phaseInc2;
         if (lfo2Phase >= juce::MathConstants<float>::twoPi) lfo2Phase -= juce::MathConstants<float>::twoPi;
-        
+
         lfo3Phase += phaseInc3;
         if (lfo3Phase >= juce::MathConstants<float>::twoPi) lfo3Phase -= juce::MathConstants<float>::twoPi;
 
-        // Salvataggio segnale Dry intatto
+        // Save dry signal intact
         const float inputL = leftData[i];
         const float inputR = rightData != nullptr ? rightData[i] : 0.0f;
 
-        // 2. Highpass SOLO per l'ingresso del delay (Process HF)
+        // Highpass ONLY for the delay input (Process HF)
         const float highL = crossoverHP[0].processSample(0, inputL);
         const float highR = rightData != nullptr ? crossoverHP[1].processSample(1, inputR) : 0.0f;
 
-        // (Opzionale) Mantieni in sync i filtri LP anche se non usati
+        // Keep LP filters in sync (optional, not used for output)
         crossoverLP[0].processSample(0, inputL);
         if (rightData != nullptr) crossoverLP[1].processSample(1, inputR);
 
-        // 3. PUSH: Inseriamo il campione nella delay line PRIMA di leggere
+        // Push sample into delay line BEFORE reading
         delayLine.pushSample(0, highL);
         if (rightData != nullptr) delayLine.pushSample(1, highR);
 
-        // 4. POP: Lettura delle 3 voci
+        // Pop: Read the 3 voices
         float voiceOutL = 0.0f, voiceOutR = 0.0f;
 
-        // Voice 1 (Lettura senza far avanzare il delay: false)
+        // Voice 1 (Read without advancing delay: false)
         float delayL1 = baseDelaySamples + (std::sin(lfo1Phase) * depthSamples);
         float delayR1 = baseDelaySamples + (std::sin(lfo1Phase + stereoPhaseOffsetRad) * depthSamples);
         voiceOutL += delayLine.popSample(0, delayL1, false);
         if (rightData != nullptr) voiceOutR += delayLine.popSample(1, delayR1, false);
 
-        // Voice 2 (Lettura senza far avanzare il delay: false)
+        // Voice 2 (Read without advancing delay: false)
         float delayL2 = baseDelaySamples + (std::sin(lfo2Phase) * depthSamples);
         float delayR2 = baseDelaySamples + (std::sin(lfo2Phase + stereoPhaseOffsetRad) * depthSamples);
         voiceOutL += delayLine.popSample(0, delayL2, false);
         if (rightData != nullptr) voiceOutR += delayLine.popSample(1, delayR2, false);
 
-        // Voice 3 (Lettura CON AVANZAMENTO del delay: TRUE) - Questo elimina i click!
+        // Voice 3 (Read WITH delay advance: TRUE) - Eliminates clicks
         float delayL3 = baseDelaySamples + (std::sin(lfo3Phase) * depthSamples);
         float delayR3 = baseDelaySamples + (std::sin(lfo3Phase + stereoPhaseOffsetRad) * depthSamples);
         voiceOutL += delayLine.popSample(0, delayL3, true);
         if (rightData != nullptr) voiceOutR += delayLine.popSample(1, delayR3, true);
 
-        // Media per mantenere il volume
+        // Average to maintain volume
         voiceOutL /= 3.0f;
         voiceOutR /= 3.0f;
 
-        // 5. MIX Finale: Segnale DRY completo + (Segnale WET filtrato * Mix)
-        // Questo ripristina la massima brillantezza sulle alte e preserva i bassi solidi.
+        // Final Mix: Full DRY signal + (Filtered WET signal * Mix)
+        // Restores full high-frequency brilliance and preserves solid lows.
         leftData[i] = inputL + (voiceOutL * mix);
         if (rightData != nullptr)
         {

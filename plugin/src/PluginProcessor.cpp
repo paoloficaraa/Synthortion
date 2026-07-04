@@ -6,76 +6,77 @@
 namespace synthortion
 {
     juce::AudioProcessorValueTreeState::ParameterLayout AudioPluginAudioProcessor::createParameterLayout()
-     {
-         juce::AudioProcessorValueTreeState::ParameterLayout layout;
+    {
+        juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-         auto makeGainRange = []() {
-             juce::NormalisableRange<float> r(-60.0f, 12.0f, 0.1f);
-             r.setSkewForCentre(0.0f);
-             return r;
-         };
+        auto makeGainRange = []()
+        {
+            juce::NormalisableRange<float> r(-60.0f, 12.0f, 0.1f);
+            r.setSkewForCentre(0.0f);
+            return r;
+        };
 
-         layout.add(std::make_unique<juce::AudioParameterFloat>(
-             juce::ParameterID{"INPUT_GAIN", 1},
-             "Input Gain",
-             makeGainRange(),
-             0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID{"INPUT_GAIN", 1},
+            "Input Gain",
+            makeGainRange(),
+            0.0f));
 
-         layout.add(std::make_unique<juce::AudioParameterFloat>(
-             juce::ParameterID{"OUTPUT_GAIN", 1},
-             "Output Gain",
-             makeGainRange(),
-             0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID{"OUTPUT_GAIN", 1},
+            "Output Gain",
+            makeGainRange(),
+            0.0f));
 
-         layout.add(std::make_unique<juce::AudioParameterFloat>(
-             juce::ParameterID{"COLOR", 1},
-             "Color",
-             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-             0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID{"COLOR", 1},
+            "Color",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+            0.0f));
 
-         layout.add(std::make_unique<juce::AudioParameterFloat>(
-             juce::ParameterID{"BITCRUSH", 1},
-             "Bitcrush",
-             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-             0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID{"BITCRUSH", 1},
+            "Bitcrush",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+            0.0f));
 
-         layout.add(std::make_unique<juce::AudioParameterFloat>(
-             juce::ParameterID{"DELAY_TIME", 1},
-             "Delay Time",
-             juce::NormalisableRange<float>(1.0f, 2000.0f, 1.0f),
-             250.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID{"DELAY_TIME", 1},
+            "Delay Time",
+            juce::NormalisableRange<float>(1.0f, 2000.0f, 1.0f),
+            250.0f));
 
-         layout.add(std::make_unique<juce::AudioParameterFloat>(
-             juce::ParameterID{"DELAY_MIX", 1},
-             "Delay Mix",
-             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-             0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID{"DELAY_MIX", 1},
+            "Delay Mix",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+            0.0f));
 
-         layout.add(std::make_unique<juce::AudioParameterFloat>(
-             juce::ParameterID{"DELAY_FEEDBACK", 1},
-             "Delay Feedback",
-             juce::NormalisableRange<float>(0.0f, 0.95f, 0.01f),
-             0.4f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID{"DELAY_FEEDBACK", 1},
+            "Delay Feedback",
+            juce::NormalisableRange<float>(0.0f, 0.95f, 0.01f),
+            0.4f));
 
-         layout.add(std::make_unique<juce::AudioParameterFloat>(
-             juce::ParameterID{"CHORUS_MIX", 1},
-             "Chorus Mix",
-             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-             0.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID{"CHORUS_MIX", 1},
+            "Chorus Mix",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+            0.0f));
 
-layout.add(std::make_unique<juce::AudioParameterFloat>(
-              juce::ParameterID{"VOLUME_COMPENSATION", 1},
-              "Volume Compensation",
-              juce::NormalisableRange<float>(0.0f, 1.0f, 1.0f),
-              1.0f));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID{"VOLUME_COMPENSATION", 1},
+            "Volume Compensation",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 1.0f),
+            1.0f));
 
-          layout.add(std::make_unique<juce::AudioParameterBool>(
-              juce::ParameterID{"PLUGIN_BYPASS", 1},
-              "Bypass",
-              false));
+        layout.add(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID{"PLUGIN_BYPASS", 1},
+            "Bypass",
+            false));
 
-          return layout;
-     }
+        return layout;
+    }
 
     AudioPluginAudioProcessor::AudioPluginAudioProcessor()
         : AudioProcessor(BusesProperties()
@@ -187,19 +188,16 @@ layout.add(std::make_unique<juce::AudioParameterFloat>(
         jassert(sampleRate > 0.0);
         jassert(samplesPerBlock > 0);
 
-        juce::dsp::ProcessSpec spec{sampleRate, (juce::uint32)samplesPerBlock, (juce::uint32)getTotalNumOutputChannels()};
+        juce::dsp::ProcessSpec spec{sampleRate, static_cast<juce::uint32>(samplesPerBlock), static_cast<juce::uint32>(getTotalNumOutputChannels())};
 
         warmDistortion.prepare(spec);
         bitCrusher.prepare(spec);
         chorus.prepare(spec);
         pingPongDelay.prepare(spec);
 
-        // Effects are now independent, no global dry/wet mixer needed
-        // No initialization needed for removed components
-
         inputGainSmoother.reset(sampleRate, kSmootherRampTime);
         inputGainSmoother.setCurrentAndTargetValue(inputGainParam->load());
-        
+
         outputGainSmoother.reset(sampleRate, kSmootherRampTime);
         outputGainSmoother.setCurrentAndTargetValue(outputGainParam->load());
 
@@ -236,8 +234,6 @@ layout.add(std::make_unique<juce::AudioParameterFloat>(
 #endif
     }
 
-
-
     void AudioPluginAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         [[maybe_unused]] juce::MidiBuffer &midiMessages)
     {
@@ -268,9 +264,8 @@ layout.add(std::make_unique<juce::AudioParameterFloat>(
         inputGainSmoother.setTargetValue(inputGain);
         outputGainSmoother.setTargetValue(outputGain);
 
-        smoothedColorDrive.setTargetValue(color); // Color (0-1) directly maps to drive (0-1)
+        smoothedColorDrive.setTargetValue(color);
 
-        // Apply input gain with proper per-sample smoothing
         if (inputGainSmoother.isSmoothing())
         {
             for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
@@ -289,12 +284,8 @@ layout.add(std::make_unique<juce::AudioParameterFloat>(
             buffer.applyGain(inputGainLinear);
         }
 
-
-
-juce::dsp::AudioBlock<float> block(buffer);
+        juce::dsp::AudioBlock<float> block(buffer);
         juce::dsp::ProcessContextReplacing<float> context(block);
-
-
 
         if (!bypass)
         {
@@ -332,10 +323,6 @@ juce::dsp::AudioBlock<float> block(buffer);
             buffer.applyGain(outputGainLinear);
         }
 
-
-
-
-
         const int distortionLatency = warmDistortion.getLatencySamples();
         currentTotalLatency.store(distortionLatency);
         setLatencySamples(distortionLatency);
@@ -343,12 +330,12 @@ juce::dsp::AudioBlock<float> block(buffer);
         updateAllDSPParameters();
     }
 
-void AudioPluginAudioProcessor::updateAllDSPParameters()
+    void AudioPluginAudioProcessor::updateAllDSPParameters()
     {
         const float color = colorParam->load();
-        smoothedColorDrive.setCurrentAndTargetValue(color); // Color (0-1) directly maps to drive (0-1)
+        smoothedColorDrive.setCurrentAndTargetValue(color);
         const float drive = smoothedColorDrive.getCurrentValue();
-        
+
         warmDistortion.setDrive(drive);
         warmDistortion.setVolumeCompensation(volumeCompParam->load() > kBooleanThreshold);
 
@@ -397,7 +384,7 @@ void AudioPluginAudioProcessor::updateAllDSPParameters()
     }
 }
 
-juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter()
-{
-    return new synthortion::AudioPluginAudioProcessor();
-}
+    juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+    {
+        return new synthortion::AudioPluginAudioProcessor();
+    }
