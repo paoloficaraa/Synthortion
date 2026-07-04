@@ -34,7 +34,6 @@ namespace synthortion
         static constexpr int kModulationColumnWidth = 217;
         static constexpr int kGainColumnWidth = 134;
         static constexpr int kTopSectionHeight = 169;
-        static constexpr int kBottomSectionHeight = 105;
 
         static constexpr int kSectionGap1 = 12;
         static constexpr int kSectionGap2 = 13;

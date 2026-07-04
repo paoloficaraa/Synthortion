@@ -3,7 +3,6 @@
 namespace synthortion
 {
     BypassComponent::BypassComponent()
-        : attachment (nullptr)
     {
         setupButton();
     }
@@ -28,7 +27,6 @@ namespace synthortion
 
     void BypassComponent::paint (juce::Graphics& /*g*/)
     {
-        // The LED is rendered by the toggle button's LookAndFeel.
     }
 
     void BypassComponent::resized()
