@@ -48,41 +48,37 @@ namespace synthortion
 
         juce::LinearSmoothedValue<float> smoothedColorDrive { 0.0f };
 
-        void updateDSPParameters();
+    private:
+        static constexpr float kSmootherRampTime = 0.05f;
+        static constexpr float kBooleanThreshold = 0.5f;
+        static constexpr int kLatencyBufferMargin = 4;
 
+        juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+        void updateAllDSPParameters();
 
+        WarmDistortion warmDistortion;
+        SynthortionChorus chorus;
+        PingPongDelay pingPongDelay;
+        BitCrusher bitCrusher;
 
-        private:
-            static constexpr float kSmootherRampTime = 0.05f;
-            static constexpr float kBooleanThreshold = 0.5f;
-            static constexpr int kLatencyBufferMargin = 4;
+        juce::AudioProcessorValueTreeState apvts;
 
-            juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
-            void updateAllDSPParameters();
+        std::atomic<float>* inputGainParam = nullptr;
+        std::atomic<float>* outputGainParam = nullptr;
+        std::atomic<float>* colorParam = nullptr;
+        std::atomic<float>* bitCrushParam = nullptr;
+        std::atomic<float>* delayTimeParam = nullptr;
+        std::atomic<float>* delayMixParam = nullptr;
+        std::atomic<float>* delayFeedbackParam = nullptr;
+        std::atomic<float>* chorusMixParam = nullptr;
+        std::atomic<float>* volumeCompParam = nullptr;
+        std::atomic<float>* bypassParam = nullptr;
 
-            WarmDistortion warmDistortion;
-            SynthortionChorus chorus;
-            PingPongDelay pingPongDelay;
-            BitCrusher bitCrusher;
+        juce::SmoothedValue<float> inputGainSmoother;
+        juce::SmoothedValue<float> outputGainSmoother;
 
-            juce::AudioProcessorValueTreeState apvts;
+        std::atomic<int> currentTotalLatency{0};
 
-            std::atomic<float>* inputGainParam = nullptr;
-            std::atomic<float>* outputGainParam = nullptr;
-            std::atomic<float>* colorParam = nullptr;
-            std::atomic<float>* bitCrushParam = nullptr;
-            std::atomic<float>* delayTimeParam = nullptr;
-            std::atomic<float>* delayMixParam = nullptr;
-            std::atomic<float>* delayFeedbackParam = nullptr;
-            std::atomic<float>* chorusMixParam = nullptr;
-            std::atomic<float>* volumeCompParam = nullptr;
-            std::atomic<float>* bypassParam = nullptr;
-
-            juce::SmoothedValue<float> inputGainSmoother;
-            juce::SmoothedValue<float> outputGainSmoother;
-            
-            std::atomic<int> currentTotalLatency{0};
-
-            JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessor)
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessor)
     };
 }

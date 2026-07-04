@@ -73,6 +73,12 @@ juce_generate_juce_header(SynthortionTests)
 target_sources(SynthortionTests
 PRIVATE
     src/AnalogLookAndFeel.cpp
+    src/PluginProcessor.cpp
+    src/PluginEditor.cpp
+    src/WarmDistortion.cpp
+    src/PingPongDelay.cpp
+    src/BitCrusher.cpp
+    src/SynthortionChorus.cpp
     tests/AudioPluginTest.cpp
 )
 
