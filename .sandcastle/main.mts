@@ -130,6 +130,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         const implement = await sandbox.run({
           name: "implementer",
           maxIterations: 100,
+          idleTimeoutSeconds: 1800,
           // Implementer: Kimi K2.7 Code — specializzato per coding
           agent: sandcastle.opencode("opencode-go/kimi-k2.7-code"),
           promptFile: "./.sandcastle/implement-prompt.md",
@@ -145,6 +146,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
+            idleTimeoutSeconds: 1800,
             // Reviewer: DeepSeek V4 Pro — attento ai dettagli e sicurezza
             agent: sandcastle.opencode("opencode-go/deepseek-v4-pro"),
             promptFile: "./.sandcastle/review-prompt.md",
@@ -217,6 +219,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     sandbox: docker(),
     name: "merger",
     maxIterations: 1,
+    idleTimeoutSeconds: 1800,
     // Merger: Qwen3.7 Plus — merge e risoluzione conflitti
     agent: sandcastle.opencode("opencode-go/qwen3.7-plus"),
     promptFile: "./.sandcastle/merge-prompt.md",

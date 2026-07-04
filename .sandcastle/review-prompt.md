@@ -55,8 +55,9 @@ Review the code changes on branch `{{BRANCH}}` and improve code clarity, consist
 If you find improvements to make:
 
 1. Make the changes directly on this branch
-2. Run `npm run typecheck` and `npm run test` to ensure nothing is broken
-3. Commit describing the refinements
+2. If you modified `plugin/CMakeLists.txt`, run `npm run configure` first
+3. Run `npm run typecheck` and `npm run test` to ensure nothing is broken (first build ~8 min with ccache, subsequent ~30s)
+4. Commit describing the refinements
 
 If the code is already clean and well-structured, do nothing.
 

@@ -26,8 +26,16 @@ This is a **C++20 JUCE 8.0.8 VST3/AU plugin** built with **CMake + Ninja**.
 - Sources: `plugin/src/`
 - Tests: `plugin/tests/`
 - Dependencies: `libs/juce/` and `modules/gin/` (git submodules)
-- Build: `cmake -B build -G Ninja && cmake --build build`
+- Build: `cmake -B build -G Ninja -DCMAKE_CXX_COMPILER_LAUNCHER=ccache && cmake --build build`
 - Coding standards: `@.sandcastle/CODING_STANDARDS.md`
+- Build cache: ccache is enabled — first build ~8 min, subsequent builds ~30s
+
+# TEST TARGET RULES
+
+When you add a test target (`SynthortionTests`) to `plugin/CMakeLists.txt`:
+- Include **ALL** `plugin/src/*.cpp` files in the target sources, not just the files you're modifying
+- This ensures `npm run typecheck` catches errors across the entire codebase
+- Only build the test target (not the full VST3/AU plugin) to save time
 
 # EXPLORATION
 
@@ -55,8 +63,10 @@ For C++ changes, ensure:
 # FEEDBACK LOOPS
 
 Before committing:
-- Run `npm run typecheck` — this configures and builds the project with CMake; must pass with zero errors
-- Run `npm run test` — this compiles all targets; must pass
+- If you modified `plugin/CMakeLists.txt`, run `npm run configure` first
+- Run `npm run typecheck` — builds the project with ccache; first build ~8 min, subsequent ~30s. Must pass with zero errors.
+- Run `npm run test` — builds and runs unit tests; must pass.
+- **Never delete the build directory** (`rm -rf build`) — it wastes ccache and forces a clean rebuild.
 
 # COMMIT
 

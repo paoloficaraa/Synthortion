@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
   ninja-build \
   build-essential \
   pkg-config \
+  ccache \
   libasound2-dev \
   libjack-dev \
   libfreetype-dev \

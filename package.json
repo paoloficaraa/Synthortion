@@ -1,10 +1,10 @@
 {
   "scripts": {
     "sandcastle": "npx tsx .sandcastle/main.mts",
-    "configure": "cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug",
-    "build": "cmake --build build",
-    "typecheck": "npm run configure && npm run build",
-    "test": "npm run build"
+    "configure": "cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache",
+    "build": "cmake --build build --target SynthortionTests 2>/dev/null || cmake --build build",
+    "typecheck": "cmake --build build 2>&1",
+    "test": "cmake --build build --target SynthortionTests 2>/dev/null && ./build/plugin/SynthortionTests_artefacts/Debug/SynthortionTests 2>&1"
   },
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.10.0"
