@@ -293,6 +293,29 @@ void AnalogLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Recta
     }
 }
 
+void AnalogLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Rectangle<int>& bounds,
+                                             bool /*isRecessed*/, const juce::String& title,
+                                             const juce::Colour& bgColour)
+{
+    auto r = bounds.toFloat();
+
+    g.setColour(bgColour);
+    g.fillRoundedRectangle(r.reduced(1.0f), 6.0f);
+
+    g.setColour(juce::Colours::black.withAlpha(0.3f));
+    g.drawRoundedRectangle(r.reduced(1.0f), 5.0f, 0.5f);
+
+    if (title.isNotEmpty())
+    {
+        auto labelArea = r.removeFromTop(16.0f).reduced(8.0f, 0.0f);
+
+        g.setColour(CREAM.withAlpha(0.6f));
+        g.setFont(juce::Font(juce::FontOptions(9.0f).withStyle("Bold")));
+        g.drawFittedText(title, labelArea.toNearestInt(),
+                         juce::Justification::centredLeft, 1);
+    }
+}
+
 juce::Typeface::Ptr AnalogLookAndFeel::getTypefaceForFont(const juce::Font& font)
 {
     if (font.getTypefaceName().containsIgnoreCase("Bebas"))

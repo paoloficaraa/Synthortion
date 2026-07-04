@@ -21,6 +21,8 @@ PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
     src/AnalogLookAndFeel.cpp
+    src/PanelComponent.cpp
+    src/BypassComponent.cpp
     src/WarmDistortion.cpp
     src/PingPongDelay.cpp
     src/BitCrusher.cpp
@@ -72,14 +74,17 @@ juce_generate_juce_header(SynthortionTests)
 
 target_sources(SynthortionTests
 PRIVATE
+    tests/Main.cpp
+    tests/AudioPluginTest.h
     src/AnalogLookAndFeel.cpp
+    src/PanelComponent.cpp
+    src/BypassComponent.cpp
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
     src/WarmDistortion.cpp
     src/PingPongDelay.cpp
     src/BitCrusher.cpp
     src/SynthortionChorus.cpp
-    tests/AudioPluginTest.cpp
 )
 
 target_include_directories(SynthortionTests
@@ -91,6 +96,8 @@ target_compile_definitions(SynthortionTests
 PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
+    JUCE_UNIT_TESTS=1
+    JUCE_MODAL_LOOPS_PERMITTED=1
 )
 
 target_link_libraries(SynthortionTests

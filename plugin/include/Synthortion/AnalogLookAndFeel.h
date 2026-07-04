@@ -28,6 +28,10 @@ public:
     void drawPanelBackground(juce::Graphics&, const juce::Rectangle<int>&,
                              bool isRecessed, const juce::String& title);
 
+    void drawPanelBackground(juce::Graphics&, const juce::Rectangle<int>&,
+                             bool isRecessed, const juce::String& title,
+                             const juce::Colour& bgColour);
+
     juce::Typeface::Ptr getTypefaceForFont(const juce::Font&) override;
 
 private:
