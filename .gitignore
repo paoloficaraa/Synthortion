@@ -131,7 +131,4 @@ ehthumbs.db
 # libs/
 # modules/
 
-.understand-anything/
-.agents/
-.sandcastle/
 node_modules/

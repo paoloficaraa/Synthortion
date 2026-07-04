@@ -1,4 +1,11 @@
 {
+  "scripts": {
+    "sandcastle": "npx tsx .sandcastle/main.mts",
+    "configure": "cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug",
+    "build": "cmake --build build",
+    "typecheck": "npm run configure && npm run build",
+    "test": "npm run build"
+  },
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.10.0"
   },
