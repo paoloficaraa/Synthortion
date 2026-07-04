@@ -28,6 +28,10 @@ public:
     void drawPanelBackground(juce::Graphics&, const juce::Rectangle<int>&,
                              bool isRecessed, const juce::String& title);
 
+    void drawPanelBackground(juce::Graphics&, const juce::Rectangle<int>&,
+                             bool isRecessed, const juce::String& title,
+                             const juce::Colour& bgColour);
+
 private:
     void draw3DKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
                    float angle, float sliderPos, bool isMouseOver, bool isMouseDown,

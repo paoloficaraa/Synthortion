@@ -15,6 +15,8 @@ PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
     src/AnalogLookAndFeel.cpp
+    src/PanelComponent.cpp
+    src/BypassComponent.cpp
     src/WarmDistortion.cpp
     src/PingPongDelay.cpp
     src/BitCrusher.cpp
@@ -57,4 +59,57 @@ if(UNIX AND NOT APPLE)
 
     target_include_directories(Synthortion PRIVATE ${WEBKIT2GTK_INCLUDE_DIRS} ${GTK3_INCLUDE_DIRS} ${CURL_INCLUDE_DIRS})
     target_link_libraries(Synthortion PRIVATE ${WEBKIT2GTK_LIBRARIES} ${GTK3_LIBRARIES} ${CURL_LIBRARIES})
+endif()
+
+# -----------------------------------------------------------------------------
+# Unit tests
+# -----------------------------------------------------------------------------
+juce_add_console_app(SynthortionTests
+    PRODUCT_NAME "Synthortion Tests"
+)
+
+target_sources(SynthortionTests
+PRIVATE
+    tests/Main.cpp
+    tests/AudioPluginTest.h
+    src/PanelComponent.cpp
+    src/BypassComponent.cpp
+    src/AnalogLookAndFeel.cpp
+)
+
+target_include_directories(SynthortionTests
+PRIVATE
+    include
+)
+
+target_link_libraries(SynthortionTests
+PRIVATE
+    juce::juce_audio_utils
+    juce::juce_audio_processors
+    juce::juce_gui_extra
+    juce::juce_dsp
+    juce::juce_core
+    juce::juce_graphics
+    juce::juce_gui_basics
+    juce::juce_events
+    gin
+    gin_plugin
+    gin_dsp
+    gin_gui
+PUBLIC
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_warning_flags
+)
+
+target_compile_definitions(SynthortionTests
+PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_UNIT_TESTS=1
+    JUCE_MODAL_LOOPS_PERMITTED=1
+)
+
+if(UNIX AND NOT APPLE)
+    target_include_directories(SynthortionTests PRIVATE ${WEBKIT2GTK_INCLUDE_DIRS} ${GTK3_INCLUDE_DIRS} ${CURL_INCLUDE_DIRS})
+    target_link_libraries(SynthortionTests PRIVATE ${WEBKIT2GTK_LIBRARIES} ${GTK3_LIBRARIES} ${CURL_LIBRARIES})
 endif()
