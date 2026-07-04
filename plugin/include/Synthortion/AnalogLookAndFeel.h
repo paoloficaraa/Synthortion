@@ -28,6 +28,8 @@ public:
     void drawPanelBackground(juce::Graphics&, const juce::Rectangle<int>&,
                              bool isRecessed, const juce::String& title);
 
+    juce::Typeface::Ptr getTypefaceForFont(const juce::Font&) override;
+
 private:
     void draw3DKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
                    float angle, float sliderPos, bool isMouseOver, bool isMouseDown,
@@ -50,6 +52,9 @@ private:
     static constexpr float kSwitchWidth = 36.0f;
     static constexpr float kSwitchHeight = 18.0f;
     static constexpr float kSwitchCornerRadius = 3.0f;
+
+    juce::Typeface::Ptr bebasNeueTypeface;
+    juce::Typeface::Ptr montserratTypeface;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AnalogLookAndFeel)
 };

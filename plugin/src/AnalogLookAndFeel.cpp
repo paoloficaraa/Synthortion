@@ -1,4 +1,5 @@
 #include "Synthortion/AnalogLookAndFeel.h"
+#include <BinaryData.h>
 
 namespace
 {
@@ -49,6 +50,11 @@ AnalogLookAndFeel::AnalogLookAndFeel()
     setColour(copperBrightColourId, COPPER_BRIGHT);
     setColour(creamTextColourId, CREAM);
     setColour(graphiteKnobColourId, GRAPHITE);
+
+    bebasNeueTypeface = juce::Typeface::createSystemTypefaceFor(BinaryData::BebasNeueRegular_ttf,
+                                                                 BinaryData::BebasNeueRegular_ttfSize);
+    montserratTypeface = juce::Typeface::createSystemTypefaceFor(BinaryData::MontserratVariableFont_wght_ttf,
+                                                                  BinaryData::MontserratVariableFont_wght_ttfSize);
 }
 
 void AnalogLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
@@ -287,4 +293,12 @@ void AnalogLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Recta
         g.drawFittedText(title, labelArea.toNearestInt(),
                          juce::Justification::centredLeft, 1);
     }
+}
+
+juce::Typeface::Ptr AnalogLookAndFeel::getTypefaceForFont(const juce::Font& font)
+{
+    if (font.getTypefaceName().containsIgnoreCase("Bebas"))
+        return bebasNeueTypeface;
+
+    return montserratTypeface;
 }
