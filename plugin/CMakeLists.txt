@@ -72,9 +72,15 @@ target_sources(SynthortionTests
 PRIVATE
     tests/Main.cpp
     tests/AudioPluginTest.h
-    src/PanelComponent.cpp
-    src/BypassComponent.cpp
     src/AnalogLookAndFeel.cpp
+    src/BitCrusher.cpp
+    src/BypassComponent.cpp
+    src/PanelComponent.cpp
+    src/PingPongDelay.cpp
+    src/PluginEditor.cpp
+    src/PluginProcessor.cpp
+    src/SynthortionChorus.cpp
+    src/WarmDistortion.cpp
 )
 
 target_include_directories(SynthortionTests
