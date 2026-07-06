@@ -20,19 +20,18 @@ namespace
 }
 
 AnalogLookAndFeel::AnalogLookAndFeel()
-{
-    bebasNeueTypeface = juce::Typeface::createSystemTypefaceFor(
+    : bebasNeueTypeface(juce::Typeface::createSystemTypefaceFor(
         SynthortionResources::BebasNeueRegular_ttf,
-        SynthortionResources::BebasNeueRegular_ttfSize);
-
-    montserratTypeface = juce::Typeface::createSystemTypefaceFor(
+        SynthortionResources::BebasNeueRegular_ttfSize)),
+      montserratTypeface(juce::Typeface::createSystemTypefaceFor(
         SynthortionResources::MontserratMedium_ttf,
-        SynthortionResources::MontserratMedium_ttfSize);
-
-    montserratRegularTypeface = juce::Typeface::createSystemTypefaceFor(
+        SynthortionResources::MontserratMedium_ttfSize)),
+      montserratRegularTypeface(juce::Typeface::createSystemTypefaceFor(
         SynthortionResources::MontserratRegular_ttf,
-        SynthortionResources::MontserratRegular_ttfSize);
-
+        SynthortionResources::MontserratRegular_ttfSize)),
+      titleFont(juce::FontOptions(bebasNeueTypeface).withHeight(18.0f)),
+      bypassButtonFont(juce::FontOptions(montserratTypeface).withHeight(13.0f))
+{
     setColour(juce::ResizableWindow::backgroundColourId, ANTHRACITE);
     setColour(juce::DocumentWindow::backgroundColourId, ANTHRACITE);
     setColour(juce::DialogWindow::backgroundColourId, ANTHRACITE);

@@ -7,6 +7,39 @@
 #include "Synthortion/BypassComponent.h"
 #include "Synthortion/AnalogLookAndFeel.h"
 
+namespace
+{
+    class TestAudioProcessor : public juce::AudioProcessor
+    {
+    public:
+        TestAudioProcessor()
+            : apvts(*this, nullptr, "test",
+                    { std::make_unique<juce::AudioParameterBool>("PLUGIN_BYPASS", "Bypass", false) })
+        {
+        }
+
+        const juce::String getName() const override { return "Test"; }
+        void prepareToPlay(double, int) override {}
+        void releaseResources() override {}
+        void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override {}
+        using AudioProcessor::processBlock;
+        double getTailLengthSeconds() const override { return 0.0; }
+        bool acceptsMidi() const override { return false; }
+        bool producesMidi() const override { return false; }
+        juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+        bool hasEditor() const override { return false; }
+        int getNumPrograms() override { return 1; }
+        int getCurrentProgram() override { return 0; }
+        void setCurrentProgram(int) override {}
+        const juce::String getProgramName(int) override { return {}; }
+        void changeProgramName(int, const juce::String&) override {}
+        void getStateInformation(juce::MemoryBlock&) override {}
+        void setStateInformation(const void*, int) override {}
+
+        juce::AudioProcessorValueTreeState apvts;
+    };
+}
+
 //==============================================================================
 class PanelComponentTest : public juce::UnitTest
 {
@@ -51,11 +84,8 @@ public:
     {
         beginTest("BypassComponent initial state");
 
-        juce::AudioProcessorValueTreeState dummyApvts(
-            nullptr, nullptr, "dummy",
-            { std::make_unique<juce::AudioParameterBool>("PLUGIN_BYPASS", "Bypass", false) });
-
-        synthortion::BypassComponent bypass(dummyApvts);
+        TestAudioProcessor dummyProcessor;
+        synthortion::BypassComponent bypass(dummyProcessor.apvts);
         bypass.setSize(200, 24);
 
         // Initial LED should be dark

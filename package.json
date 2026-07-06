@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "configure": "cmake -B build -G Ninja -DCMAKE_CXX_COMPILER_LAUNCHER=ccache",
+    "typecheck": "cmake --build build --target Synthortion",
+    "test": "cmake --build build --target SynthortionTests && ctest --test-dir build --output-on-failure"
+  },
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.10.0"
   },
