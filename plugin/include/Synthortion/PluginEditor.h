@@ -91,7 +91,6 @@ namespace synthortion
         juce::Label outputGainLabel;
 
         using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-        using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
         std::unique_ptr<SliderAttachment> driveAttachment;
         std::unique_ptr<SliderAttachment> bitCrushAttachment;

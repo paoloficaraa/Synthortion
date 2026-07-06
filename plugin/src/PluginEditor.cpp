@@ -54,12 +54,6 @@ namespace synthortion
     void AudioPluginAudioProcessorEditor::paint(juce::Graphics &g)
     {
         drawRackBackground(g);
-
-        auto bounds = getLocalBounds();
-        bounds.removeFromLeft(kRackEarWidth);
-        bounds.removeFromRight(kRackEarWidth);
-        bounds.removeFromTop(12);
-        bounds.removeFromBottom(12);
     }
 
     void AudioPluginAudioProcessorEditor::drawRackBackground(juce::Graphics& g)
@@ -110,8 +104,6 @@ namespace synthortion
         auto bypassArea = bounds.removeFromTop(kBypassBarHeight);
         bypassComponent.setBounds(bypassArea);
 
-        // Three Column Layout with golden ratio proportions
-        const int gap = kSectionGap;
         const int colWidths[3] = { kColumnDistortion, kColumnModulation, kColumnGain };
 
         juce::Rectangle<int> columnBounds[3];
@@ -121,7 +113,7 @@ namespace synthortion
             columnBounds[i] = juce::Rectangle<int>(
                 bounds.getX() + xOffset, bounds.getY(),
                 colWidths[i], bounds.getHeight());
-            xOffset += colWidths[i] + gap;
+            xOffset += colWidths[i] + kSectionGap;
         }
 
         distortionPanel.setBounds(columnBounds[0]);

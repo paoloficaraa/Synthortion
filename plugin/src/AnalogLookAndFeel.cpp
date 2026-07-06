@@ -61,9 +61,6 @@ AnalogLookAndFeel::AnalogLookAndFeel()
     setColour(copperBrightColourId, COPPER_BRIGHT);
     setColour(creamTextColourId, CREAM);
     setColour(graphiteKnobColourId, GRAPHITE);
-
-    titleFont = juce::Font(juce::FontOptions(bebasNeueTypeface).withHeight(18.0f));
-    bypassButtonFont = juce::Font(juce::FontOptions(montserratTypeface).withHeight(13.0f));
 }
 
 juce::Typeface::Ptr AnalogLookAndFeel::getTypefaceForFont(const juce::Font& font)
@@ -73,8 +70,12 @@ juce::Typeface::Ptr AnalogLookAndFeel::getTypefaceForFont(const juce::Font& font
     if (fontName.containsIgnoreCase("Bebas"))
         return bebasNeueTypeface;
 
-    if (fontName.containsIgnoreCase("Regular"))
-        return montserratRegularTypeface;
+    if (fontName.containsIgnoreCase("Montserrat"))
+    {
+        if (fontName.containsIgnoreCase("Regular"))
+            return montserratRegularTypeface;
+        return montserratTypeface;
+    }
 
     return montserratTypeface;
 }

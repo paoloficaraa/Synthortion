@@ -124,5 +124,4 @@ if(UNIX AND NOT APPLE)
     target_link_libraries(SynthortionTests PRIVATE ${WEBKIT2GTK_LIBRARIES} ${GTK3_LIBRARIES} ${CURL_LIBRARIES})
 endif()
 
-enable_testing()
 add_test(NAME SynthortionTests COMMAND SynthortionTests)
