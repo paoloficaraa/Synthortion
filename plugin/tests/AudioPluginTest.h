@@ -20,6 +20,7 @@ public:
 
         testBebasNeueFontRouting();
         testMontserratFontRouting();
+        testTypographyScale();
     }
 
 private:
@@ -45,6 +46,36 @@ private:
         expect(montserrat != nullptr, "Expected non-null Montserrat typeface");
         expect(defaultSans == montserrat, "Expected default sans-serif to resolve to Montserrat");
     }
+
+    void testTypographyScale()
+    {
+        beginTest("Typography scale fonts are pre-computed and resolve correctly");
+
+        AnalogLookAndFeel lookAndFeel;
+
+        auto heading = lookAndFeel.getSectionHeadingFont();
+        expect (juce::roundToInt(heading.getHeight()) == 18, "Section heading should be 18px");
+        expect (lookAndFeel.getTypefaceForFont(heading) == lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("BebasNeue")),
+                "Section heading should resolve to the BebasNeue typeface");
+
+        auto paramLabel = lookAndFeel.getParameterLabelFont();
+        expect (juce::roundToInt(paramLabel.getHeight()) == 13, "Parameter label should be 13px");
+        expect (paramLabel.getTypefaceStyle() == "Medium", "Parameter label should be Medium weight");
+        expect (lookAndFeel.getTypefaceForFont(paramLabel) == lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("Montserrat")),
+                "Parameter label should resolve to the Montserrat typeface");
+
+        auto paramValue = lookAndFeel.getParameterValueFont();
+        expect (juce::roundToInt(paramValue.getHeight()) == 12, "Parameter value should be 12px");
+        expect (paramValue.getTypefaceStyle() == "Regular", "Parameter value should be Regular weight");
+        expect (lookAndFeel.getTypefaceForFont(paramValue) == lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("Montserrat")),
+                "Parameter value should resolve to the Montserrat typeface");
+
+        auto bypass = lookAndFeel.getBypassLabelFont();
+        expect (juce::roundToInt(bypass.getHeight()) == 13, "Bypass label should be 13px");
+        expect (bypass.getTypefaceStyle() == "Medium", "Bypass label should be Medium weight");
+        expect (lookAndFeel.getTypefaceForFont(bypass) == lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("Montserrat")),
+                "Bypass label should resolve to the Montserrat typeface");
+    }
 };
 
 static AnalogLookAndFeelTests analogLookAndFeelTests;
@@ -63,6 +94,7 @@ namespace synthortion
         {
             testPanelComponentRendersBackgroundColour();
             testBypassComponentLedTogglesOnClick();
+            testPanelComponentTitleFont();
         }
 
     private:
@@ -101,6 +133,17 @@ namespace synthortion
 
             expect (bypass.isLedOn());
             expect (bypass.getToggleButton().getToggleState());
+        }
+
+        void testPanelComponentTitleFont()
+        {
+            beginTest ("PanelComponent title font is BebasNeue 18px");
+
+            PanelComponent panel ("DISTORTION", juce::Colours::black);
+            auto font = panel.getTitleFont();
+
+            expect (juce::roundToInt(font.getHeight()) == 18, "Panel title should be 18px");
+            expect (font.getTypefaceName().containsIgnoreCase("Bebas"), "Panel title should use BebasNeue");
         }
     };
 

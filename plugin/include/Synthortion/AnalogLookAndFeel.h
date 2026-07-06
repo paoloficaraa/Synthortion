@@ -34,6 +34,11 @@ public:
 
     juce::Typeface::Ptr getTypefaceForFont(const juce::Font&) override;
 
+    juce::Font getSectionHeadingFont() const noexcept { return sectionHeadingFont; }
+    juce::Font getParameterLabelFont() const noexcept { return parameterLabelFont; }
+    juce::Font getParameterValueFont() const noexcept { return parameterValueFont; }
+    juce::Font getBypassLabelFont() const noexcept { return bypassLabelFont; }
+
 private:
     void draw3DKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
                    float angle, float sliderPos, bool isMouseOver, bool isMouseDown,
@@ -59,6 +64,11 @@ private:
 
     juce::Typeface::Ptr bebasNeueTypeface;
     juce::Typeface::Ptr montserratTypeface;
+
+    juce::Font sectionHeadingFont;
+    juce::Font parameterLabelFont;
+    juce::Font parameterValueFont;
+    juce::Font bypassLabelFont;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AnalogLookAndFeel)
 };

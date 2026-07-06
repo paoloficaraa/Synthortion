@@ -3,7 +3,9 @@
 namespace synthortion
 {
     PanelComponent::PanelComponent (const juce::String& panelTitle, const juce::Colour& backgroundColour)
-        : title (panelTitle), bgColour (backgroundColour)
+        : title (panelTitle),
+          bgColour (backgroundColour),
+          headingFont (juce::FontOptions().withName("BebasNeue").withHeight(18.0f).withStyle("Regular"))
     {
         setOpaque (true);
     }
@@ -23,9 +25,9 @@ namespace synthortion
 
             if (title.isNotEmpty())
             {
-                auto labelArea = getLocalBounds().toFloat().removeFromTop (16.0f).reduced (8.0f, 0.0f);
+                auto labelArea = getLocalBounds().toFloat().removeFromTop (22.0f).reduced (8.0f, 0.0f);
                 g.setColour (juce::Colours::white.withAlpha (0.6f));
-                g.setFont (juce::Font (juce::FontOptions (9.0f).withStyle ("Bold")));
+                g.setFont (headingFont);
                 g.drawFittedText (title, labelArea.toNearestInt(), juce::Justification::centredLeft, 1);
             }
         }

@@ -129,7 +129,7 @@ namespace synthortion
 
         const int largeKnobSize = 78;
         const int smallKnobSize = 55;
-        const int labelH = 10;
+        const int labelH = 15;
 
         // --- DISTORTION SECTION ---
         auto distArea = distortionPanel.getLocalBounds();
@@ -231,13 +231,13 @@ namespace synthortion
 
         titleLabel.setText (title, juce::dontSendNotification);
         titleLabel.setJustificationType (juce::Justification::centred);
-        titleLabel.setFont (juce::Font (juce::FontOptions().withHeight (9.0f).withStyle ("Bold")));
+        titleLabel.setFont (lookAndFeel.getParameterLabelFont());
         titleLabel.setColour (juce::Label::textColourId, Colours::CREAM);
         parent.addAndMakeVisible (titleLabel);
 
         valueLabel.setText ("", juce::dontSendNotification);
         valueLabel.setJustificationType (juce::Justification::centred);
-        valueLabel.setFont (juce::Font (juce::FontOptions().withHeight (9.0f)));
+        valueLabel.setFont (lookAndFeel.getParameterValueFont());
         valueLabel.setColour (juce::Label::textColourId, Colours::CREAM);
         parent.addAndMakeVisible (valueLabel);
     }

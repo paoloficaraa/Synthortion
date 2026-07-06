@@ -16,10 +16,12 @@ namespace synthortion
 
         const juce::String& getTitle() const noexcept { return title; }
         juce::Colour getBackgroundColour() const noexcept { return bgColour; }
+        juce::Font getTitleFont() const noexcept { return headingFont; }
 
     private:
         juce::String title;
         juce::Colour bgColour;
+        juce::Font headingFont;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PanelComponent)
     };

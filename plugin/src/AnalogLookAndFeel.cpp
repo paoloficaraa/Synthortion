@@ -18,6 +18,10 @@ namespace
 }
 
 AnalogLookAndFeel::AnalogLookAndFeel()
+    : sectionHeadingFont (juce::FontOptions().withName("BebasNeue").withHeight(18.0f).withStyle("Regular")),
+      parameterLabelFont (juce::FontOptions().withName("Montserrat").withHeight(13.0f).withStyle("Medium")),
+      parameterValueFont (juce::FontOptions().withName("Montserrat").withHeight(12.0f).withStyle("Regular")),
+      bypassLabelFont (juce::FontOptions().withName("Montserrat").withHeight(13.0f).withStyle("Medium"))
 {
     setColour(juce::ResizableWindow::backgroundColourId, ANTHRACITE);
     setColour(juce::DocumentWindow::backgroundColourId, ANTHRACITE);
@@ -182,7 +186,7 @@ void AnalogLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& 
         auto textArea = bounds;
         textArea.removeFromLeft(kSwitchWidth + 8.0f); // Move text to the right of the switch
         g.setColour(CREAM);
-        g.setFont(10.0f);
+        g.setFont(bypassLabelFont);
         g.drawFittedText(button.getButtonText(), textArea.toNearestInt(),
                          juce::Justification::centredLeft, 1);
     }
@@ -284,10 +288,10 @@ void AnalogLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Recta
 
     if (title.isNotEmpty())
     {
-        auto labelArea = r.removeFromTop(16.0f).reduced(8.0f, 0.0f);
+        auto labelArea = r.removeFromTop(22.0f).reduced(8.0f, 0.0f);
 
         g.setColour(CREAM.withAlpha(0.6f));
-        g.setFont(juce::Font(juce::FontOptions(9.0f).withStyle("Bold")));
+        g.setFont(sectionHeadingFont);
         g.drawFittedText(title, labelArea.toNearestInt(),
                          juce::Justification::centredLeft, 1);
     }
@@ -307,10 +311,10 @@ void AnalogLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Recta
 
     if (title.isNotEmpty())
     {
-        auto labelArea = r.removeFromTop(16.0f).reduced(8.0f, 0.0f);
+        auto labelArea = r.removeFromTop(22.0f).reduced(8.0f, 0.0f);
 
         g.setColour(CREAM.withAlpha(0.6f));
-        g.setFont(juce::Font(juce::FontOptions(9.0f).withStyle("Bold")));
+        g.setFont(sectionHeadingFont);
         g.drawFittedText(title, labelArea.toNearestInt(),
                          juce::Justification::centredLeft, 1);
     }
