@@ -4,6 +4,8 @@
 #include "Synthortion/AnalogLookAndFeel.h"
 #include "Synthortion/BypassComponent.h"
 #include "Synthortion/PanelComponent.h"
+#include "Synthortion/PluginEditor.h"
+#include "Synthortion/PluginProcessor.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 
 class AnalogLookAndFeelTests : public juce::UnitTest
@@ -95,6 +97,10 @@ namespace synthortion
             testPanelComponentRendersBackgroundColour();
             testBypassComponentLedTogglesOnClick();
             testPanelComponentTitleFont();
+            testEditorIsOpaque();
+            testPanelComponentIsOpaque();
+            testBypassComponentIsNotOpaque();
+            testCopperColorPalette();
         }
 
     private:
@@ -144,6 +150,47 @@ namespace synthortion
 
             expect (juce::roundToInt(font.getHeight()) == 18, "Panel title should be 18px");
             expect (font.getTypefaceName().containsIgnoreCase("Bebas"), "Panel title should use BebasNeue");
+        }
+
+        void testEditorIsOpaque()
+        {
+            beginTest ("Plugin editor is opaque");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            expect (editor.isOpaque(), "Editor should be opaque for rendering performance");
+        }
+
+        void testPanelComponentIsOpaque()
+        {
+            beginTest ("PanelComponent is opaque");
+
+            PanelComponent panel ("DISTORTION", juce::Colours::black);
+
+            expect (panel.isOpaque(), "PanelComponent wrapper should be opaque for rendering performance");
+        }
+
+        void testBypassComponentIsNotOpaque()
+        {
+            beginTest ("BypassComponent stays non-opaque for LED glow");
+
+            BypassComponent bypass;
+
+            expect (! bypass.isOpaque(), "BypassComponent should remain non-opaque to preserve semi-transparent LED glow");
+        }
+
+        void testCopperColorPalette()
+        {
+            beginTest ("Color palette uses saturated violet and warm magenta");
+
+            AnalogLookAndFeel lookAndFeel;
+
+            const auto copper = lookAndFeel.findColour (AnalogLookAndFeel::copperAccentColourId);
+            const auto copperBright = lookAndFeel.findColour (AnalogLookAndFeel::copperBrightColourId);
+
+            expect (copper == juce::Colour (0xFF7C3AED), "COPPER should be #7C3AED");
+            expect (copperBright == juce::Colour (0xFFFF2D78), "COPPER_BRIGHT should be #FF2D78");
         }
     };
 
