@@ -1,4 +1,4 @@
-#include "Synthortion/BitCrusher.h"
+#include "Synthortion/Bitcrusher.h"
 
 BitCrusher::BitCrusher()
 {

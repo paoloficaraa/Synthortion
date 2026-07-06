@@ -24,7 +24,6 @@ namespace synthortion
         static constexpr float kRotaryStartAngle = juce::MathConstants<float>::pi * 1.25f;
         static constexpr float kRotaryEndAngle = juce::MathConstants<float>::pi * 2.75f;
         static constexpr int kTimerHz = 60;
-
         static constexpr int kWindowWidth = 540;
         static constexpr int kWindowHeight = 334;
         static constexpr int kRackEarWidth = 15;
@@ -85,7 +84,6 @@ namespace synthortion
         juce::Label delayMixTitleLabel;
         juce::Label delayMixLabel;
 
-        // GAIN section
         juce::Slider inputGainKnob;
         juce::Label inputGainTitleLabel;
         juce::Label inputGainLabel;

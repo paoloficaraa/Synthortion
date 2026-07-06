@@ -9,7 +9,6 @@ namespace synthortion
     {
         const juce::Colour ANTHRACITE(0xFF130D1A);
         const juce::Colour CREAM(0xFFE0E0E0);
-        const juce::Colour COPPER(0xFF9B5DE5);
     }
 
     AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)

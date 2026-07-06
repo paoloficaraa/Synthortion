@@ -7,6 +7,8 @@ class AnalogLookAndFeel : public gin::CopperLookAndFeel
 public:
     AnalogLookAndFeel();
 
+    juce::Typeface::Ptr getTypefaceForFont(const juce::Font&) override;
+
     enum ColourIds
     {
         backgroundColourId     = 0x1501001,
@@ -32,8 +34,6 @@ public:
                              bool isRecessed, const juce::String& title,
                              const juce::Colour& bgColour);
 
-    juce::Typeface::Ptr getTypefaceForFont(const juce::Font&) override;
-
     juce::Font getSectionHeadingFont() const noexcept { return sectionHeadingFont; }
     juce::Font getParameterLabelFont() const noexcept { return parameterLabelFont; }
     juce::Font getParameterValueFont() const noexcept { return parameterValueFont; }
@@ -51,6 +51,15 @@ private:
     void drawSectionTitle(juce::Graphics& g, juce::Rectangle<float>& r,
                           const juce::String& title) const;
 
+    juce::Typeface::Ptr bebasNeueTypeface;
+    juce::Typeface::Ptr montserratTypeface;
+    juce::Typeface::Ptr montserratRegularTypeface;
+
+    juce::Font sectionHeadingFont;
+    juce::Font parameterLabelFont;
+    juce::Font parameterValueFont;
+    juce::Font bypassLabelFont;
+
     static constexpr float kKnobReduction = 2.0f;
     static constexpr float kKnobFaceReduction = 1.5f;
     static constexpr float kKnobPointerLength = 0.65f;
@@ -66,14 +75,6 @@ private:
 
     static constexpr float kSectionTitleHeight = 22.0f;
     static constexpr float kSectionTitleInset = 8.0f;
-
-    juce::Typeface::Ptr bebasNeueTypeface;
-    juce::Typeface::Ptr montserratTypeface;
-
-    juce::Font sectionHeadingFont;
-    juce::Font parameterLabelFont;
-    juce::Font parameterValueFont;
-    juce::Font bypassLabelFont;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AnalogLookAndFeel)
 };

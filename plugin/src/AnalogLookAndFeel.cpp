@@ -3,16 +3,16 @@
 
 namespace
 {
-    const juce::Colour ANTHRACITE(0xFF130D1A);     // Dark purplish black
-    const juce::Colour GUNMETAL(0xFF1A1325);       // Deep violet-grey
-    const juce::Colour DEEP_SHADOW(0xFF0A070D);    // Very dark shadow
-    const juce::Colour COPPER(0xFF9B5DE5);         // Vibrant Purple (replacing copper)
-    const juce::Colour COPPER_BRIGHT(0xFFF15BB5);  // Bright Pink/Magenta (replacing bright copper)
-    const juce::Colour CREAM(0xFFE0E0E0);          // Light grey/white for text
-    const juce::Colour WARM_GRAY(0xFF5A4A6A);      // Purple-tinted grey
-    const juce::Colour GRAPHITE(0xFF251A35);       // Dark violet for knobs
-    const juce::Colour BRUSHED_SILVER(0xFF8A7A9A); // Lighter purple-grey
-    const juce::Colour LED_GREEN(0xFF00F5D4);      // Cyberpunk cyan/teal for LED
+    const juce::Colour ANTHRACITE(0xFF130D1A);
+    const juce::Colour GUNMETAL(0xFF1A1325);
+    const juce::Colour DEEP_SHADOW(0xFF0A070D);
+    const juce::Colour COPPER(0xFF7C3AED);
+    const juce::Colour COPPER_BRIGHT(0xFFFF2D78);
+    const juce::Colour CREAM(0xFFE0E0E0);
+    const juce::Colour WARM_GRAY(0xFF5A4A6A);
+    const juce::Colour GRAPHITE(0xFF251A35);
+    const juce::Colour BRUSHED_SILVER(0xFF8A7A9A);
+    const juce::Colour LED_GREEN(0xFF00F5D4);
     const juce::Colour LED_OFF(0xFF1A1A1A);
 
 }
@@ -57,6 +57,23 @@ AnalogLookAndFeel::AnalogLookAndFeel()
                                                                  BinaryData::BebasNeueRegular_ttfSize);
     montserratTypeface = juce::Typeface::createSystemTypefaceFor(BinaryData::MontserratVariableFont_wght_ttf,
                                                                   BinaryData::MontserratVariableFont_wght_ttfSize);
+}
+
+juce::Typeface::Ptr AnalogLookAndFeel::getTypefaceForFont(const juce::Font& font)
+{
+    auto fontName = font.getTypefaceName();
+
+    if (fontName.containsIgnoreCase("Bebas"))
+        return bebasNeueTypeface;
+
+    if (fontName.containsIgnoreCase("Montserrat"))
+    {
+        if (fontName.containsIgnoreCase("Regular"))
+            return montserratRegularTypeface;
+        return montserratTypeface;
+    }
+
+    return montserratTypeface;
 }
 
 void AnalogLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
@@ -184,7 +201,7 @@ void AnalogLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& 
     if (button.getButtonText().isNotEmpty())
     {
         auto textArea = bounds;
-        textArea.removeFromLeft(kSwitchWidth + 8.0f); // Move text to the right of the switch
+        textArea.removeFromLeft(kSwitchWidth + 8.0f);
         g.setColour(CREAM);
         g.setFont(bypassLabelFont);
         g.drawFittedText(button.getButtonText(), textArea.toNearestInt(),
@@ -259,6 +276,8 @@ void AnalogLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Recta
 {
     auto r = bounds.toFloat();
 
+    g.fillAll(isRecessed ? DEEP_SHADOW : GUNMETAL);
+
     if (isRecessed)
     {
         g.setColour(DEEP_SHADOW);
@@ -316,12 +335,4 @@ void AnalogLookAndFeel::drawSectionTitle(juce::Graphics& g, juce::Rectangle<floa
         g.drawFittedText(title, labelArea.toNearestInt(),
                          juce::Justification::centredLeft, 1);
     }
-}
-
-juce::Typeface::Ptr AnalogLookAndFeel::getTypefaceForFont(const juce::Font& font)
-{
-    if (font.getTypefaceName().containsIgnoreCase("Bebas"))
-        return bebasNeueTypeface;
-
-    return montserratTypeface;
 }
