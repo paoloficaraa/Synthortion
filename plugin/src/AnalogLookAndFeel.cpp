@@ -286,15 +286,7 @@ void AnalogLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Recta
         g.drawRoundedRectangle(r.reduced(2.0f), 4.0f, 0.5f);
     }
 
-    if (title.isNotEmpty())
-    {
-        auto labelArea = r.removeFromTop(22.0f).reduced(8.0f, 0.0f);
-
-        g.setColour(CREAM.withAlpha(0.6f));
-        g.setFont(sectionHeadingFont);
-        g.drawFittedText(title, labelArea.toNearestInt(),
-                         juce::Justification::centredLeft, 1);
-    }
+    drawSectionTitle(g, r, title);
 }
 
 void AnalogLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Rectangle<int>& bounds,
@@ -309,9 +301,15 @@ void AnalogLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Recta
     g.setColour(juce::Colours::black.withAlpha(0.3f));
     g.drawRoundedRectangle(r.reduced(1.0f), 5.0f, 0.5f);
 
+    drawSectionTitle(g, r, title);
+}
+
+void AnalogLookAndFeel::drawSectionTitle(juce::Graphics& g, juce::Rectangle<float>& r,
+                                          const juce::String& title) const
+{
     if (title.isNotEmpty())
     {
-        auto labelArea = r.removeFromTop(22.0f).reduced(8.0f, 0.0f);
+        auto labelArea = r.removeFromTop(kSectionTitleHeight).reduced(kSectionTitleInset, 0.0f);
 
         g.setColour(CREAM.withAlpha(0.6f));
         g.setFont(sectionHeadingFont);

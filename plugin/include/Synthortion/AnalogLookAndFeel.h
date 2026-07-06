@@ -48,6 +48,8 @@ private:
                     float startAngle, float endAngle, float sliderPos) const;
     void drawSwitchHandle(juce::Graphics& g, const juce::Rectangle<float>& bounds,
                           bool isOn, bool isHighlighted, bool isDown) const;
+    void drawSectionTitle(juce::Graphics& g, juce::Rectangle<float>& r,
+                          const juce::String& title) const;
 
     static constexpr float kKnobReduction = 2.0f;
     static constexpr float kKnobFaceReduction = 1.5f;
@@ -61,6 +63,9 @@ private:
     static constexpr float kSwitchWidth = 36.0f;
     static constexpr float kSwitchHeight = 18.0f;
     static constexpr float kSwitchCornerRadius = 3.0f;
+
+    static constexpr float kSectionTitleHeight = 22.0f;
+    static constexpr float kSectionTitleInset = 8.0f;
 
     juce::Typeface::Ptr bebasNeueTypeface;
     juce::Typeface::Ptr montserratTypeface;
