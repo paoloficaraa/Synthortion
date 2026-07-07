@@ -384,8 +384,10 @@ namespace synthortion
             for (auto* param : processor.getParameters())
             {
                 if (auto* paramWithId = dynamic_cast<juce::AudioProcessorParameterWithID*> (param))
+                {
                     if (paramWithId->getParameterID() == paramId)
                         return param;
+                }
             }
 
             return nullptr;
@@ -397,7 +399,7 @@ namespace synthortion
             {
                 if (auto* knob = dynamic_cast<AnimatedKnob*> (child))
                 {
-                    if (std::abs ((float) knob->getValue() - value) < 1.0e-6f)
+                    if (std::abs (static_cast<float> (knob->getValue()) - value) < 1.0e-6f)
                         ++count;
                 }
 

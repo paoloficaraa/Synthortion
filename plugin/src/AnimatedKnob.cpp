@@ -56,13 +56,13 @@ namespace synthortion
             currentAnimator.reset();
         }
 
-        displayProportion = juce::jlimit (0.0f, 1.0f, (float) valueToProportionOfLength (getValue()));
+        displayProportion = juce::jlimit (0.0f, 1.0f, static_cast<float> (valueToProportionOfLength (getValue())));
         repaint();
     }
 
     void AnimatedKnob::startArcAnimation()
     {
-        const float target = juce::jlimit (0.0f, 1.0f, (float) valueToProportionOfLength (getValue()));
+        const float target = juce::jlimit (0.0f, 1.0f, static_cast<float> (valueToProportionOfLength (getValue())));
         const float start = displayProportion;
 
         if (std::abs (target - start) < 0.001f)
