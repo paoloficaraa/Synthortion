@@ -1,18 +1,23 @@
 #pragma once
 
+#include <cmath>
 #include <JuceHeader.h>
+#include "Synthortion/AnimationController.h"
+#include "Synthortion/AudioScopeRingBuffer.h"
 #include "Synthortion/SynthortionLookAndFeel.h"
 #include "Synthortion/BypassComponent.h"
+#include "Synthortion/MeterComponent.h"
+#include "Synthortion/OscilloscopeComponent.h"
 #include "Synthortion/PanelComponent.h"
 #include "Synthortion/PluginEditor.h"
 #include "Synthortion/PluginProcessor.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 
-class AnalogLookAndFeelTests : public juce::UnitTest
+class SynthortionLookAndFeelTests : public juce::UnitTest
 {
 public:
-    AnalogLookAndFeelTests()
-        : juce::UnitTest("AnalogLookAndFeel", "Synthortion")
+    SynthortionLookAndFeelTests()
+        : juce::UnitTest("SynthortionLookAndFeel", "Synthortion")
     {
     }
 
@@ -30,7 +35,7 @@ private:
     {
         beginTest("BebasNeue font routing returns a non-null typeface");
 
-        AnalogLookAndFeel lookAndFeel;
+        SynthortionLookAndFeel lookAndFeel;
         auto typeface = lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("BebasNeue"));
 
         expect(typeface != nullptr, "Expected non-null BebasNeue typeface");
@@ -40,7 +45,7 @@ private:
     {
         beginTest("Default sans-serif font routing returns Montserrat typeface");
 
-        AnalogLookAndFeel lookAndFeel;
+        SynthortionLookAndFeel lookAndFeel;
         auto montserrat = lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("Montserrat"));
         auto defaultSans = lookAndFeel.getTypefaceForFont(
             juce::FontOptions().withName(juce::Font::getDefaultSansSerifFontName()));
@@ -53,7 +58,7 @@ private:
     {
         beginTest("Typography scale fonts are pre-computed and resolve correctly");
 
-        AnalogLookAndFeel lookAndFeel;
+        SynthortionLookAndFeel lookAndFeel;
 
         auto heading = lookAndFeel.getSectionHeadingFont();
         expect (juce::roundToInt(heading.getHeight()) == 18, "Section heading should be 18px");
@@ -80,7 +85,7 @@ private:
     }
 };
 
-static AnalogLookAndFeelTests analogLookAndFeelTests;
+static SynthortionLookAndFeelTests synthortionLookAndFeelTests;
 
 namespace synthortion
 {
@@ -101,6 +106,12 @@ namespace synthortion
             testPanelComponentIsOpaque();
             testBypassComponentIsNotOpaque();
             testCopperColorPalette();
+            testEditorSizeIs720x440();
+            testEditorContainsOscilloscope();
+            testEditorContainsMeters();
+            testDistortionPanelIsLargest();
+            testAnimationControllerCreatesAnimator();
+            testAudioScopeRingBufferTransfersSamples();
         }
 
     private:
@@ -108,7 +119,7 @@ namespace synthortion
         {
             beginTest ("PanelComponent renders an opaque background colour");
 
-            AnalogLookAndFeel lookAndFeel;
+            SynthortionLookAndFeel lookAndFeel;
 
             const juce::Colour bgColour (0xFF123456);
             PanelComponent panel ("DISTORTION", bgColour);
@@ -184,13 +195,128 @@ namespace synthortion
         {
             beginTest ("Color palette uses saturated violet and warm magenta");
 
-            AnalogLookAndFeel lookAndFeel;
+            SynthortionLookAndFeel lookAndFeel;
 
-            const auto copper = lookAndFeel.findColour (AnalogLookAndFeel::copperAccentColourId);
-            const auto copperBright = lookAndFeel.findColour (AnalogLookAndFeel::copperBrightColourId);
+            const auto copper = lookAndFeel.findColour (SynthortionLookAndFeel::copperAccentColourId);
+            const auto copperBright = lookAndFeel.findColour (SynthortionLookAndFeel::copperBrightColourId);
 
             expect (copper == juce::Colour (0xFF7C3AED), "COPPER should be #7C3AED");
             expect (copperBright == juce::Colour (0xFFFF2D78), "COPPER_BRIGHT should be #FF2D78");
+        }
+
+        void testEditorSizeIs720x440()
+        {
+            beginTest ("Plugin editor dimensions are 720x440");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            expect (editor.getWidth() == 720, "Editor width should be 720");
+            expect (editor.getHeight() == 440, "Editor height should be 440");
+        }
+
+        void testEditorContainsOscilloscope()
+        {
+            beginTest ("Plugin editor contains an OscilloscopeComponent");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            int oscilloscopeCount = 0;
+            for (auto* child : editor.getChildren())
+                if (dynamic_cast<OscilloscopeComponent*> (child) != nullptr)
+                    ++oscilloscopeCount;
+
+            expect (oscilloscopeCount == 1, "Editor should contain exactly one OscilloscopeComponent");
+        }
+
+        void testEditorContainsMeters()
+        {
+            beginTest ("Plugin editor contains two MeterComponents");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            int meterCount = 0;
+            for (auto* child : editor.getChildren())
+                if (dynamic_cast<MeterComponent*> (child) != nullptr)
+                    ++meterCount;
+
+            expect (meterCount == 2, "Editor should contain exactly two MeterComponents");
+        }
+
+        void testDistortionPanelIsLargest()
+        {
+            beginTest ("Distortion panel is the largest central panel");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            int distortionArea = 0;
+            int chorusArea = 0;
+            int delayArea = 0;
+            int comingSoonArea = 0;
+
+            for (auto* child : editor.getChildren())
+            {
+                if (auto* panel = dynamic_cast<PanelComponent*> (child))
+                {
+                    const int area = panel->getWidth() * panel->getHeight();
+                    const auto title = panel->getTitle();
+
+                    if (title == "DISTORTION")
+                        distortionArea = area;
+                    else if (title == "CHORUS")
+                        chorusArea = area;
+                    else if (title == "DELAY")
+                        delayArea = area;
+                    else if (title == "COMING SOON")
+                        comingSoonArea = area;
+                }
+            }
+
+            expect (distortionArea > chorusArea, "Distortion panel should be larger than Chorus");
+            expect (distortionArea > delayArea, "Distortion panel should be larger than Delay");
+            expect (distortionArea > comingSoonArea, "Distortion panel should be larger than Coming Soon");
+        }
+
+        void testAnimationControllerCreatesAnimator()
+        {
+            beginTest ("AnimationController creates a ValueAnimator with the expected duration");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+
+            auto animator = controller.runAnimator (
+                juce::ValueAnimatorBuilder()
+                    .withValueChangedCallback ([] (float) {})
+                    .withDurationMs (150)
+                    .withEasing (juce::Easings::createLinear()));
+
+            expect (std::abs (animator.getDurationMs() - 150.0) < 1.0e-6, "Animator duration should match builder");
+
+            juce::ignoreUnused (controller);
+        }
+
+        void testAudioScopeRingBufferTransfersSamples()
+        {
+            beginTest ("AudioScopeRingBuffer transfers stereo samples");
+
+            AudioScopeRingBuffer buffer (512);
+            juce::AudioBuffer<float> writeBuffer (2, 64);
+            writeBuffer.clear();
+            writeBuffer.setSample (0, 10, 0.5f);
+            writeBuffer.setSample (1, 20, -0.25f);
+
+            buffer.writeInput (writeBuffer);
+
+            juce::AudioBuffer<float> readBuffer (2, 128);
+            readBuffer.clear();
+            const int read = buffer.readInput (readBuffer);
+
+            expect (read == 64, "Should read back the written sample count");
+            expect (std::abs (readBuffer.getSample (0, read - 64 + 10) - 0.5f) < 1.0e-6f, "Channel 0 sample should match");
+            expect (std::abs (readBuffer.getSample (1, read - 64 + 20) - -0.25f) < 1.0e-6f, "Channel 1 sample should match");
         }
     };
 

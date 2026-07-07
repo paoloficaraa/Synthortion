@@ -27,6 +27,10 @@ PRIVATE
     src/PingPongDelay.cpp
     src/BitCrusher.cpp
     src/SynthortionChorus.cpp
+    src/AnimationController.cpp
+    src/AudioScopeRingBuffer.cpp
+    src/OscilloscopeComponent.cpp
+    src/MeterComponent.cpp
 )
 
 target_include_directories(Synthortion
@@ -41,10 +45,8 @@ PRIVATE
     juce::juce_audio_processors
     juce::juce_gui_extra
     juce::juce_dsp
-    gin
-    gin_plugin
-    gin_dsp
-    gin_gui
+    juce::juce_animation
+    melatonin_blur
 PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags
@@ -85,6 +87,10 @@ PRIVATE
     src/PingPongDelay.cpp
     src/BitCrusher.cpp
     src/SynthortionChorus.cpp
+    src/AnimationController.cpp
+    src/AudioScopeRingBuffer.cpp
+    src/OscilloscopeComponent.cpp
+    src/MeterComponent.cpp
 )
 
 target_include_directories(SynthortionTests
@@ -103,14 +109,12 @@ PRIVATE
 target_link_libraries(SynthortionTests
 PRIVATE
     SynthortionResources
-    gin
-    gin_plugin
-    gin_dsp
-    gin_gui
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_gui_extra
     juce::juce_dsp
+    juce::juce_animation
+    melatonin_blur
     juce::juce_core
     juce::juce_events
     juce::juce_graphics

@@ -1,11 +1,11 @@
 #pragma once
 
-#include <gin_plugin/gin_plugin.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 
-class AnalogLookAndFeel : public gin::CopperLookAndFeel
+class SynthortionLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    AnalogLookAndFeel();
+    SynthortionLookAndFeel();
 
     juce::Typeface::Ptr getTypefaceForFont(const juce::Font&) override;
 
@@ -76,5 +76,5 @@ private:
     static constexpr float kSectionTitleHeight = 22.0f;
     static constexpr float kSectionTitleInset = 8.0f;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AnalogLookAndFeel)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SynthortionLookAndFeel)
 };

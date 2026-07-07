@@ -7,5 +7,5 @@ set(CMAKE_CXX_STANDARD 20)
 enable_testing()
 
 add_subdirectory(libs/juce)
+add_subdirectory(libs/melatonin_blur)
 add_subdirectory(plugin)
-add_subdirectory(modules/gin/modules)

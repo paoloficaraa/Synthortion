@@ -1,10 +1,13 @@
 #pragma once
 
-#include "Synthortion/SynthortionLookAndFeel.h"
+#include "Synthortion/AnimationController.h"
+#include "Synthortion/AudioScopeRingBuffer.h"
 #include "Synthortion/BypassComponent.h"
+#include "Synthortion/MeterComponent.h"
+#include "Synthortion/OscilloscopeComponent.h"
 #include "Synthortion/PanelComponent.h"
 #include "Synthortion/PluginProcessor.h"
-#include <gin_plugin/gin_plugin.h>
+#include "Synthortion/SynthortionLookAndFeel.h"
 #include <juce_gui_extra/juce_gui_extra.h>
 
 namespace synthortion
@@ -24,18 +27,15 @@ namespace synthortion
         static constexpr float kRotaryStartAngle = juce::MathConstants<float>::pi * 1.25f;
         static constexpr float kRotaryEndAngle = juce::MathConstants<float>::pi * 2.75f;
         static constexpr int kTimerHz = 60;
-        static constexpr int kWindowWidth = 540;
-        static constexpr int kWindowHeight = 334;
+
+        static constexpr int kWindowWidth = 720;
+        static constexpr int kWindowHeight = 440;
+
         static constexpr int kRackEarWidth = 15;
-
-        static constexpr int kTopBarHeight = 24;
-        static constexpr int kDistortionColumnWidth = 134;
-        static constexpr int kModulationColumnWidth = 217;
-        static constexpr int kGainColumnWidth = 134;
-        static constexpr int kTopSectionHeight = 169;
-
-        static constexpr int kSectionGap1 = 12;
-        static constexpr int kSectionGap2 = 13;
+        static constexpr int kSideBarWidth = 55;
+        static constexpr int kTopBarHeight = 90;
+        static constexpr int kBypassWidth = 120;
+        static constexpr int kGap = 10;
 
         void setupKnob (juce::Slider& knob);
         void setupKnobWithLabel (juce::Slider& knob, juce::Label& titleLabel, juce::Label& valueLabel,
@@ -48,15 +48,21 @@ namespace synthortion
         juce::String formatMilliseconds (float ms);
 
         void updateMainControlLabels();
+        void updateBypassState();
         void drawRackBackground (juce::Graphics& g);
 
         AudioPluginAudioProcessor& processorRef;
-        AnalogLookAndFeel lookAndFeel;
+        SynthortionLookAndFeel lookAndFeel;
+        AnimationController animationController;
 
         PanelComponent distortionPanel;
-        PanelComponent modulationPanel;
-        PanelComponent gainPanel;
+        PanelComponent chorusPanel;
+        PanelComponent delayPanel;
+        PanelComponent comingSoonPanel;
         BypassComponent bypassComponent;
+        OscilloscopeComponent oscilloscope;
+        MeterComponent inputMeter;
+        MeterComponent outputMeter;
 
         // DISTORTION section
         juce::Slider driveKnob;
@@ -67,11 +73,12 @@ namespace synthortion
         juce::Label bitCrushTitleLabel;
         juce::Label bitCrushLabel;
 
-        // MODULATION section
+        // CHORUS section
         juce::Slider chorusMixKnob;
         juce::Label chorusMixTitleLabel;
         juce::Label chorusMixLabel;
 
+        // DELAY section
         juce::Slider delayTimeKnob;
         juce::Label delayTimeTitleLabel;
         juce::Label delayTimeLabel;
@@ -84,6 +91,7 @@ namespace synthortion
         juce::Label delayMixTitleLabel;
         juce::Label delayMixLabel;
 
+        // Side bars
         juce::Slider inputGainKnob;
         juce::Label inputGainTitleLabel;
         juce::Label inputGainLabel;
@@ -102,6 +110,8 @@ namespace synthortion
         std::unique_ptr<SliderAttachment> delayMixAttachment;
         std::unique_ptr<SliderAttachment> inputGainAttachment;
         std::unique_ptr<SliderAttachment> outputGainAttachment;
+
+        bool lastBypassState = false;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessorEditor)
     };

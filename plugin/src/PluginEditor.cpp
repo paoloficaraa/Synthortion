@@ -7,40 +7,53 @@ namespace synthortion
 
     namespace Colours
     {
-        const juce::Colour ANTHRACITE(0xFF130D1A);
-        const juce::Colour CREAM(0xFFE0E0E0);
+        const juce::Colour CREAM (0xFFF5F0EB);
+        const juce::Colour VIOLET (0xFF7C3AED);
+        const juce::Colour RACK_DARK (0xFF1A1520);
     }
 
     AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
         : AudioProcessorEditor (&p),
           processorRef (p),
-          distortionPanel ("DISTORTION", lookAndFeel.findColour (AnalogLookAndFeel::panelColourId)),
-          modulationPanel ("MODULATION", lookAndFeel.findColour (AnalogLookAndFeel::panelRecessedColourId)),
-          gainPanel ("GAIN", lookAndFeel.findColour (AnalogLookAndFeel::panelColourId)),
-          bypassComponent (processorRef.apvts, "PLUGIN_BYPASS")
+          lookAndFeel (),
+          animationController (this),
+          distortionPanel ("DISTORTION", lookAndFeel.findColour (SynthortionLookAndFeel::panelColourId)),
+          chorusPanel ("CHORUS", lookAndFeel.findColour (SynthortionLookAndFeel::panelRecessedColourId)),
+          delayPanel ("DELAY", lookAndFeel.findColour (SynthortionLookAndFeel::panelColourId)),
+          comingSoonPanel ("COMING SOON", lookAndFeel.findColour (SynthortionLookAndFeel::panelRecessedColourId)),
+          bypassComponent (processorRef.apvts, "PLUGIN_BYPASS"),
+          oscilloscope (processorRef.getScopeBuffer()),
+          inputMeter (),
+          outputMeter ()
     {
         setOpaque (true);
         setLookAndFeel (&lookAndFeel);
         startTimer (1000 / kTimerHz);
 
         addAndMakeVisible (distortionPanel);
-        addAndMakeVisible (modulationPanel);
-        addAndMakeVisible (gainPanel);
+        addAndMakeVisible (chorusPanel);
+        addAndMakeVisible (delayPanel);
+        addAndMakeVisible (comingSoonPanel);
         addAndMakeVisible (bypassComponent);
+        addAndMakeVisible (oscilloscope);
+        addAndMakeVisible (inputMeter);
+        addAndMakeVisible (outputMeter);
 
         // DISTORTION
-        setupKnobWithLabel (driveKnob, driveTitleLabel, driveLabel, "DRIVE", "COLOR", driveAttachment, distortionPanel);
+        setupKnobWithLabel (driveKnob, driveTitleLabel, driveLabel, "COLOR", "COLOR", driveAttachment, distortionPanel);
         setupKnobWithLabel (bitCrushKnob, bitCrushTitleLabel, bitCrushLabel, "BITCRUSH", "BITCRUSH", bitCrushAttachment, distortionPanel);
 
-        // MODULATION
-        setupKnobWithLabel (delayTimeKnob, delayTimeTitleLabel, delayTimeLabel, "TIME", "DELAY_TIME", delayTimeAttachment, modulationPanel);
-        setupKnobWithLabel (delayFeedbackKnob, delayFeedbackTitleLabel, delayFeedbackLabel, "FEEDBACK", "DELAY_FEEDBACK", delayFeedbackAttachment, modulationPanel);
-        setupKnobWithLabel (delayMixKnob, delayMixTitleLabel, delayMixLabel, "DELAY MIX", "DELAY_MIX", delayMixAttachment, modulationPanel);
-        setupKnobWithLabel (chorusMixKnob, chorusMixTitleLabel, chorusMixLabel, "CHORUS MIX", "CHORUS_MIX", chorusMixAttachment, modulationPanel);
+        // CHORUS
+        setupKnobWithLabel (chorusMixKnob, chorusMixTitleLabel, chorusMixLabel, "MIX", "CHORUS_MIX", chorusMixAttachment, chorusPanel);
 
-        // GAIN
-        setupKnobWithLabel (inputGainKnob, inputGainTitleLabel, inputGainLabel, "INPUT", "INPUT_GAIN", inputGainAttachment, gainPanel);
-        setupKnobWithLabel (outputGainKnob, outputGainTitleLabel, outputGainLabel, "OUTPUT", "OUTPUT_GAIN", outputGainAttachment, gainPanel);
+        // DELAY
+        setupKnobWithLabel (delayTimeKnob, delayTimeTitleLabel, delayTimeLabel, "TIME", "DELAY_TIME", delayTimeAttachment, delayPanel);
+        setupKnobWithLabel (delayFeedbackKnob, delayFeedbackTitleLabel, delayFeedbackLabel, "FB", "DELAY_FEEDBACK", delayFeedbackAttachment, delayPanel);
+        setupKnobWithLabel (delayMixKnob, delayMixTitleLabel, delayMixLabel, "MIX", "DELAY_MIX", delayMixAttachment, delayPanel);
+
+        // SIDE BARS
+        setupKnobWithLabel (inputGainKnob, inputGainTitleLabel, inputGainLabel, "INPUT", "INPUT_GAIN", inputGainAttachment, *this);
+        setupKnobWithLabel (outputGainKnob, outputGainTitleLabel, outputGainLabel, "OUTPUT", "OUTPUT_GAIN", outputGainAttachment, *this);
 
         setResizable (false, false);
         setSize (kWindowWidth, kWindowHeight);
@@ -54,8 +67,23 @@ namespace synthortion
     void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     {
         drawRackBackground (g);
+    }
 
-        // Corner screws on rack ears
+    void AudioPluginAudioProcessorEditor::drawRackBackground (juce::Graphics& g)
+    {
+        auto bounds = getLocalBounds().toFloat();
+
+        g.fillAll (Colours::CREAM);
+
+        auto localBounds = getLocalBounds();
+        auto leftEar = localBounds.removeFromLeft (kRackEarWidth);
+        auto rightEar = localBounds.removeFromRight (kRackEarWidth);
+
+        g.setColour (Colours::RACK_DARK);
+        g.fillRect (leftEar);
+        g.fillRect (rightEar);
+
+        // Rack ear screw holes
         g.setColour (juce::Colour (0xFF404040));
         auto drawScrew = [&] (int x, int y)
         {
@@ -70,140 +98,116 @@ namespace synthortion
         drawScrew (getWidth() - 11, getHeight() - 20);
     }
 
-    void AudioPluginAudioProcessorEditor::drawRackBackground (juce::Graphics& g)
-    {
-        auto bounds = getLocalBounds().toFloat();
-        juce::ColourGradient bgGrad (
-            Colours::ANTHRACITE.brighter (0.05f), bounds.getTopLeft(),
-            Colours::ANTHRACITE.darker (0.1f), bounds.getBottomLeft(),
-            false);
-        g.setGradientFill (bgGrad);
-        g.fillRect (bounds);
-
-        auto localBounds = getLocalBounds();
-        auto leftEar = localBounds.removeFromLeft (kRackEarWidth);
-        auto rightEar = localBounds.removeFromRight (kRackEarWidth);
-
-        g.setColour (juce::Colour (0xFF151515));
-        g.fillRect (leftEar);
-        g.fillRect (rightEar);
-
-        g.setColour (juce::Colour (0xFF252525));
-        int numLines = leftEar.getHeight() / 15;
-        for (int i = 0; i < numLines; ++i)
-        {
-            int y = leftEar.getY() + 15 + i * 15;
-            g.fillRect (leftEar.getX() + 3, y, leftEar.getWidth() - 6, 2);
-            g.fillRect (rightEar.getX() + 3, y, rightEar.getWidth() - 6, 2);
-        }
-
-        g.setColour (juce::Colour (0xFF1F1F1F));
-        g.drawRect (leftEar, 1);
-        g.drawRect (rightEar, 1);
-    }
-
     void AudioPluginAudioProcessorEditor::resized()
     {
         auto bounds = getLocalBounds();
         bounds.removeFromLeft (kRackEarWidth);
         bounds.removeFromRight (kRackEarWidth);
 
-        constexpr int kTopMargin = 18;
-        constexpr int kBottomMargin = 18;
+        // Top bar
+        auto topBar = bounds.removeFromTop (kTopBarHeight);
+        bypassComponent.setBounds (topBar.removeFromLeft (kBypassWidth));
+        topBar.removeFromLeft (kGap);
+        oscilloscope.setBounds (topBar);
 
-        bounds.removeFromTop (kTopMargin);
-        bounds.removeFromBottom (kBottomMargin);
+        // Side bars
+        auto centerArea = bounds;
+        auto leftBar = centerArea.removeFromLeft (kSideBarWidth);
+        auto rightBar = centerArea.removeFromRight (kSideBarWidth);
 
-        bypassComponent.setBounds (bounds.removeFromTop (kTopBarHeight));
+        const int knobSize = 45;
+        const int labelH = 12;
+        const int meterH = leftBar.getHeight() - knobSize - labelH * 2 - kGap * 2;
 
-        auto panelsArea = bounds;
+        inputMeter.setBounds (leftBar.removeFromTop (meterH).reduced (2, 0));
+        leftBar.removeFromTop (kGap);
+        inputGainKnob.setBounds (leftBar.removeFromTop (knobSize));
+        inputGainTitleLabel.setBounds (leftBar.removeFromTop (labelH));
+        inputGainLabel.setBounds (leftBar.removeFromTop (labelH));
 
-        distortionPanel.setBounds (panelsArea.removeFromLeft (kDistortionColumnWidth));
-        panelsArea.removeFromLeft (kSectionGap1);
+        outputMeter.setBounds (rightBar.removeFromTop (meterH).reduced (2, 0));
+        rightBar.removeFromTop (kGap);
+        outputGainKnob.setBounds (rightBar.removeFromTop (knobSize));
+        outputGainTitleLabel.setBounds (rightBar.removeFromTop (labelH));
+        outputGainLabel.setBounds (rightBar.removeFromTop (labelH));
 
-        modulationPanel.setBounds (panelsArea.removeFromLeft (kModulationColumnWidth));
-        panelsArea.removeFromLeft (kSectionGap2);
+        // Center panels
+        centerArea.removeFromTop (kGap);
+        centerArea.removeFromBottom (kGap);
+        centerArea.removeFromLeft (kGap);
+        centerArea.removeFromRight (kGap);
 
-        gainPanel.setBounds (panelsArea);
+        auto distortionArea = centerArea.removeFromTop (centerArea.getHeight() * 55 / 100);
+        auto bottomRow = centerArea;
+        bottomRow.removeFromTop (kGap);
 
-        const int largeKnobSize = 78;
-        const int smallKnobSize = 55;
-        const int labelH = 15;
+        distortionPanel.setBounds (distortionArea);
 
-        // --- DISTORTION SECTION ---
+        const int comingSoonWidth = 110;
+        comingSoonPanel.setBounds (bottomRow.removeFromRight (comingSoonWidth));
+        bottomRow.removeFromRight (kGap);
+
+        delayPanel.setBounds (bottomRow.removeFromRight (bottomRow.getWidth() * 55 / 100));
+        bottomRow.removeFromRight (kGap);
+        chorusPanel.setBounds (bottomRow);
+
+        // Layout knobs inside panels
+        const int largeKnob = 78;
+        const int smallKnob = 50;
+
         auto distArea = distortionPanel.getLocalBounds();
-        auto distTop = distArea.removeFromTop (kTopSectionHeight);
-        auto distBottom = distArea;
+        auto distLeft = distArea.removeFromLeft (distArea.getWidth() / 2);
+        auto distRight = distArea;
 
-        auto driveBounds = juce::Rectangle<int> (distTop.getCentreX() - largeKnobSize / 2,
-                                                 distTop.getCentreY() - largeKnobSize / 2,
-                                                 largeKnobSize, largeKnobSize);
-        driveKnob.setBounds (driveBounds);
-        driveTitleLabel.setBounds (juce::Rectangle<int> (driveBounds.getX() - 10, driveBounds.getY() - labelH - 4,
-                                                         largeKnobSize + 20, labelH));
-        driveLabel.setBounds (juce::Rectangle<int> (driveBounds.getX() - 10, driveBounds.getBottom() + 4,
-                                                    largeKnobSize + 20, labelH));
+        driveKnob.setBounds (distLeft.withSizeKeepingCentre (largeKnob, largeKnob));
+        driveTitleLabel.setBounds (distLeft.getX(), driveKnob.getY() - labelH - 2, distLeft.getWidth(), labelH);
+        driveLabel.setBounds (distLeft.getX(), driveKnob.getBottom() + 2, distLeft.getWidth(), labelH);
 
-        auto crushBounds = juce::Rectangle<int> (distBottom.getCentreX() - smallKnobSize / 2,
-                                                 distBottom.getCentreY() - smallKnobSize / 2,
-                                                 smallKnobSize, smallKnobSize);
-        bitCrushKnob.setBounds (crushBounds);
-        bitCrushTitleLabel.setBounds (juce::Rectangle<int> (crushBounds.getX() - 20, crushBounds.getY() - labelH - 4,
-                                                            smallKnobSize + 40, labelH));
-        bitCrushLabel.setBounds (juce::Rectangle<int> (crushBounds.getX() - 20, crushBounds.getBottom() + 4,
-                                                       smallKnobSize + 40, labelH));
+        bitCrushKnob.setBounds (distRight.withSizeKeepingCentre (largeKnob, largeKnob));
+        bitCrushTitleLabel.setBounds (distRight.getX(), bitCrushKnob.getY() - labelH - 2, distRight.getWidth(), labelH);
+        bitCrushLabel.setBounds (distRight.getX(), bitCrushKnob.getBottom() + 2, distRight.getWidth(), labelH);
 
-        // --- MODULATION SECTION ---
-        auto modArea = modulationPanel.getLocalBounds();
-        auto modTopRow = modArea.removeFromTop (kTopSectionHeight);
-        auto modBottomRow = modArea;
+        chorusMixKnob.setBounds (chorusPanel.getLocalBounds().withSizeKeepingCentre (smallKnob, smallKnob));
+        chorusMixTitleLabel.setBounds (chorusPanel.getLocalBounds().getX(), chorusMixKnob.getY() - labelH - 2, chorusPanel.getLocalBounds().getWidth(), labelH);
+        chorusMixLabel.setBounds (chorusPanel.getLocalBounds().getX(), chorusMixKnob.getBottom() + 2, chorusPanel.getLocalBounds().getWidth(), labelH);
 
-        auto placeKnobInCell = [&] (juce::Rectangle<int> cell, juce::Slider& knob,
-                                    juce::Label& title, juce::Label& val)
-        {
-            auto kb = juce::Rectangle<int> (cell.getCentreX() - smallKnobSize / 2,
-                                            cell.getCentreY() - smallKnobSize / 2,
-                                            smallKnobSize, smallKnobSize);
-            knob.setBounds (kb);
-            title.setBounds (juce::Rectangle<int> (kb.getX() - 20, kb.getY() - labelH - 2,
-                                                   smallKnobSize + 40, labelH));
-            val.setBounds (juce::Rectangle<int> (kb.getX() - 20, kb.getBottom() + 2,
-                                                 smallKnobSize + 40, labelH));
-        };
+        auto delayArea = delayPanel.getLocalBounds();
+        auto d1 = delayArea.removeFromLeft (delayArea.getWidth() / 3);
+        auto d2 = delayArea.removeFromLeft (delayArea.getWidth() / 2);
+        auto d3 = delayArea;
 
-        placeKnobInCell (modTopRow.removeFromLeft (modTopRow.getWidth() / 2), delayTimeKnob, delayTimeTitleLabel, delayTimeLabel);
-        placeKnobInCell (modTopRow, delayFeedbackKnob, delayFeedbackTitleLabel, delayFeedbackLabel);
+        delayTimeKnob.setBounds (d1.withSizeKeepingCentre (smallKnob, smallKnob));
+        delayTimeTitleLabel.setBounds (d1.getX(), delayTimeKnob.getY() - labelH - 2, d1.getWidth(), labelH);
+        delayTimeLabel.setBounds (d1.getX(), delayTimeKnob.getBottom() + 2, d1.getWidth(), labelH);
 
-        placeKnobInCell (modBottomRow.removeFromLeft (modBottomRow.getWidth() / 2), delayMixKnob, delayMixTitleLabel, delayMixLabel);
-        placeKnobInCell (modBottomRow, chorusMixKnob, chorusMixTitleLabel, chorusMixLabel);
+        delayFeedbackKnob.setBounds (d2.withSizeKeepingCentre (smallKnob, smallKnob));
+        delayFeedbackTitleLabel.setBounds (d2.getX(), delayFeedbackKnob.getY() - labelH - 2, d2.getWidth(), labelH);
+        delayFeedbackLabel.setBounds (d2.getX(), delayFeedbackKnob.getBottom() + 2, d2.getWidth(), labelH);
 
-        // --- GAIN SECTION ---
-        auto gainArea = gainPanel.getLocalBounds();
-        auto gainTop = gainArea.removeFromTop (kTopSectionHeight);
-        auto gainBottom = gainArea;
-
-        auto inputBounds = juce::Rectangle<int> (gainTop.getCentreX() - largeKnobSize / 2,
-                                                 gainTop.getCentreY() - largeKnobSize / 2,
-                                                 largeKnobSize, largeKnobSize);
-        inputGainKnob.setBounds (inputBounds);
-        inputGainTitleLabel.setBounds (juce::Rectangle<int> (inputBounds.getX() - 10, inputBounds.getY() - labelH - 4,
-                                                             largeKnobSize + 20, labelH));
-        inputGainLabel.setBounds (juce::Rectangle<int> (inputBounds.getX() - 10, inputBounds.getBottom() + 4,
-                                                        largeKnobSize + 20, labelH));
-
-        auto outputBounds = juce::Rectangle<int> (gainBottom.getCentreX() - smallKnobSize / 2,
-                                                  gainBottom.getCentreY() - smallKnobSize / 2,
-                                                  smallKnobSize, smallKnobSize);
-        outputGainKnob.setBounds (outputBounds);
-        outputGainTitleLabel.setBounds (juce::Rectangle<int> (outputBounds.getX() - 20, outputBounds.getY() - labelH - 4,
-                                                              smallKnobSize + 40, labelH));
-        outputGainLabel.setBounds (juce::Rectangle<int> (outputBounds.getX() - 20, outputBounds.getBottom() + 4,
-                                                         smallKnobSize + 40, labelH));
+        delayMixKnob.setBounds (d3.withSizeKeepingCentre (smallKnob, smallKnob));
+        delayMixTitleLabel.setBounds (d3.getX(), delayMixKnob.getY() - labelH - 2, d3.getWidth(), labelH);
+        delayMixLabel.setBounds (d3.getX(), delayMixKnob.getBottom() + 2, d3.getWidth(), labelH);
     }
 
     void AudioPluginAudioProcessorEditor::timerCallback()
     {
         updateMainControlLabels();
+        updateBypassState();
+
+        inputMeter.updateFromBuffer (oscilloscope.getCurrentInputBuffer());
+        outputMeter.updateFromBuffer (oscilloscope.getCurrentOutputBuffer());
+    }
+
+    void AudioPluginAudioProcessorEditor::updateBypassState()
+    {
+        const bool bypass = processorRef.apvts.getRawParameterValue ("PLUGIN_BYPASS")->load() > 0.5f;
+        if (bypass != lastBypassState)
+        {
+            lastBypassState = bypass;
+            oscilloscope.setBypassed (bypass);
+            inputMeter.setBypassed (bypass);
+            outputMeter.setBypassed (bypass);
+        }
     }
 
     void AudioPluginAudioProcessorEditor::setupKnob (juce::Slider& knob)

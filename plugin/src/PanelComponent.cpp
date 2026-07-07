@@ -14,7 +14,7 @@ namespace synthortion
     {
         g.fillAll (bgColour);
 
-        if (auto* laf = dynamic_cast<AnalogLookAndFeel*> (&getLookAndFeel()))
+        if (auto* laf = dynamic_cast<SynthortionLookAndFeel*> (&getLookAndFeel()))
         {
             laf->drawPanelBackground (g, getLocalBounds(), false, title, bgColour);
         }
