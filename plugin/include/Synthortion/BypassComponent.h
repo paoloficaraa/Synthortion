@@ -23,7 +23,7 @@ namespace synthortion
         juce::Button& getToggleButton() noexcept { return bypassSwitch; }
 
     private:
-        void setupButton (AnimationController* animationController);
+        void setupButton();
 
         BypassSwitch bypassSwitch;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> attachment;

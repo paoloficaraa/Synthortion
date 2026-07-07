@@ -5,7 +5,7 @@ namespace synthortion
     BypassComponent::BypassComponent()
         : bypassSwitch (nullptr)
     {
-        setupButton (nullptr);
+        setupButton();
     }
 
     BypassComponent::BypassComponent (juce::AudioProcessorValueTreeState& apvts,
@@ -13,11 +13,11 @@ namespace synthortion
                                       AnimationController* animationController)
         : bypassSwitch (animationController)
     {
-        setupButton (animationController);
+        setupButton();
         attachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (apvts, paramId, bypassSwitch);
     }
 
-    void BypassComponent::setupButton (AnimationController* /*animationController*/)
+    void BypassComponent::setupButton()
     {
         setOpaque (false);
         bypassSwitch.setOpaque (false);

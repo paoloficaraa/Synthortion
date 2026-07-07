@@ -23,6 +23,8 @@ namespace synthortion
         void resized() override;
         void timerCallback() override;
 
+        BypassComponent& getBypassComponent() noexcept { return bypassComponent; }
+
     private:
         static constexpr float kRotaryStartAngle = juce::MathConstants<float>::pi * 1.25f;
         static constexpr float kRotaryEndAngle = juce::MathConstants<float>::pi * 2.75f;
@@ -51,10 +53,6 @@ namespace synthortion
         void updateBypassState();
         void drawRackBackground (juce::Graphics& g);
 
-    public:
-        BypassComponent& getBypassComponent() noexcept { return bypassComponent; }
-
-    private:
         AudioPluginAudioProcessor& processorRef;
         SynthortionLookAndFeel lookAndFeel;
         AnimationController animationController;

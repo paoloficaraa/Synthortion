@@ -25,25 +25,22 @@ namespace synthortion
     {
         auto bounds = getLocalBounds().toFloat();
 
-        const auto* synthortionLookAndFeel = dynamic_cast<const SynthortionLookAndFeel*> (&getLookAndFeel());
-        const auto violet = synthortionLookAndFeel != nullptr
-                                ? synthortionLookAndFeel->findColour (SynthortionLookAndFeel::copperAccentColourId)
-                                : juce::Colour (0xFF7C3AED);
-        const auto violetBright = synthortionLookAndFeel != nullptr
-                                      ? synthortionLookAndFeel->findColour (SynthortionLookAndFeel::copperBrightColourId)
-                                      : juce::Colour (0xFFFF2D78);
-        const auto cream = synthortionLookAndFeel != nullptr
-                               ? synthortionLookAndFeel->findColour (SynthortionLookAndFeel::backgroundColourId)
-                               : juce::Colour (0xFFF5F0EB);
-        const auto panelRecessed = synthortionLookAndFeel != nullptr
-                                       ? synthortionLookAndFeel->findColour (SynthortionLookAndFeel::panelRecessedColourId)
-                                       : juce::Colour (0xFFDCD5CE);
+        const auto* laf = dynamic_cast<const SynthortionLookAndFeel*> (&getLookAndFeel());
+        auto getColour = [laf] (int colourId, juce::Colour fallback)
+        {
+            return laf != nullptr ? laf->findColour (colourId) : fallback;
+        };
+
+        const auto violet = getColour (SynthortionLookAndFeel::copperAccentColourId, juce::Colour (0xFF7C3AED));
+        const auto violetBright = getColour (SynthortionLookAndFeel::copperBrightColourId, juce::Colour (0xFFFF2D78));
+        const auto cream = getColour (SynthortionLookAndFeel::backgroundColourId, juce::Colour (0xFFF5F0EB));
+        const auto panelRecessed = getColour (SynthortionLookAndFeel::panelRecessedColourId, juce::Colour (0xFFDCD5CE));
         const auto warmGray = juce::Colour (0xFF6B6570);
         const auto textDark = juce::Colour (0xFF2E2A33);
 
         // Label
-        const auto labelFont = synthortionLookAndFeel != nullptr
-                                   ? synthortionLookAndFeel->getBypassLabelFont()
+        const auto labelFont = laf != nullptr
+                                   ? laf->getBypassLabelFont()
                                    : juce::FontOptions().withName ("Montserrat").withHeight (13.0f);
         g.setColour (textDark);
         g.setFont (labelFont);
