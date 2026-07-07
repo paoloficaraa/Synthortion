@@ -24,6 +24,8 @@ namespace synthortion
         void resized() override;
         void timerCallback() override;
 
+        BypassComponent& getBypassComponent() noexcept { return bypassComponent; }
+
     private:
         static constexpr int kTimerHz = 60;
 

@@ -102,6 +102,8 @@ namespace synthortion
         {
             testPanelComponentRendersBackgroundColour();
             testBypassComponentLedTogglesOnClick();
+            testBypassSwitchSpringOvershoot();
+            testBypassSwitchParameterAttachment();
             testPanelComponentTitleFont();
             testEditorIsOpaque();
             testPanelComponentIsOpaque();
@@ -155,6 +157,50 @@ namespace synthortion
 
             expect (bypass.isLedOn());
             expect (bypass.getToggleButton().getToggleState());
+        }
+
+        void testBypassSwitchSpringOvershoot()
+        {
+            beginTest ("BypassSwitch spring easing overshoots the target");
+
+            auto spring = juce::Easings::createSpring (
+                juce::SpringEasingOptions().withFrequency (3.5f).withAttenuation (3.0f));
+
+            bool overshoots = false;
+
+            for (float t = 0.0f; t <= 1.0f; t += 0.01f)
+            {
+                if (spring (t) > 1.05f)
+                {
+                    overshoots = true;
+                    break;
+                }
+            }
+
+            expect (overshoots, "Spring easing should visibly overshoot the target value");
+        }
+
+        void testBypassSwitchParameterAttachment()
+        {
+            beginTest ("BypassSwitch is attached to PLUGIN_BYPASS");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            auto& bypassButton = editor.getBypassComponent().getToggleButton();
+
+            expect (! bypassButton.getToggleState());
+
+            processor.getAPVTS().getParameter ("PLUGIN_BYPASS")->setValueNotifyingHost (1.0f);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            expect (bypassButton.getToggleState(), "Button should follow PLUGIN_BYPASS parameter turning on");
+
+            bypassButton.triggerClick();
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            expect (processor.getAPVTS().getRawParameterValue ("PLUGIN_BYPASS")->load() < 0.5f,
+                    "PLUGIN_BYPASS parameter should follow button click turning off");
         }
 
         void testPanelComponentTitleFont()

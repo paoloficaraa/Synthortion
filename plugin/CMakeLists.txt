@@ -23,6 +23,7 @@ PRIVATE
     src/SynthortionLookAndFeel.cpp
     src/PanelComponent.cpp
     src/BypassComponent.cpp
+    src/BypassSwitch.cpp
     src/WarmDistortion.cpp
     src/PingPongDelay.cpp
     src/BitCrusher.cpp
@@ -82,6 +83,7 @@ PRIVATE
     src/SynthortionLookAndFeel.cpp
     src/PanelComponent.cpp
     src/BypassComponent.cpp
+    src/BypassSwitch.cpp
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
     src/WarmDistortion.cpp
