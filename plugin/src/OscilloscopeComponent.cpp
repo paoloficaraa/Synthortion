@@ -109,7 +109,7 @@ namespace synthortion
         {
             drawGhostTrails (g);
             drawTrace (g, scratchInput, kTraceColour, 0.45f * (1.0f - mix * 0.5f), 1.0f);
-            drawTrace (g, scratchOutput, kTraceColour, 1.0f * (1.0f - mix * 0.3f), 1.0f);
+            drawTrace (g, scratchOutput, kTraceColour, 1.0f - mix * 0.3f, 1.0f);
         }
     }
 
