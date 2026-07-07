@@ -22,10 +22,10 @@ namespace synthortion
         explicit AudioScopeRingBuffer (int capacitySamples = kDefaultCapacity);
 
         /** Write the first two channels of @p buffer as the pre-DSP capture. */
-        void writeInput (const juce::AudioBuffer<float>& buffer);
+        void writeInput (const juce::AudioBuffer<float>& buffer) noexcept;
 
         /** Write the first two channels of @p buffer as the post-DSP capture. */
-        void writeOutput (const juce::AudioBuffer<float>& buffer);
+        void writeOutput (const juce::AudioBuffer<float>& buffer) noexcept;
 
         /** Read the most recent samples into @p dest, up to dest.getNumSamples().
             Returns the number of samples actually read per channel.
@@ -36,7 +36,7 @@ namespace synthortion
     private:
         struct ChannelRing
         {
-            explicit ChannelRing (int capacitySamples = 0)
+            explicit ChannelRing (int capacitySamples)
                 : fifo (capacitySamples),
                   data (static_cast<size_t> (capacitySamples))
             {
@@ -46,7 +46,7 @@ namespace synthortion
             std::vector<float> data;
         };
 
-        static void writeChannel (ChannelRing& ring, const float* source, int numSamples);
+        static void writeChannel (ChannelRing& ring, const float* source, int numSamples) noexcept;
         static int readChannel (ChannelRing& ring, float* dest, int maxSamples);
 
         std::array<ChannelRing, kNumChannels> inputChannels;

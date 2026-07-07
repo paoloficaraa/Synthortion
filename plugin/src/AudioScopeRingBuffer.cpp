@@ -9,7 +9,7 @@ namespace synthortion
         jassert (capacitySamples > 0);
     }
 
-    void AudioScopeRingBuffer::writeInput (const juce::AudioBuffer<float>& buffer)
+    void AudioScopeRingBuffer::writeInput (const juce::AudioBuffer<float>& buffer) noexcept
     {
         const int numSamples = buffer.getNumSamples();
         if (numSamples == 0)
@@ -22,7 +22,7 @@ namespace synthortion
         }
     }
 
-    void AudioScopeRingBuffer::writeOutput (const juce::AudioBuffer<float>& buffer)
+    void AudioScopeRingBuffer::writeOutput (const juce::AudioBuffer<float>& buffer) noexcept
     {
         const int numSamples = buffer.getNumSamples();
         if (numSamples == 0)
@@ -37,21 +37,21 @@ namespace synthortion
 
     int AudioScopeRingBuffer::readInput (juce::AudioBuffer<float>& dest)
     {
-        int minRead = 0;
+        int samplesRead = 0;
         for (int ch = 0; ch < kNumChannels; ++ch)
-            minRead = std::max (minRead, readChannel (inputChannels[static_cast<size_t> (ch)], dest.getWritePointer (ch), dest.getNumSamples()));
-        return minRead;
+            samplesRead = std::max (samplesRead, readChannel (inputChannels[static_cast<size_t> (ch)], dest.getWritePointer (ch), dest.getNumSamples()));
+        return samplesRead;
     }
 
     int AudioScopeRingBuffer::readOutput (juce::AudioBuffer<float>& dest)
     {
-        int minRead = 0;
+        int samplesRead = 0;
         for (int ch = 0; ch < kNumChannels; ++ch)
-            minRead = std::max (minRead, readChannel (outputChannels[static_cast<size_t> (ch)], dest.getWritePointer (ch), dest.getNumSamples()));
-        return minRead;
+            samplesRead = std::max (samplesRead, readChannel (outputChannels[static_cast<size_t> (ch)], dest.getWritePointer (ch), dest.getNumSamples()));
+        return samplesRead;
     }
 
-    void AudioScopeRingBuffer::writeChannel (ChannelRing& ring, const float* source, int numSamples)
+    void AudioScopeRingBuffer::writeChannel (ChannelRing& ring, const float* source, int numSamples) noexcept
     {
         jassert (source != nullptr);
         jassert (numSamples > 0);
@@ -65,12 +65,18 @@ namespace synthortion
         if (freeSpace < samplesToWrite)
         {
             const int toDiscard = samplesToWrite - freeSpace;
-            int discardStart1 = 0, discardSize1 = 0, discardStart2 = 0, discardSize2 = 0;
+            int discardStart1 = 0;
+            int discardSize1 = 0;
+            int discardStart2 = 0;
+            int discardSize2 = 0;
             ring.fifo.prepareToRead (toDiscard, discardStart1, discardSize1, discardStart2, discardSize2);
             ring.fifo.finishedRead (discardSize1 + discardSize2);
         }
 
-        int start1 = 0, size1 = 0, start2 = 0, size2 = 0;
+        int start1 = 0;
+        int size1 = 0;
+        int start2 = 0;
+        int size2 = 0;
         ring.fifo.prepareToWrite (samplesToWrite, start1, size1, start2, size2);
 
         if (size1 > 0)
@@ -101,7 +107,10 @@ namespace synthortion
         // copy the tail. Reading on the message thread is not realtime-critical.
         std::vector<float> scratch (static_cast<size_t> (available));
 
-        int start1 = 0, size1 = 0, start2 = 0, size2 = 0;
+        int start1 = 0;
+        int size1 = 0;
+        int start2 = 0;
+        int size2 = 0;
         ring.fifo.prepareToRead (available, start1, size1, start2, size2);
 
         std::copy (ring.data.data() + start1, ring.data.data() + start1 + size1, scratch.data());
