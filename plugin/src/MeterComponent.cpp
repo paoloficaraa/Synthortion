@@ -56,12 +56,6 @@ namespace synthortion
         }
         else if (peakDb > animatedPeakDb)
         {
-            if (decayAnimator.has_value())
-            {
-                animationController.removeAnimator (*decayAnimator);
-                decayAnimator.reset();
-            }
-
             animatedPeakDb = peakDb;
             startPeakDecay (animatedPeakDb, kNormalDecayMs);
         }
@@ -81,14 +75,11 @@ namespace synthortion
             juce::ValueAnimatorBuilder()
                 .withDurationMs (static_cast<double> (durationMs))
                 .withEasing (juce::Easings::createEaseOut())
-                .withOnStartReturningValueChangedCallback (
-                    [this, fromDb]() -> juce::ValueAnimatorBuilder::ValueChangedCallback
+                .withValueChangedCallback (
+                    [this, fromDb](float progress)
                     {
-                        return [this, fromDb](float progress)
-                        {
-                            animatedPeakDb = fromDb + (kMinDb - fromDb) * progress;
-                            repaint();
-                        };
+                        animatedPeakDb = fromDb + (kMinDb - fromDb) * progress;
+                        repaint();
                     }));
     }
 
