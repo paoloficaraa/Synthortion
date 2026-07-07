@@ -21,7 +21,7 @@ namespace synthortion
           delayPanel ("DELAY", lookAndFeel.findColour (SynthortionLookAndFeel::panelColourId)),
           comingSoonPanel ("COMING SOON", lookAndFeel.findColour (SynthortionLookAndFeel::panelRecessedColourId)),
           bypassComponent (processorRef.apvts, "PLUGIN_BYPASS", &animationController),
-          oscilloscope (processorRef.getScopeBuffer()),
+          oscilloscope (processorRef.getScopeBuffer(), &animationController),
           inputMeter (),
           outputMeter (),
           driveKnob (animationController),

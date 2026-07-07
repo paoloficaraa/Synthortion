@@ -115,6 +115,12 @@ namespace synthortion
             testDistortionPanelIsLargest();
             testAnimationControllerCreatesAnimator();
             testAudioScopeRingBufferTransfersSamples();
+            testOscilloscopeReadsInputBuffer();
+            testOscilloscopeReadsOutputBuffer();
+            testOscilloscopeDetectsSilence();
+            testOscilloscopeDetectsSignal();
+            testOscilloscopeBypassFlattensOutput();
+            testOscilloscopeBoundsInEditor();
             testAnimatedKnobIsASlider();
             testAnimatedKnobHasRotaryStyle();
             testEditorContainsEightAnimatedKnobs();
@@ -368,6 +374,125 @@ namespace synthortion
             expect (read == 64, "Should read back the written sample count");
             expect (std::abs (readBuffer.getSample (0, read - 64 + 10) - 0.5f) < 1.0e-6f, "Channel 0 sample should match");
             expect (std::abs (readBuffer.getSample (1, read - 64 + 20) - -0.25f) < 1.0e-6f, "Channel 1 sample should match");
+        }
+
+        void testOscilloscopeReadsInputBuffer()
+        {
+            beginTest ("OscilloscopeComponent reads the input ring buffer");
+
+            AudioScopeRingBuffer buffer (512);
+            juce::AudioBuffer<float> writeBuffer (2, 64);
+            writeBuffer.clear();
+            writeBuffer.setSample (0, 10, 0.5f);
+            writeBuffer.setSample (1, 20, -0.25f);
+
+            buffer.writeInput (writeBuffer);
+
+            OscilloscopeComponent scope (buffer, nullptr);
+            scope.refresh();
+
+            const auto& input = scope.getCurrentInputBuffer();
+            expect (input.getNumChannels() == 2, "Oscilloscope should read a stereo input buffer");
+            expect (input.getNumSamples() == OscilloscopeComponent::kWindowSize, "Oscilloscope input buffer should match the window size");
+            expect (std::abs (input.getSample (0, 10) - 0.5f) < 1.0e-6f, "Input channel 0 sample should match");
+            expect (std::abs (input.getSample (1, 20) - -0.25f) < 1.0e-6f, "Input channel 1 sample should match");
+        }
+
+        void testOscilloscopeReadsOutputBuffer()
+        {
+            beginTest ("OscilloscopeComponent reads the output ring buffer");
+
+            AudioScopeRingBuffer buffer (512);
+            juce::AudioBuffer<float> writeBuffer (2, 64);
+            writeBuffer.clear();
+            writeBuffer.setSample (0, 5, 0.75f);
+            writeBuffer.setSample (1, 15, -0.5f);
+
+            buffer.writeOutput (writeBuffer);
+
+            OscilloscopeComponent scope (buffer, nullptr);
+            scope.refresh();
+
+            const auto& output = scope.getCurrentOutputBuffer();
+            expect (output.getNumChannels() == 2, "Oscilloscope should read a stereo output buffer");
+            expect (output.getNumSamples() == OscilloscopeComponent::kWindowSize, "Oscilloscope output buffer should match the window size");
+            expect (std::abs (output.getSample (0, 5) - 0.75f) < 1.0e-6f, "Output channel 0 sample should match");
+            expect (std::abs (output.getSample (1, 15) - -0.5f) < 1.0e-6f, "Output channel 1 sample should match");
+        }
+
+        void testOscilloscopeDetectsSilence()
+        {
+            beginTest ("OscilloscopeComponent reports silence for zero buffers");
+
+            AudioScopeRingBuffer buffer (512);
+            juce::AudioBuffer<float> writeBuffer (2, 64);
+            writeBuffer.clear();
+            buffer.writeInput (writeBuffer);
+            buffer.writeOutput (writeBuffer);
+
+            OscilloscopeComponent scope (buffer, nullptr);
+            scope.refresh();
+
+            expect (scope.isSilent(), "Oscilloscope should report silence for zero buffers");
+        }
+
+        void testOscilloscopeDetectsSignal()
+        {
+            beginTest ("OscilloscopeComponent reports non-silence for active buffers");
+
+            AudioScopeRingBuffer buffer (512);
+            juce::AudioBuffer<float> writeBuffer (2, 64);
+            writeBuffer.clear();
+            writeBuffer.setSample (0, 10, 0.5f);
+            buffer.writeInput (writeBuffer);
+            buffer.writeOutput (writeBuffer);
+
+            OscilloscopeComponent scope (buffer, nullptr);
+            scope.refresh();
+
+            expect (! scope.isSilent(), "Oscilloscope should report non-silence for active buffers");
+        }
+
+        void testOscilloscopeBypassFlattensOutput()
+        {
+            beginTest ("OscilloscopeComponent enters bypassed flatline state");
+
+            AudioScopeRingBuffer buffer (512);
+            juce::AudioBuffer<float> writeBuffer (2, 64);
+            writeBuffer.clear();
+            writeBuffer.setSample (0, 10, 0.8f);
+            buffer.writeOutput (writeBuffer);
+
+            OscilloscopeComponent scope (buffer, nullptr);
+            scope.refresh();
+
+            expect (! scope.isBypassed(), "Oscilloscope should start un-bypassed");
+
+            scope.setBypassed (true);
+            scope.refresh();
+
+            expect (scope.isBypassed(), "Oscilloscope should report bypassed after setBypassed(true)");
+        }
+
+        void testOscilloscopeBoundsInEditor()
+        {
+            beginTest ("OscilloscopeComponent occupies the expected Top Bar area");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            for (auto* child : editor.getChildren())
+            {
+                if (auto* scope = dynamic_cast<OscilloscopeComponent*> (child))
+                {
+                    expect (scope->getWidth() >= 560, "Oscilloscope should be roughly 580px wide");
+                    expect (scope->getHeight() >= 80, "Oscilloscope should be roughly 90px tall");
+                    expect (scope->getX() >= 120, "Oscilloscope should sit to the right of the bypass switch");
+                    return;
+                }
+            }
+
+            expect (false, "Editor should contain an OscilloscopeComponent to check bounds");
         }
 
         int countAnimatedKnobsRecursive (juce::Component& parent)
