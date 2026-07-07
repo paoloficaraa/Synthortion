@@ -23,7 +23,15 @@ namespace synthortion
           bypassComponent (processorRef.apvts, "PLUGIN_BYPASS"),
           oscilloscope (processorRef.getScopeBuffer()),
           inputMeter (),
-          outputMeter ()
+          outputMeter (),
+          driveKnob (animationController),
+          bitCrushKnob (animationController),
+          chorusMixKnob (animationController),
+          delayTimeKnob (animationController),
+          delayFeedbackKnob (animationController),
+          delayMixKnob (animationController),
+          inputGainKnob (animationController),
+          outputGainKnob (animationController)
     {
         setOpaque (true);
         setLookAndFeel (&lookAndFeel);
@@ -207,17 +215,8 @@ namespace synthortion
         }
     }
 
-    void AudioPluginAudioProcessorEditor::setupKnob (juce::Slider& knob)
-    {
-        knob.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-        knob.setRotaryParameters (kRotaryStartAngle, kRotaryEndAngle, true);
-        knob.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
-        knob.setVelocityBasedMode (true);
-        knob.setVelocityModeParameters (0.5f, 1, 0.1f, false);
-    }
-
     void AudioPluginAudioProcessorEditor::setupKnobWithLabel (
-        juce::Slider& knob,
+        AnimatedKnob& knob,
         juce::Label& titleLabel,
         juce::Label& valueLabel,
         const juce::String& title,
@@ -225,9 +224,9 @@ namespace synthortion
         std::unique_ptr<SliderAttachment>& attachment,
         juce::Component& parent)
     {
-        setupKnob (knob);
         parent.addAndMakeVisible (knob);
         attachment = std::make_unique<SliderAttachment> (processorRef.apvts, paramId, knob);
+        knob.snapToCurrentValue();
 
         titleLabel.setText (title, juce::dontSendNotification);
         titleLabel.setJustificationType (juce::Justification::centred);

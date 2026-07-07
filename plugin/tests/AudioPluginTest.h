@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <JuceHeader.h>
+#include "Synthortion/AnimatedKnob.h"
 #include "Synthortion/AnimationController.h"
 #include "Synthortion/AudioScopeRingBuffer.h"
 #include "Synthortion/SynthortionLookAndFeel.h"
@@ -112,6 +113,10 @@ namespace synthortion
             testDistortionPanelIsLargest();
             testAnimationControllerCreatesAnimator();
             testAudioScopeRingBufferTransfersSamples();
+            testAnimatedKnobIsASlider();
+            testAnimatedKnobHasRotaryStyle();
+            testEditorContainsEightAnimatedKnobs();
+            testAnimatedKnobBindsToParameter();
         }
 
     private:
@@ -317,6 +322,108 @@ namespace synthortion
             expect (read == 64, "Should read back the written sample count");
             expect (std::abs (readBuffer.getSample (0, read - 64 + 10) - 0.5f) < 1.0e-6f, "Channel 0 sample should match");
             expect (std::abs (readBuffer.getSample (1, read - 64 + 20) - -0.25f) < 1.0e-6f, "Channel 1 sample should match");
+        }
+
+        int countAnimatedKnobsRecursive (juce::Component& parent)
+        {
+            int count = 0;
+
+            for (auto* child : parent.getChildren())
+            {
+                if (dynamic_cast<AnimatedKnob*> (child) != nullptr)
+                    ++count;
+
+                count += countAnimatedKnobsRecursive (*child);
+            }
+
+            return count;
+        }
+
+        void testAnimatedKnobIsASlider()
+        {
+            beginTest ("AnimatedKnob inherits from juce::Slider");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            AnimatedKnob knob (controller);
+
+            juce::ignoreUnused (knob);
+
+            expect (std::is_base_of_v<juce::Slider, AnimatedKnob>,
+                    "AnimatedKnob should inherit from juce::Slider so attachments work");
+        }
+
+        void testAnimatedKnobHasRotaryStyle()
+        {
+            beginTest ("AnimatedKnob uses a rotary style with no text box");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            AnimatedKnob knob (controller);
+
+            expect (knob.getSliderStyle() == juce::Slider::RotaryHorizontalVerticalDrag,
+                    "AnimatedKnob should use RotaryHorizontalVerticalDrag");
+            expect (knob.getTextBoxPosition() == juce::Slider::NoTextBox,
+                    "AnimatedKnob should hide its text box");
+        }
+
+        void testEditorContainsEightAnimatedKnobs()
+        {
+            beginTest ("Plugin editor contains eight AnimatedKnob instances");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            const int knobCount = countAnimatedKnobsRecursive (editor);
+            expect (knobCount == 8, "Editor should contain exactly eight AnimatedKnobs");
+        }
+
+        juce::AudioProcessorParameter* findParameterById (juce::AudioProcessor& processor,
+                                                           const juce::String& paramId)
+        {
+            for (auto* param : processor.getParameters())
+            {
+                if (auto* paramWithId = dynamic_cast<juce::AudioProcessorParameterWithID*> (param))
+                    if (paramWithId->getParameterID() == paramId)
+                        return param;
+            }
+
+            return nullptr;
+        }
+
+        void collectKnobsAtValue (juce::Component& parent, float value, int& count)
+        {
+            for (auto* child : parent.getChildren())
+            {
+                if (auto* knob = dynamic_cast<AnimatedKnob*> (child))
+                {
+                    if (std::abs ((float) knob->getValue() - value) < 1.0e-6f)
+                        ++count;
+                }
+
+                collectKnobsAtValue (*child, value, count);
+            }
+        }
+
+        void testAnimatedKnobBindsToParameter()
+        {
+            beginTest ("AnimatedKnob binds to an APVTS parameter via SliderAttachment");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            auto* colorParameter = findParameterById (processor, "COLOR");
+            jassert (colorParameter != nullptr);
+            colorParameter->setValueNotifyingHost (0.75f);
+
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            int knobsAtTarget = 0;
+            for (auto* child : editor.getChildren())
+                collectKnobsAtValue (*child, colorParameter->getValue(), knobsAtTarget);
+
+            expect (knobsAtTarget > 0,
+                    "At least one AnimatedKnob in the editor should follow the COLOR parameter");
         }
     };
 

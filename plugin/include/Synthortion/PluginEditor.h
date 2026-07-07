@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Synthortion/AnimatedKnob.h"
 #include "Synthortion/AnimationController.h"
 #include "Synthortion/AudioScopeRingBuffer.h"
 #include "Synthortion/BypassComponent.h"
@@ -24,8 +25,6 @@ namespace synthortion
         void timerCallback() override;
 
     private:
-        static constexpr float kRotaryStartAngle = juce::MathConstants<float>::pi * 1.25f;
-        static constexpr float kRotaryEndAngle = juce::MathConstants<float>::pi * 2.75f;
         static constexpr int kTimerHz = 60;
 
         static constexpr int kWindowWidth = 720;
@@ -37,8 +36,7 @@ namespace synthortion
         static constexpr int kBypassWidth = 120;
         static constexpr int kGap = 10;
 
-        void setupKnob (juce::Slider& knob);
-        void setupKnobWithLabel (juce::Slider& knob, juce::Label& titleLabel, juce::Label& valueLabel,
+        void setupKnobWithLabel (AnimatedKnob& knob, juce::Label& titleLabel, juce::Label& valueLabel,
                                  const juce::String& title, const juce::String& paramId,
                                  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>& attachment,
                                  juce::Component& parent);
@@ -65,38 +63,38 @@ namespace synthortion
         MeterComponent outputMeter;
 
         // DISTORTION section
-        juce::Slider driveKnob;
+        AnimatedKnob driveKnob;
         juce::Label driveTitleLabel;
         juce::Label driveLabel;
 
-        juce::Slider bitCrushKnob;
+        AnimatedKnob bitCrushKnob;
         juce::Label bitCrushTitleLabel;
         juce::Label bitCrushLabel;
 
         // CHORUS section
-        juce::Slider chorusMixKnob;
+        AnimatedKnob chorusMixKnob;
         juce::Label chorusMixTitleLabel;
         juce::Label chorusMixLabel;
 
         // DELAY section
-        juce::Slider delayTimeKnob;
+        AnimatedKnob delayTimeKnob;
         juce::Label delayTimeTitleLabel;
         juce::Label delayTimeLabel;
 
-        juce::Slider delayFeedbackKnob;
+        AnimatedKnob delayFeedbackKnob;
         juce::Label delayFeedbackTitleLabel;
         juce::Label delayFeedbackLabel;
 
-        juce::Slider delayMixKnob;
+        AnimatedKnob delayMixKnob;
         juce::Label delayMixTitleLabel;
         juce::Label delayMixLabel;
 
         // Side bars
-        juce::Slider inputGainKnob;
+        AnimatedKnob inputGainKnob;
         juce::Label inputGainTitleLabel;
         juce::Label inputGainLabel;
 
-        juce::Slider outputGainKnob;
+        AnimatedKnob outputGainKnob;
         juce::Label outputGainTitleLabel;
         juce::Label outputGainLabel;
 

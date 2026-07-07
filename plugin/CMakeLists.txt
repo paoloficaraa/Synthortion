@@ -31,6 +31,7 @@ PRIVATE
     src/AudioScopeRingBuffer.cpp
     src/OscilloscopeComponent.cpp
     src/MeterComponent.cpp
+    src/AnimatedKnob.cpp
 )
 
 target_include_directories(Synthortion
@@ -91,6 +92,7 @@ PRIVATE
     src/AudioScopeRingBuffer.cpp
     src/OscilloscopeComponent.cpp
     src/MeterComponent.cpp
+    src/AnimatedKnob.cpp
 )
 
 target_include_directories(SynthortionTests
