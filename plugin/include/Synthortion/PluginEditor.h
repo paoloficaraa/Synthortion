@@ -25,6 +25,10 @@ namespace synthortion
         void timerCallback() override;
 
         BypassComponent& getBypassComponent() noexcept { return bypassComponent; }
+        MeterComponent& getInputMeter() noexcept { return inputMeter; }
+        MeterComponent& getOutputMeter() noexcept { return outputMeter; }
+        AnimatedKnob& getInputGainKnob() noexcept { return inputGainKnob; }
+        AnimatedKnob& getOutputGainKnob() noexcept { return outputGainKnob; }
 
     private:
         static constexpr int kTimerHz = 60;
