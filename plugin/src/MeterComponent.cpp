@@ -2,6 +2,16 @@
 
 namespace synthortion
 {
+    namespace
+    {
+        const juce::Colour kBackground (0xFFF5F0EB);
+        const juce::Colour kBarBackground (0xFFE5E0DA);
+        const juce::Colour kGradientTop (0xFFC4B5FD);
+        const juce::Colour kGradientBottom (0xFF7C3AED);
+        const juce::Colour kPeakMarker = juce::Colours::white.withAlpha (0.9f);
+        const juce::Colour kTickColour = juce::Colours::black.withAlpha (0.3f);
+    }
+
     MeterComponent::MeterComponent()
     {
         setOpaque (true);
@@ -81,32 +91,32 @@ namespace synthortion
     {
         const auto bounds = getLocalBounds().toFloat();
 
-        g.fillAll (juce::Colour (0xFFF5F0EB));
+        g.fillAll (kBackground);
 
         const float barWidth = bounds.getWidth() * 0.5f;
         const float barX = bounds.getCentreX() - barWidth * 0.5f;
 
         // Background bar
-        g.setColour (juce::Colour (0xFFE5E0DA));
+        g.setColour (kBarBackground);
         g.fillRoundedRectangle (barX, bounds.getY(), barWidth, bounds.getHeight(), 4.0f);
 
         // RMS bar
         const float rmsH = levelToHeight (rmsDb);
         juce::ColourGradient grad (
-            juce::Colour (0xFF7C3AED), barX, bounds.getBottom(),
-            juce::Colour (0xFFC4B5FD), barX, bounds.getY(),
+            kGradientBottom, barX, bounds.getBottom(),
+            kGradientTop, barX, bounds.getY(),
             false);
         g.setGradientFill (grad);
         g.fillRoundedRectangle (barX, bounds.getBottom() - rmsH, barWidth, rmsH, 4.0f);
 
         // Peak hold marker
         const float peakH = levelToHeight (peakHoldDb);
-        g.setColour (juce::Colours::white.withAlpha (0.9f));
+        g.setColour (kPeakMarker);
         const float markerY = bounds.getBottom() - peakH;
         g.fillRect (barX - 2.0f, markerY, barWidth + 4.0f, 2.0f);
 
         // Reference ticks
-        g.setColour (juce::Colours::black.withAlpha (0.3f));
+        g.setColour (kTickColour);
         for (float db : { -6.0f, -12.0f, -24.0f })
         {
             const float y = bounds.getBottom() - levelToHeight (db);

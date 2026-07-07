@@ -7,8 +7,6 @@ namespace
     const juce::Colour CREAM_DARK(0xFFE8E2DC);
     const juce::Colour CREAM_SHADOW(0xFFDCD5CE);
     const juce::Colour VIOLET(0xFF7C3AED);
-    const juce::Colour VIOLET_BRIGHT(0xFFA78BFA);
-    const juce::Colour VIOLET_DEEP(0xFF5B21B6);
     const juce::Colour COPPER(0xFF7C3AED);
     const juce::Colour COPPER_BRIGHT(0xFFFF2D78);
     const juce::Colour GRAPHITE(0xFF3A3540);

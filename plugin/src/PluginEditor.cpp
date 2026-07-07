@@ -8,7 +8,6 @@ namespace synthortion
     namespace Colours
     {
         const juce::Colour CREAM (0xFFF5F0EB);
-        const juce::Colour VIOLET (0xFF7C3AED);
         const juce::Colour RACK_DARK (0xFF1A1520);
     }
 
@@ -71,8 +70,6 @@ namespace synthortion
 
     void AudioPluginAudioProcessorEditor::drawRackBackground (juce::Graphics& g)
     {
-        auto bounds = getLocalBounds().toFloat();
-
         g.fillAll (Colours::CREAM);
 
         auto localBounds = getLocalBounds();

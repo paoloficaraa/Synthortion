@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Synthortion/AudioScopeRingBuffer.h"
-#include "Synthortion/AnimationController.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <array>
 
