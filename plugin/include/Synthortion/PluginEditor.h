@@ -51,6 +51,10 @@ namespace synthortion
         void updateBypassState();
         void drawRackBackground (juce::Graphics& g);
 
+    public:
+        BypassComponent& getBypassComponent() noexcept { return bypassComponent; }
+
+    private:
         AudioPluginAudioProcessor& processorRef;
         SynthortionLookAndFeel lookAndFeel;
         AnimationController animationController;

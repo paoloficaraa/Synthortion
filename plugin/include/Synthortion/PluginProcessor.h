@@ -53,6 +53,8 @@ namespace synthortion
 
         AudioScopeRingBuffer scopeBuffer;
 
+        juce::AudioProcessorValueTreeState& getAPVTS() noexcept { return apvts; }
+
     private:
         static constexpr float kSmootherRampTime = 0.05f;
         static constexpr float kBooleanThreshold = 0.5f;

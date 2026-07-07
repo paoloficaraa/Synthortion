@@ -20,7 +20,7 @@ namespace synthortion
           chorusPanel ("CHORUS", lookAndFeel.findColour (SynthortionLookAndFeel::panelRecessedColourId)),
           delayPanel ("DELAY", lookAndFeel.findColour (SynthortionLookAndFeel::panelColourId)),
           comingSoonPanel ("COMING SOON", lookAndFeel.findColour (SynthortionLookAndFeel::panelRecessedColourId)),
-          bypassComponent (processorRef.apvts, "PLUGIN_BYPASS"),
+          bypassComponent (processorRef.apvts, "PLUGIN_BYPASS", &animationController),
           oscilloscope (processorRef.getScopeBuffer()),
           inputMeter (),
           outputMeter ()
