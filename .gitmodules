@@ -1,6 +1,6 @@
 [submodule "libs/juce"]
 	path = libs/juce
 	url = https://github.com/juce-framework/JUCE.git
-[submodule "modules/gin"]
-	url = https://github.com/FigBug/Gin.git
-	path = modules/gin
+[submodule "libs/melatonin_blur"]
+	path = libs/melatonin_blur
+	url = https://github.com/sudara/melatonin_blur.git
