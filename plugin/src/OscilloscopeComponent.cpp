@@ -105,7 +105,7 @@ namespace synthortion
         else if (! silent)
         {
             drawGhostTrails (g);
-            drawTrace (g, scratchInput, kTraceColour.withAlpha (0.35f), 0.45f, 1.0f);
+            drawTrace (g, scratchInput, kTraceColour, 0.45f, 1.0f);
             drawTrace (g, scratchOutput, kTraceColour, 1.0f, 1.0f);
         }
     }
@@ -154,7 +154,7 @@ namespace synthortion
         {
             const int idx = (historyIndex + kHistoryFrames - 1 - i) % kHistoryFrames;
             const float alpha = 0.18f * static_cast<float> (kHistoryFrames - i);
-            drawTrace (g, history[static_cast<size_t> (idx)], kTraceColour.withAlpha (0.5f), alpha, 1.0f);
+            drawTrace (g, history[static_cast<size_t> (idx)], kTraceColour, alpha, 1.0f);
         }
     }
 
