@@ -39,6 +39,12 @@ public:
     juce::Font getParameterValueFont() const noexcept { return parameterValueFont; }
     juce::Font getBypassLabelFont() const noexcept { return bypassLabelFont; }
 
+    /** Set the global bypass dimming mix used when drawing active elements. */
+    void setBypassMix (float value) noexcept { bypassMix = juce::jlimit (0.0f, 1.0f, value); }
+
+    /** Current bypass dimming mix in [0, 1]. */
+    float getBypassMix() const noexcept { return bypassMix; }
+
 private:
     void draw3DKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
                    float angle, float sliderPos, bool isMouseOver, bool isMouseDown,
@@ -59,6 +65,7 @@ private:
     juce::Font parameterLabelFont;
     juce::Font parameterValueFont;
     juce::Font bypassLabelFont;
+    float bypassMix = 0.0f;
 
     static constexpr float kKnobReduction = 2.0f;
     static constexpr float kKnobFaceReduction = 1.5f;

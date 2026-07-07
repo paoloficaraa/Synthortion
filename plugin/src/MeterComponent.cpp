@@ -48,9 +48,6 @@ namespace synthortion
 
         if (bypassed)
         {
-            rmsDb = kMinDb;
-            peakDb = kMinDb;
-
             if (animatedPeakDb > kMinDb)
                 startPeakDecay (animatedPeakDb, kBypassDecayMs);
         }
@@ -113,6 +110,7 @@ namespace synthortion
     void MeterComponent::paint (juce::Graphics& g)
     {
         const auto bounds = getLocalBounds().toFloat();
+        const float activeLevel = 1.0f - animationController.getBypassMix();
 
         g.fillAll (kBackground);
 
@@ -126,15 +124,15 @@ namespace synthortion
         // RMS bar
         const float rmsH = levelToHeight (rmsDb);
         juce::ColourGradient grad (
-            kGradientBottom, barX, bounds.getBottom(),
-            kGradientTop, barX, bounds.getY(),
+            kGradientBottom.withAlpha (activeLevel), barX, bounds.getBottom(),
+            kGradientTop.withAlpha (activeLevel), barX, bounds.getY(),
             false);
         g.setGradientFill (grad);
         g.fillRoundedRectangle (barX, bounds.getBottom() - rmsH, barWidth, rmsH, 4.0f);
 
         // Peak hold marker
         const float peakH = levelToHeight (animatedPeakDb);
-        g.setColour (kPeakMarker);
+        g.setColour (kPeakMarker.withAlpha (0.9f * activeLevel));
         const float markerY = bounds.getBottom() - peakH;
         g.fillRect (barX - 2.0f, markerY, barWidth + 4.0f, 2.0f);
 

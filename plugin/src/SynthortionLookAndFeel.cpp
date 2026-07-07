@@ -176,17 +176,21 @@ void SynthortionLookAndFeel::drawLEDArc(juce::Graphics& g, const juce::Rectangle
 
     const float arcRadius = radius - 6.0f;
     const float arcThickness = 2.5f;
+    const float activeLevel = 1.0f - bypassMix;
 
     juce::Path backgroundArc;
     backgroundArc.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f,
                                  startAngle, endAngle, true);
-    g.setColour(COPPER.withAlpha(0.2f));
+    g.setColour(COPPER.withAlpha(0.2f * activeLevel));
     g.strokePath(backgroundArc, juce::PathStrokeType(arcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    if (activeLevel <= 0.0f)
+        return;
 
     juce::Path valueArc;
     valueArc.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f,
                             startAngle, currentAngle, true);
-    g.setColour(COPPER.withAlpha(0.7f));
+    g.setColour(COPPER.withAlpha(0.7f * activeLevel));
     g.strokePath(valueArc, juce::PathStrokeType(arcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 

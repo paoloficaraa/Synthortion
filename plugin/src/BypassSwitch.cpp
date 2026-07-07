@@ -92,11 +92,12 @@ namespace synthortion
         const float ledY = trackBounds.getCentreY() - kLedSize * 0.5f;
         const auto ledBounds = juce::Rectangle<float> (ledX, ledY, kLedSize, kLedSize);
 
+        const float activeLevel = controller != nullptr ? 1.0f - controller->getBypassMix() : 1.0f;
         const auto ledOffColour = warmGray.brighter (0.3f);
-        const auto ledColour = ledOffColour.interpolatedWith (violetBright, animationProgress);
+        const auto ledColour = ledOffColour.interpolatedWith (violetBright, animationProgress * activeLevel);
 
         ledGlow.setColor (violet);
-        ledGlow.setOpacity (static_cast<double> (animationProgress * 0.85f));
+        ledGlow.setOpacity (static_cast<double> (animationProgress * 0.85f * activeLevel));
         ledGlow.setRadius (static_cast<double> (kGlowRadius * animationProgress));
 
         juce::Path ledPath;

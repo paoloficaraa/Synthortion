@@ -9,6 +9,7 @@
 #include "Synthortion/PanelComponent.h"
 #include "Synthortion/PluginProcessor.h"
 #include "Synthortion/SynthortionLookAndFeel.h"
+#include <array>
 #include <juce_gui_extra/juce_gui_extra.h>
 
 namespace synthortion
@@ -21,20 +22,27 @@ namespace synthortion
         ~AudioPluginAudioProcessorEditor() override;
 
         void paint (juce::Graphics&) override;
+        void paintOverChildren (juce::Graphics&) override;
         void resized() override;
         void timerCallback() override;
 
         BypassComponent& getBypassComponent() noexcept { return bypassComponent; }
+        OscilloscopeComponent& getOscilloscope() noexcept { return oscilloscope; }
         MeterComponent& getInputMeter() noexcept { return inputMeter; }
         MeterComponent& getOutputMeter() noexcept { return outputMeter; }
         AnimatedKnob& getInputGainKnob() noexcept { return inputGainKnob; }
         AnimatedKnob& getOutputGainKnob() noexcept { return outputGainKnob; }
+        AnimationController& getAnimationController() noexcept { return animationController; }
 
     private:
         static constexpr int kTimerHz = 60;
 
         static constexpr int kWindowWidth = 720;
         static constexpr int kWindowHeight = 440;
+
+        static constexpr int kGrainTextureSize = 64;
+        static constexpr int kGrainFrames = 8;
+        static constexpr float kGrainAlpha = 0.06f;
 
         static constexpr int kRackEarWidth = 15;
         static constexpr int kSideBarWidth = 55;
@@ -54,6 +62,8 @@ namespace synthortion
         void updateMainControlLabels();
         void updateBypassState();
         void drawRackBackground (juce::Graphics& g);
+        void drawGrainOverlay (juce::Graphics& g);
+        void updateGrainAnimation();
 
         AudioPluginAudioProcessor& processorRef;
         SynthortionLookAndFeel lookAndFeel;
@@ -114,6 +124,9 @@ namespace synthortion
         std::unique_ptr<SliderAttachment> delayMixAttachment;
         std::unique_ptr<SliderAttachment> inputGainAttachment;
         std::unique_ptr<SliderAttachment> outputGainAttachment;
+
+        std::array<juce::Image, kGrainFrames> grainFrames;
+        int grainFrameIndex = 0;
 
         bool lastBypassState = false;
 

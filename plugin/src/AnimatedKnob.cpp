@@ -94,6 +94,10 @@ namespace synthortion
         if (displayProportion <= 0.0f)
             return;
 
+        const float activeLevel = 1.0f - animationController.getBypassMix();
+        if (activeLevel <= 0.0f)
+            return;
+
         const auto bounds = getLocalBounds().toFloat();
         const float radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
         const float centreX = bounds.getCentreX();
@@ -111,6 +115,7 @@ namespace synthortion
             return;
 
         melatonin::DropShadow glow (glowColour, kGlowRadius);
+        glow.setOpacity (static_cast<double> (activeLevel));
         glow.render (g, valueArc, juce::PathStrokeType (kArcThickness,
                                                         juce::PathStrokeType::curved,
                                                         juce::PathStrokeType::rounded));

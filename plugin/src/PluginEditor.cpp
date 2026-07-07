@@ -37,10 +37,27 @@ namespace synthortion
         setLookAndFeel (&lookAndFeel);
         startTimer (1000 / kTimerHz);
 
+        for (int i = 0; i < kGrainFrames; ++i)
+        {
+            grainFrames[static_cast<size_t> (i)] = juce::Image (juce::Image::ARGB, kGrainTextureSize, kGrainTextureSize, true);
+            auto& frame = grainFrames[static_cast<size_t> (i)];
+            juce::Random random (i * 137 + 42);
+
+            for (int y = 0; y < kGrainTextureSize; ++y)
+            {
+                for (int x = 0; x < kGrainTextureSize; ++x)
+                {
+                    const auto value = static_cast<float> (random.nextInt (256)) / 255.0f;
+                    frame.setPixelAt (x, y, juce::Colour::greyLevel (value).withAlpha (0.5f));
+                }
+            }
+        }
+
         addAndMakeVisible (distortionPanel);
         addAndMakeVisible (chorusPanel);
         addAndMakeVisible (delayPanel);
         addAndMakeVisible (comingSoonPanel);
+        comingSoonPanel.setPlaceholder (true);
         addAndMakeVisible (bypassComponent);
         addAndMakeVisible (oscilloscope);
         addAndMakeVisible (inputMeter);
@@ -76,9 +93,16 @@ namespace synthortion
         drawRackBackground (g);
     }
 
+    void AudioPluginAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
+    {
+        drawGrainOverlay (g);
+    }
+
     void AudioPluginAudioProcessorEditor::drawRackBackground (juce::Graphics& g)
     {
-        g.fillAll (Colours::CREAM);
+        const float bypassMix = animationController.getBypassMix();
+        const auto bg = Colours::CREAM.interpolatedWith (Colours::CREAM.darker (0.12f), bypassMix);
+        g.fillAll (bg);
 
         auto localBounds = getLocalBounds();
         auto leftEar = localBounds.removeFromLeft (kRackEarWidth);
@@ -101,6 +125,21 @@ namespace synthortion
         drawScrew (getWidth() - 11, 14);
         drawScrew (4, getHeight() - 20);
         drawScrew (getWidth() - 11, getHeight() - 20);
+    }
+
+    void AudioPluginAudioProcessorEditor::drawGrainOverlay (juce::Graphics& g)
+    {
+        const auto& frame = grainFrames[static_cast<size_t> (grainFrameIndex)];
+        const auto dest = getLocalBounds().toFloat();
+
+        g.setOpacity (kGrainAlpha);
+        g.drawImage (frame, dest, juce::RectanglePlacement::stretchToFit);
+        g.setOpacity (1.0f);
+    }
+
+    void AudioPluginAudioProcessorEditor::updateGrainAnimation()
+    {
+        grainFrameIndex = (grainFrameIndex + 1) % kGrainFrames;
     }
 
     void AudioPluginAudioProcessorEditor::resized()
@@ -198,6 +237,9 @@ namespace synthortion
     {
         updateMainControlLabels();
         updateBypassState();
+        updateGrainAnimation();
+
+        lookAndFeel.setBypassMix (animationController.getBypassMix());
 
         inputMeter.updateFromBuffer (oscilloscope.getCurrentInputBuffer());
         outputMeter.updateFromBuffer (oscilloscope.getCurrentOutputBuffer());
@@ -209,6 +251,7 @@ namespace synthortion
         if (bypass != lastBypassState)
         {
             lastBypassState = bypass;
+            animationController.startBypassTransition (bypass);
             oscilloscope.setBypassed (bypass);
             inputMeter.setBypassed (bypass);
             outputMeter.setBypassed (bypass);

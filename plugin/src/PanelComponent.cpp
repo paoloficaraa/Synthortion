@@ -31,9 +31,56 @@ namespace synthortion
                 g.drawFittedText (title, labelArea.toNearestInt(), juce::Justification::centredLeft, 1);
             }
         }
+
+        if (isComingSoonPlaceholder)
+            drawPlaceholderContent (g);
     }
 
     void PanelComponent::resized()
     {
+    }
+
+    void PanelComponent::setPlaceholder (bool isPlaceholder) noexcept
+    {
+        isComingSoonPlaceholder = isPlaceholder;
+    }
+
+    void PanelComponent::drawPlaceholderContent (juce::Graphics& g)
+    {
+        auto bounds = getLocalBounds().toFloat().reduced (8.0f);
+        bounds.removeFromTop (22.0f);
+
+        auto* laf = dynamic_cast<SynthortionLookAndFeel*> (&getLookAndFeel());
+        const auto textDark = laf != nullptr
+                                  ? laf->findColour (SynthortionLookAndFeel::creamTextColourId)
+                                  : juce::Colour (0xFF2E2A33);
+        const auto cream = laf != nullptr
+                               ? laf->findColour (SynthortionLookAndFeel::backgroundColourId)
+                               : juce::Colour (0xFFF5F0EB);
+
+        const auto placeholderFont = headingFont.withHeight (16.0f);
+        const auto textArea = bounds.toNearestInt();
+
+        // Embossed shadow
+        g.setColour (textDark.withAlpha (0.2f));
+        g.setFont (placeholderFont);
+        g.drawFittedText ("COMING SOON", textArea.translated (1, 1), juce::Justification::centred, 1);
+
+        // Embossed highlight
+        g.setColour (cream.brighter (0.25f).withAlpha (0.45f));
+        g.drawFittedText ("COMING SOON", textArea.translated (-1, -1), juce::Justification::centred, 1);
+
+        // Main label
+        g.setColour (textDark.withAlpha (0.55f));
+        g.drawFittedText ("COMING SOON", textArea, juce::Justification::centred, 1);
+
+        // Stylised ellipsis icon
+        g.setColour (textDark.withAlpha (0.35f));
+        const float dotY = bounds.getCentreY() + 18.0f;
+        for (int i = -1; i <= 1; ++i)
+        {
+            const float x = bounds.getCentreX() + static_cast<float> (i) * 10.0f;
+            g.fillEllipse (x - 2.0f, dotY - 2.0f, 4.0f, 4.0f);
+        }
     }
 }

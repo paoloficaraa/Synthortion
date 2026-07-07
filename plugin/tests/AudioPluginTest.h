@@ -131,6 +131,12 @@ namespace synthortion
             testOutputGainKnobBindsToParameter();
             testMeterCalculatesRMS();
             testMeterPeakHoldJumpsToPeak();
+            testAnimationControllerBypassMixDefaultsToZero();
+            testLookAndFeelDimsRotarySliderArcOnBypass();
+            testMeterBarFadesWithBypassMix();
+            testEditorBackgroundDimsWhenBypassed();
+            testComingSoonPanelRendersPlaceholder();
+            testBypassTransitionPropagatesToComponents();
         }
 
     private:
@@ -730,6 +736,161 @@ namespace synthortion
                     "Animated peak hold should jump to the transient peak");
             expect (meter.isPeakHoldAnimating(),
                     "A decay animator should be running after a new peak");
+        }
+
+        void testAnimationControllerBypassMixDefaultsToZero()
+        {
+            beginTest ("AnimationController bypass mix defaults to zero");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+
+            expect (std::abs (controller.getBypassMix()) < 1.0e-6f, "Bypass mix should start fully active");
+
+            controller.setBypassMix (0.75f);
+            expect (std::abs (controller.getBypassMix() - 0.75f) < 1.0e-6f,
+                    "setBypassMix should update the mix value");
+        }
+
+        void testLookAndFeelDimsRotarySliderArcOnBypass()
+        {
+            beginTest ("SynthortionLookAndFeel dims the knob LED arc when bypassed");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            controller.setBypassMix (1.0f);
+
+            SynthortionLookAndFeel lookAndFeel;
+            lookAndFeel.setBypassMix (0.0f);
+
+            AnimatedKnob knob (controller);
+            knob.setRange (0.0, 1.0);
+            knob.setValue (1.0);
+            knob.snapToCurrentValue();
+            knob.setSize (60, 60);
+            knob.setLookAndFeel (&lookAndFeel);
+
+            const auto activeSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+            const auto activePixel = activeSnapshot.getPixelAt (30, 7);
+
+            lookAndFeel.setBypassMix (1.0f);
+            knob.repaint();
+            const auto bypassedSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+            const auto bypassedPixel = bypassedSnapshot.getPixelAt (30, 7);
+
+            expect (bypassedPixel.getBrightness() < activePixel.getBrightness(),
+                    "Bypassed knob arc pixel should be dimmer than active arc pixel");
+        }
+
+        void testMeterBarFadesWithBypassMix()
+        {
+            beginTest ("MeterComponent RMS bar fades out with bypass mix");
+
+            juce::AudioBuffer<float> buffer (2, 64);
+            buffer.clear();
+            for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+                for (int i = 0; i < buffer.getNumSamples(); ++i)
+                    buffer.setSample (ch, i, 0.5f);
+
+            juce::Component dummy;
+            AnimationController activeController (&dummy);
+            MeterComponent activeMeter (activeController);
+            activeMeter.setSize (40, 200);
+            activeMeter.updateFromBuffer (buffer);
+
+            const auto activeSnapshot = activeMeter.createComponentSnapshot (activeMeter.getLocalBounds());
+            const auto activePixel = activeSnapshot.getPixelAt (20, 50);
+
+            AnimationController bypassedController (&dummy);
+            bypassedController.setBypassMix (1.0f);
+            MeterComponent bypassedMeter (bypassedController);
+            bypassedMeter.setSize (40, 200);
+            bypassedMeter.updateFromBuffer (buffer);
+
+            const auto bypassedSnapshot = bypassedMeter.createComponentSnapshot (bypassedMeter.getLocalBounds());
+            const auto bypassedPixel = bypassedSnapshot.getPixelAt (20, 50);
+
+            const juce::Colour barBackground (0xFFE5E0DA);
+            const float activeDiff = std::abs (activePixel.getBrightness() - barBackground.getBrightness());
+            const float bypassedDiff = std::abs (bypassedPixel.getBrightness() - barBackground.getBrightness());
+
+            expect (activeDiff > 0.05f,
+                    "Active meter bar should be visibly distinct from the bar background");
+            expect (bypassedDiff < 0.05f,
+                    "Bypassed meter bar should fade back to the bar background");
+        }
+
+        void testEditorBackgroundDimsWhenBypassed()
+        {
+            beginTest ("Plugin editor background dims when bypassed");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            editor.getAnimationController().setBypassMix (0.0f);
+            editor.repaint();
+            const auto activeSnapshot = editor.createComponentSnapshot (editor.getLocalBounds());
+            const auto activePixel = activeSnapshot.getPixelAt (140, 30);
+
+            editor.getAnimationController().setBypassMix (1.0f);
+            editor.repaint();
+            const auto bypassedSnapshot = editor.createComponentSnapshot (editor.getLocalBounds());
+            const auto bypassedPixel = bypassedSnapshot.getPixelAt (140, 30);
+
+            expect (bypassedPixel.getBrightness() < activePixel.getBrightness(),
+                    "Bypassed editor background should be dimmer than active background");
+        }
+
+        void testComingSoonPanelRendersPlaceholder()
+        {
+            beginTest ("Coming Soon panel renders placeholder content");
+
+            SynthortionLookAndFeel lookAndFeel;
+            const auto bg = lookAndFeel.findColour (SynthortionLookAndFeel::panelRecessedColourId);
+
+            PanelComponent plainPanel ("OTHER", bg);
+            plainPanel.setSize (100, 100);
+            plainPanel.setLookAndFeel (&lookAndFeel);
+
+            PanelComponent placeholderPanel ("COMING SOON", bg);
+            placeholderPanel.setPlaceholder (true);
+            placeholderPanel.setSize (100, 100);
+            placeholderPanel.setLookAndFeel (&lookAndFeel);
+
+            const auto plainSnapshot = plainPanel.createComponentSnapshot (plainPanel.getLocalBounds());
+            const auto placeholderSnapshot = placeholderPanel.createComponentSnapshot (placeholderPanel.getLocalBounds());
+
+            bool hasDifferentPixel = false;
+            for (int y = 35; y < 85 && ! hasDifferentPixel; ++y)
+            {
+                for (int x = 20; x < 80 && ! hasDifferentPixel; ++x)
+                {
+                    if (plainSnapshot.getPixelAt (x, y) != placeholderSnapshot.getPixelAt (x, y))
+                        hasDifferentPixel = true;
+                }
+            }
+
+            expect (hasDifferentPixel,
+                    "Placeholder panel should draw content distinct from a plain panel");
+        }
+
+        void testBypassTransitionPropagatesToComponents()
+        {
+            beginTest ("Bypass transition propagates to oscilloscope and meters");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            expect (! editor.getBypassComponent().getToggleButton().getToggleState());
+            expect (! editor.getOscilloscope().isBypassed());
+
+            processor.getAPVTS().getParameter ("PLUGIN_BYPASS")->setValueNotifyingHost (1.0f);
+            editor.timerCallback();
+
+            expect (editor.getBypassComponent().getToggleButton().getToggleState(),
+                    "Bypass button should follow PLUGIN_BYPASS");
+            expect (editor.getOscilloscope().isBypassed(),
+                    "Oscilloscope should receive bypass state");
         }
     };
 
