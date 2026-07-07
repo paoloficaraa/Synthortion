@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Synthortion/AnalogLookAndFeel.h"
+#include "Synthortion/SynthortionLookAndFeel.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 
 namespace synthortion

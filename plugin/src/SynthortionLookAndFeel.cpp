@@ -1,4 +1,4 @@
-#include "Synthortion/AnalogLookAndFeel.h"
+#include "Synthortion/SynthortionLookAndFeel.h"
 #include <BinaryData.h>
 
 namespace

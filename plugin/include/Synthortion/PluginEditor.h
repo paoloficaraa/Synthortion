@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Synthortion/AnalogLookAndFeel.h"
+#include "Synthortion/SynthortionLookAndFeel.h"
 #include "Synthortion/BypassComponent.h"
 #include "Synthortion/PanelComponent.h"
 #include "Synthortion/PluginProcessor.h"

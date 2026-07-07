@@ -20,7 +20,7 @@ target_sources(Synthortion
 PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
-    src/AnalogLookAndFeel.cpp
+    src/SynthortionLookAndFeel.cpp
     src/PanelComponent.cpp
     src/BypassComponent.cpp
     src/WarmDistortion.cpp
@@ -76,7 +76,7 @@ target_sources(SynthortionTests
 PRIVATE
     tests/Main.cpp
     tests/AudioPluginTest.h
-    src/AnalogLookAndFeel.cpp
+    src/SynthortionLookAndFeel.cpp
     src/PanelComponent.cpp
     src/BypassComponent.cpp
     src/PluginProcessor.cpp

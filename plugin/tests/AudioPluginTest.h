@@ -1,7 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "Synthortion/AnalogLookAndFeel.h"
+#include "Synthortion/SynthortionLookAndFeel.h"
 #include "Synthortion/BypassComponent.h"
 #include "Synthortion/PanelComponent.h"
 #include "Synthortion/PluginEditor.h"
