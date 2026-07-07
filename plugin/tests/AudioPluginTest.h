@@ -119,6 +119,12 @@ namespace synthortion
             testAnimatedKnobHasRotaryStyle();
             testEditorContainsEightAnimatedKnobs();
             testAnimatedKnobBindsToParameter();
+            testInputMeterIsOnLeftSideBar();
+            testOutputMeterIsOnRightSideBar();
+            testInputGainKnobBindsToParameter();
+            testOutputGainKnobBindsToParameter();
+            testMeterCalculatesRMS();
+            testMeterPeakHoldJumpsToPeak();
         }
 
     private:
@@ -472,6 +478,133 @@ namespace synthortion
 
             expect (knobsAtTarget > 0,
                     "At least one AnimatedKnob in the editor should follow the COLOR parameter");
+        }
+
+        void testInputMeterIsOnLeftSideBar()
+        {
+            beginTest ("Input meter sits in the left side bar above the input gain knob");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            constexpr int kRackEarWidth = 15;
+            constexpr int kSideBarWidth = 55;
+
+            auto& meter = editor.getInputMeter();
+            auto& knob = editor.getInputGainKnob();
+
+            expect (meter.getX() >= kRackEarWidth,
+                    "Input meter should start after the left rack ear");
+            expect (meter.getRight() <= kRackEarWidth + kSideBarWidth,
+                    "Input meter should fit inside the left side bar");
+            expect (meter.getBottom() <= knob.getY(),
+                    "Input meter should sit above the input gain knob");
+        }
+
+        void testOutputMeterIsOnRightSideBar()
+        {
+            beginTest ("Output meter sits in the right side bar above the output gain knob");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            constexpr int kRackEarWidth = 15;
+            constexpr int kSideBarWidth = 55;
+
+            auto& meter = editor.getOutputMeter();
+            auto& knob = editor.getOutputGainKnob();
+
+            expect (meter.getX() >= editor.getWidth() - kRackEarWidth - kSideBarWidth,
+                    "Output meter should start inside the right side bar");
+            expect (meter.getRight() <= editor.getWidth() - kRackEarWidth,
+                    "Output meter should end before the right rack ear");
+            expect (meter.getBottom() <= knob.getY(),
+                    "Output meter should sit above the output gain knob");
+        }
+
+        void testInputGainKnobBindsToParameter()
+        {
+            beginTest ("Input gain knob follows the INPUT_GAIN parameter");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            auto* inputGain = findParameterById (processor, "INPUT_GAIN");
+            jassert (inputGain != nullptr);
+
+            const float targetDb = -12.0f;
+            const float normalized = processor.getAPVTS().getParameterRange ("INPUT_GAIN").convertTo0to1 (targetDb);
+            inputGain->setValueNotifyingHost (normalized);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            expect (std::abs (static_cast<float> (editor.getInputGainKnob().getValue()) - targetDb) < 0.1f,
+                    "Input gain knob should reflect -12 dB");
+        }
+
+        void testOutputGainKnobBindsToParameter()
+        {
+            beginTest ("Output gain knob follows the OUTPUT_GAIN parameter");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            auto* outputGain = findParameterById (processor, "OUTPUT_GAIN");
+            jassert (outputGain != nullptr);
+
+            const float targetDb = -36.0f;
+            const float normalized = processor.getAPVTS().getParameterRange ("OUTPUT_GAIN").convertTo0to1 (targetDb);
+            outputGain->setValueNotifyingHost (normalized);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            expect (std::abs (static_cast<float> (editor.getOutputGainKnob().getValue()) - targetDb) < 0.1f,
+                    "Output gain knob should reflect -36 dB");
+        }
+
+        void testMeterCalculatesRMS()
+        {
+            beginTest ("MeterComponent calculates RMS from a stereo buffer");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            MeterComponent meter (controller);
+            meter.setSize (40, 200);
+
+            juce::AudioBuffer<float> buffer (2, 64);
+            buffer.clear();
+            for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+                for (int i = 0; i < buffer.getNumSamples(); ++i)
+                    buffer.setSample (ch, i, 0.5f);
+
+            meter.updateFromBuffer (buffer);
+
+            const float expectedDb = juce::Decibels::gainToDecibels (0.5f);
+            expect (std::abs (meter.getRmsDb() - expectedDb) < 0.1f,
+                    "RMS should be -6 dB for a 0.5 amplitude signal");
+            expect (std::abs (meter.getPeakDb() - expectedDb) < 0.1f,
+                    "Peak should match the constant amplitude");
+        }
+
+        void testMeterPeakHoldJumpsToPeak()
+        {
+            beginTest ("MeterComponent peak hold jumps to a transient peak and starts decay animation");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            MeterComponent meter (controller);
+            meter.setSize (40, 200);
+
+            juce::AudioBuffer<float> buffer (2, 32);
+            buffer.clear();
+            buffer.setSample (0, 4, 0.8f);
+            buffer.setSample (1, 20, -0.8f);
+
+            meter.updateFromBuffer (buffer);
+
+            const float expectedDb = juce::Decibels::gainToDecibels (0.8f);
+            expect (std::abs (meter.getAnimatedPeakDb() - expectedDb) < 0.1f,
+                    "Animated peak hold should jump to the transient peak");
+            expect (meter.isPeakHoldAnimating(),
+                    "A decay animator should be running after a new peak");
         }
     };
 

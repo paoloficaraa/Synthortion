@@ -12,10 +12,16 @@ namespace synthortion
         const juce::Colour kTickColour = juce::Colours::black.withAlpha (0.3f);
     }
 
-    MeterComponent::MeterComponent()
+    MeterComponent::MeterComponent (AnimationController& controller)
+        : animationController (controller)
     {
         setOpaque (true);
-        startTimer (1000 / kTimerHz);
+    }
+
+    MeterComponent::~MeterComponent()
+    {
+        if (decayAnimator.has_value() && ! decayAnimator->isComplete())
+            animationController.removeAnimator (*decayAnimator);
     }
 
     void MeterComponent::resized()
@@ -40,24 +46,50 @@ namespace synthortion
         }
         peakDb = juce::Decibels::gainToDecibels (peak, kMinDb);
 
-        if (peakDb > peakHoldDb)
-            peakHoldDb = peakDb;
-    }
-
-    void MeterComponent::timerCallback()
-    {
-        if (peakHoldDb > kMinDb)
-            peakHoldDb -= kReleaseRate;
-
         if (bypassed)
         {
             rmsDb = kMinDb;
             peakDb = kMinDb;
-            if (peakHoldDb > kMinDb)
-                peakHoldDb -= kReleaseRate * 2.0f;
+
+            if (animatedPeakDb > kMinDb)
+                startPeakDecay (animatedPeakDb, kBypassDecayMs);
+        }
+        else if (peakDb > animatedPeakDb)
+        {
+            if (decayAnimator.has_value())
+            {
+                animationController.removeAnimator (*decayAnimator);
+                decayAnimator.reset();
+            }
+
+            animatedPeakDb = peakDb;
+            startPeakDecay (animatedPeakDb, kNormalDecayMs);
         }
 
         repaint();
+    }
+
+    void MeterComponent::startPeakDecay (float fromDb, float durationMs)
+    {
+        if (decayAnimator.has_value())
+        {
+            animationController.removeAnimator (*decayAnimator);
+            decayAnimator.reset();
+        }
+
+        decayAnimator = animationController.runAnimator (
+            juce::ValueAnimatorBuilder()
+                .withDurationMs (static_cast<double> (durationMs))
+                .withEasing (juce::Easings::createEaseOut())
+                .withOnStartReturningValueChangedCallback (
+                    [this, fromDb]() -> juce::ValueAnimatorBuilder::ValueChangedCallback
+                    {
+                        return [this, fromDb](float progress)
+                        {
+                            animatedPeakDb = fromDb + (kMinDb - fromDb) * progress;
+                            repaint();
+                        };
+                    }));
     }
 
     float MeterComponent::computeRMS (const juce::AudioBuffer<float>& buffer) const
@@ -110,7 +142,7 @@ namespace synthortion
         g.fillRoundedRectangle (barX, bounds.getBottom() - rmsH, barWidth, rmsH, 4.0f);
 
         // Peak hold marker
-        const float peakH = levelToHeight (peakHoldDb);
+        const float peakH = levelToHeight (animatedPeakDb);
         g.setColour (kPeakMarker);
         const float markerY = bounds.getBottom() - peakH;
         g.fillRect (barX - 2.0f, markerY, barWidth + 4.0f, 2.0f);
