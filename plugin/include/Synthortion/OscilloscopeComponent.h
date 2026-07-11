@@ -41,7 +41,6 @@ namespace synthortion
         void startAnimation();
         void updateFrame();
 
-        void drawScanlines (juce::Graphics& g);
         void drawTrace (juce::Graphics& g, const juce::AudioBuffer<float>& buffer,
                         juce::Colour colour, float alpha, float amplitudeScale);
         void drawGhostTrails (juce::Graphics& g);
