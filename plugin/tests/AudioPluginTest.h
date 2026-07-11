@@ -123,6 +123,7 @@ namespace synthortion
             testOscilloscopeBoundsInEditor();
             testAnimatedKnobIsASlider();
             testAnimatedKnobHasRotaryStyle();
+            testAnimatedKnobSnapsArcDuringDrag();
             testEditorContainsEightAnimatedKnobs();
             testAnimatedKnobBindsToParameter();
             testInputMeterIsOnLeftSideBar();
@@ -548,6 +549,55 @@ namespace synthortion
                     "AnimatedKnob should use RotaryHorizontalVerticalDrag");
             expect (knob.getTextBoxPosition() == juce::Slider::NoTextBox,
                     "AnimatedKnob should hide its text box");
+        }
+
+        void testAnimatedKnobSnapsArcDuringDrag()
+        {
+            beginTest ("AnimatedKnob arc snaps instantly during mouse drag");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+
+            SynthortionLookAndFeel lookAndFeel;
+            AnimatedKnob knob (controller);
+            knob.setRange (0.0, 1.0);
+            knob.setValue (0.0, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+            knob.setSize (60, 60);
+            knob.setLookAndFeel (&lookAndFeel);
+
+            auto source = juce::Desktop::getInstance().getMainMouseSource();
+            const juce::Point<float> downPos (30.0f, 30.0f);
+            const auto now = juce::Time::getCurrentTime();
+
+            const juce::MouseEvent downEvent (source,
+                                              downPos,
+                                              juce::ModifierKeys (juce::ModifierKeys::leftButtonModifier),
+                                              0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                              &knob,
+                                              &knob,
+                                              now,
+                                              downPos,
+                                              now,
+                                              1,
+                                              false);
+
+            knob.mouseDown (downEvent);
+            knob.setValue (1.0, juce::sendNotificationSync);
+
+            const auto dragSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+            const auto dragPixel = dragSnapshot.getPixelAt (30, 7);
+
+            knob.setValue (0.0, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+            knob.setValue (1.0, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+
+            const auto snappedSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+            const auto snappedPixel = snappedSnapshot.getPixelAt (30, 7);
+
+            expect (std::abs (dragPixel.getBrightness() - snappedPixel.getBrightness()) < 0.05f,
+                    "Drag-initiated value change should render the arc at the target immediately");
         }
 
         void testEditorContainsEightAnimatedKnobs()
