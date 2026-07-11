@@ -7,7 +7,6 @@ namespace synthortion
         const juce::Colour kBackground (0xFFF5F0EB);
         const juce::Colour kTraceColour (0xFF7C3AED);
         const juce::Colour kTraceGrey (0xFF6B6570);
-        const juce::Colour kScanlineColour = juce::Colours::black.withAlpha (0.05f);
     }
 
     OscilloscopeComponent::OscilloscopeComponent (AudioScopeRingBuffer& rb,
@@ -93,8 +92,6 @@ namespace synthortion
     {
         g.fillAll (kBackground);
 
-        drawScanlines (g);
-
         const float mix = controller != nullptr ? controller->getBypassMix() : 0.0f;
 
         if (silent)
@@ -111,15 +108,6 @@ namespace synthortion
             drawTrace (g, scratchInput, kTraceColour, 0.45f * (1.0f - mix * 0.5f), 1.0f);
             drawTrace (g, scratchOutput, kTraceColour, 1.0f - mix * 0.3f, 1.0f);
         }
-    }
-
-    void OscilloscopeComponent::drawScanlines (juce::Graphics& g)
-    {
-        const auto bounds = getLocalBounds().toFloat();
-        g.setColour (kScanlineColour);
-
-        for (float y = 0.0f; y < bounds.getHeight(); y += 4.0f)
-            g.drawLine (0.0f, y, bounds.getWidth(), y, 1.0f);
     }
 
     void OscilloscopeComponent::drawTrace (juce::Graphics& g, const juce::AudioBuffer<float>& buffer,
