@@ -102,7 +102,7 @@ namespace synthortion
         {
             testPanelComponentRendersBackgroundColour();
             testBypassComponentLedTogglesOnClick();
-            testBypassSwitchSpringOvershoot();
+            testBypassSwitchSnapsWithoutOvershoot();
             testBypassSwitchParameterAttachment();
             testPanelComponentTitleFont();
             testEditorIsOpaque();
@@ -177,25 +177,18 @@ namespace synthortion
             expect (bypass.getToggleButton().getToggleState());
         }
 
-        void testBypassSwitchSpringOvershoot()
+        void testBypassSwitchSnapsWithoutOvershoot()
         {
-            beginTest ("BypassSwitch spring easing overshoots the target");
+            beginTest ("BypassSwitch easing snaps without overshoot or undershoot");
 
-            auto spring = juce::Easings::createSpring (
-                juce::SpringEasingOptions().withFrequency (3.5f).withAttenuation (3.0f));
-
-            bool overshoots = false;
+            auto easing = juce::Easings::createCubicBezier (1.0f / 3.0f, 1.0f, 2.0f / 3.0f, 1.0f);
 
             for (float t = 0.0f; t <= 1.0f; t += 0.01f)
             {
-                if (spring (t) > 1.05f)
-                {
-                    overshoots = true;
-                    break;
-                }
+                const float value = easing (t);
+                expect (value <= 1.0f, "Ease-out cubic should never overshoot 1.0");
+                expect (value >= 0.0f, "Ease-out cubic should never undershoot 0.0");
             }
-
-            expect (overshoots, "Spring easing should visibly overshoot the target value");
         }
 
         void testBypassSwitchParameterAttachment()

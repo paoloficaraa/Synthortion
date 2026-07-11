@@ -9,10 +9,10 @@
 
 namespace synthortion
 {
-    /** Custom hardware-style bypass toggle with a spring-animated vertical lever and violet LED glow.
+    /** Custom hardware-style bypass toggle with a snappily animated vertical lever and violet LED glow.
 
-        The lever slides up (ON) and down (OFF) with a spring easing that overshoots for a
-        satisfying physical feel. A violet LED to the right of the track fades in and out, rendered
+        The lever slides up (ON) and down (OFF) with a short ease-out cubic curve that snaps into the
+        end stop without overshooting. A violet LED to the right of the track fades in and out, rendered
         with a Melatonin Blur glow.
     */
     class BypassSwitch final : public juce::Button
@@ -47,7 +47,7 @@ namespace synthortion
         static constexpr float kLedSize = 8.0f;
         static constexpr float kGlowRadius = 10.0f;
         static constexpr float kTrackInset = 3.0f;
-        static constexpr double kAnimationDurationMs = 420.0;
+        static constexpr double kAnimationDurationMs = 120.0;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BypassSwitch)
     };

@@ -58,13 +58,19 @@ namespace synthortion
         g.setColour (panelRecessed.darker (0.15f));
         g.fillRoundedRectangle (trackBounds, kTrackCornerRadius);
 
-        // Active fill on the top portion of the track, grows as the lever springs upward
+        // Active fill on the top portion of the track, grows as the lever snaps upward.
+        // Clip to the track path so the fill stays inside the rounded border at every height.
         const float activeHeight = kTrackHeight * animationProgress;
         if (activeHeight > 1.0f)
         {
-            auto activeBounds = trackBounds.withHeight (activeHeight);
+            juce::Graphics::ScopedSaveState saveState (g);
+
+            juce::Path trackPath;
+            trackPath.addRoundedRectangle (trackBounds, kTrackCornerRadius);
+            g.reduceClipRegion (trackPath);
+
             g.setColour (violet.withAlpha (0.35f));
-            g.fillRoundedRectangle (activeBounds, kTrackCornerRadius);
+            g.fillRect (trackBounds.withHeight (activeHeight));
         }
 
         // Track border
@@ -143,8 +149,7 @@ namespace synthortion
         currentAnimator = controller->runAnimator (
             juce::ValueAnimatorBuilder()
                 .withDurationMs (kAnimationDurationMs)
-                .withEasing (juce::Easings::createSpring (
-                    juce::SpringEasingOptions().withFrequency (3.5f).withAttenuation (3.0f)))
+                .withEasing (juce::Easings::createCubicBezier (1.0f / 3.0f, 1.0f, 2.0f / 3.0f, 1.0f))
                 .withValueChangedCallback ([this] (float t)
                                            {
                                                animationProgress = juce::jlimit (
