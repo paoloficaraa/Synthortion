@@ -183,8 +183,9 @@ namespace synthortion
 
             auto easing = juce::Easings::createCubicBezier (1.0f / 3.0f, 1.0f, 2.0f / 3.0f, 1.0f);
 
-            for (float t = 0.0f; t <= 1.0f; t += 0.01f)
+            for (int i = 0; i <= 100; ++i)
             {
+                const float t = static_cast<float> (i) * 0.01f;
                 const float value = easing (t);
                 expect (value <= 1.0f, "Ease-out cubic should never overshoot 1.0");
                 expect (value >= 0.0f, "Ease-out cubic should never undershoot 0.0");
