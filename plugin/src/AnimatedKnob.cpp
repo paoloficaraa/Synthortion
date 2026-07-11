@@ -45,7 +45,22 @@ namespace synthortion
     void AnimatedKnob::valueChanged()
     {
         Slider::valueChanged();
-        startArcAnimation();
+
+        if (getThumbBeingDragged() != -1)
+        {
+            if (currentAnimator.has_value())
+            {
+                animationController.removeAnimator (*currentAnimator);
+                currentAnimator.reset();
+            }
+
+            displayProportion = juce::jlimit (0.0f, 1.0f, static_cast<float> (valueToProportionOfLength (getValue())));
+            repaint();
+        }
+        else
+        {
+            startArcAnimation();
+        }
     }
 
     void AnimatedKnob::snapToCurrentValue()
