@@ -18,7 +18,6 @@
 | **LED Arc** | The curved indicator on a Knob that fills proportionally to the parameter value | Arc, indicator arc, progress ring |
 | **Glow** | A soft luminous halo rendered around an element (LED Arc, Oscilloscope line, Bypass LED) | Bloom, shine, aura |
 | **Grain** | A subtle animated noise texture overlaid on the entire Editor to evoke analog material | Noise overlay, film grain, texture |
-| **Scanlines** | Faint horizontal lines overlaid on the Oscilloscope area to evoke a vintage CRT display | CRT lines, horizontal lines |
 | **Trail** | A semi-transparent copy of a previous Oscilloscope frame that fades over time, creating a motion blur effect | Ghost, phantom, afterimage |
 | **Breath** | A gentle pulsing animation (opacity or thickness) applied to an idle element to signal a standby state | Pulse, idle animation, heartbeat |
 
@@ -30,7 +29,7 @@
 | **VBlank** | The vertical blanking interval — the moment between monitor frames used to synchronize rendering | Refresh tick, frame sync |
 | **ValueAnimator** | An object that interpolates a numeric value over time along a defined easing curve | Tween, interpolator, animator |
 | **Easing** | The mathematical curve that controls the rate of change of an animation (linear, spring, bezier) | Curve, timing function |
-| **Spring** | An easing curve that overshoots the target value and settles back, simulating physical elasticity | Bounce, elastic, overshoot |
+| **Spring** | An easing curve that overshoots the target value and settles back, simulating physical elasticity. No longer used for the Bypass Switch; replaced by **Ease-Out** | Bounce, elastic, overshoot |
 | **Transition** | A coordinated animation of multiple elements triggered by a state change (e.g. Bypass toggle) | State animation, scene change |
 
 ## Audio-to-UI Bridge
@@ -83,7 +82,7 @@
 > **Dev:** "When the user toggles Bypass, should the **Oscilloscope** stop immediately?"
 > **Domain expert:** "No — trigger a **Transition**. The **Output Signal** fades to grey and becomes a **Flatline**, while the **Input Signal** keeps rendering normally. The **Trails** should dissolve slowly."
 > **Dev:** "And the **Knobs** — do they freeze visually?"
-> **Domain expert:** "The **LED Arcs** dim via their **ValueAnimators**, and the **Glows** fade out. Use a **Spring** easing on the Bypass **Switch** itself so the lever overshoots satisfyingly."
+> **Domain expert:** "The **LED Arcs** dim via their **ValueAnimators**, and the **Glows** fade out. Use an **Ease-Out** curve on the Bypass **Switch** so the lever snaps cleanly into place without overshooting."
 > **Dev:** "Got it. The **Ring Buffer** keeps feeding samples the whole time?"
 > **Domain expert:** "Exactly. The Processor doesn't know about the UI state. The **AnimationController** decides what to render based on the Bypass parameter value."
 
