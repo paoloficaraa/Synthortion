@@ -73,10 +73,6 @@ namespace synthortion
 
     void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     {
-        // DEADLOCK substrate: a single pure-#000 fill across the whole editor
-        // bbox, then the 1-bit dither grain and scanline texture drawn BEFORE
-        // child widgets so they sit on the substrate rather than competing
-        // with knob arcs, scope traces and meter bars rendered on top.
         g.fillAll (juce::Colour (0xFF000000));
 
         const auto bounds = getLocalBounds();
@@ -86,17 +82,11 @@ namespace synthortion
 
     void AudioPluginAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
     {
-        // CRT-glass dust layer rendered above every child widget so the dead
-        // pixels visibly twinkle over knobs/panels/scope/meter.
         glitchOverlay.drawDeadPixelScatter (g, getLocalBounds());
     }
 
     void AudioPluginAudioProcessorEditor::drawGrainOverlay (juce::Graphics& g)
     {
-        // 1-bit dithered noise: the grain tile buffer lives in GlitchOverlay and
-        // every pixel is either pure #000 or pure #FFF (no grey, no alpha). Drawn
-        // at 1.0 opacity via nearest-neighbour resampling to keep the dither
-        // blocks crisp.
         glitchOverlay.drawDitherNoise (g, getLocalBounds());
     }
 

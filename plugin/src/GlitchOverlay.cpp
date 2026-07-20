@@ -74,8 +74,6 @@ namespace synthortion
             auto& frame = grainFrames[static_cast<size_t> (i)];
             frame = juce::Image (juce::Image::ARGB, kGrainTextureSize, kGrainTextureSize, true);
 
-            // Per-frame deterministic seed so the cycling tile set is stable
-            // across renders (and across unit-test snapshots).
             juce::Random frameRandom { i * 137 + 42 };
 
             for (int y = 0; y < kGrainTextureSize; ++y)
