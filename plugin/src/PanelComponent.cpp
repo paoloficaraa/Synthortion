@@ -51,10 +51,10 @@ namespace synthortion
         bounds.removeFromTop (22.0f);
 
         auto* laf = dynamic_cast<SynthortionLookAndFeel*> (&getLookAndFeel());
-        const auto textDark = laf != nullptr
+        const auto textColour = laf != nullptr
                                   ? laf->findColour (SynthortionLookAndFeel::textColourId)
                                   : juce::Colour (0xFFFFFFFF);
-        const auto cream = laf != nullptr
+        const auto backgroundColour = laf != nullptr
                                ? laf->findColour (SynthortionLookAndFeel::backgroundColourId)
                                : juce::Colour (0xFF000000);
 
@@ -62,20 +62,20 @@ namespace synthortion
         const auto textArea = bounds.toNearestInt();
 
         // Embossed shadow
-        g.setColour (textDark.withAlpha (0.2f));
+        g.setColour (textColour.withAlpha (0.2f));
         g.setFont (placeholderFont);
         g.drawFittedText ("COMING SOON", textArea.translated (1, 1), juce::Justification::centred, 1);
 
         // Embossed highlight
-        g.setColour (cream.brighter (0.25f).withAlpha (0.45f));
+        g.setColour (backgroundColour.brighter (0.25f).withAlpha (0.45f));
         g.drawFittedText ("COMING SOON", textArea.translated (-1, -1), juce::Justification::centred, 1);
 
         // Main label
-        g.setColour (textDark.withAlpha (0.55f));
+        g.setColour (textColour.withAlpha (0.55f));
         g.drawFittedText ("COMING SOON", textArea, juce::Justification::centred, 1);
 
         // Stylised ellipsis icon
-        g.setColour (textDark.withAlpha (0.35f));
+        g.setColour (textColour.withAlpha (0.35f));
         const float dotY = bounds.getCentreY() + 18.0f;
         for (int i = -1; i <= 1; ++i)
         {

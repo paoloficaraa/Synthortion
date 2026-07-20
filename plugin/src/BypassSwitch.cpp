@@ -26,15 +26,15 @@ namespace synthortion
         auto bounds = getLocalBounds().toFloat();
 
         const auto* laf = dynamic_cast<const SynthortionLookAndFeel*> (&getLookAndFeel());
-        auto getColour = [laf] (int colourId, juce::Colour fallback)
+        auto getColour = [laf] (int colourId, juce::Colour defaultColour)
         {
-            return laf != nullptr ? laf->findColour (colourId) : fallback;
+            return laf != nullptr ? laf->findColour (colourId) : defaultColour;
         };
 
-        const auto violet = getColour (SynthortionLookAndFeel::accentColourId, juce::Colour (0xFFFFFFFF));
-        const auto violetBright = getColour (SynthortionLookAndFeel::accentBrightColourId, juce::Colour (0xFFFFFFFF));
-        const auto cream = getColour (SynthortionLookAndFeel::backgroundColourId, juce::Colour (0xFF000000));
-        const auto panelRecessed = getColour (SynthortionLookAndFeel::panelOutlineColourId, juce::Colour (0xFFFFFFFF));
+        const auto accentColour = getColour (SynthortionLookAndFeel::accentColourId, juce::Colour (0xFFFFFFFF));
+        const auto accentBrightColour = getColour (SynthortionLookAndFeel::accentBrightColourId, juce::Colour (0xFFFFFFFF));
+        const auto backgroundColour = getColour (SynthortionLookAndFeel::backgroundColourId, juce::Colour (0xFF000000));
+        const auto panelOutlineColour = getColour (SynthortionLookAndFeel::panelOutlineColourId, juce::Colour (0xFFFFFFFF));
         const auto warmGray = juce::Colour (0xFF6B6570);
         const auto textDark = juce::Colour (0xFF2E2A33);
 
@@ -55,7 +55,7 @@ namespace synthortion
         const auto trackBounds = juce::Rectangle<float> (trackX, trackY, kTrackWidth, kTrackHeight);
 
         // Track background
-        g.setColour (panelRecessed.darker (0.15f));
+        g.setColour (panelOutlineColour.darker (0.15f));
         g.fillRoundedRectangle (trackBounds, kTrackCornerRadius);
 
         // Active fill on the top portion of the track, grows as the lever snaps upward.
@@ -69,7 +69,7 @@ namespace synthortion
             trackPath.addRoundedRectangle (trackBounds, kTrackCornerRadius);
             g.reduceClipRegion (trackPath);
 
-            g.setColour (violet.withAlpha (0.35f));
+            g.setColour (accentColour.withAlpha (0.35f));
             g.fillRect (trackBounds.withHeight (activeHeight));
         }
 
@@ -84,8 +84,8 @@ namespace synthortion
         const auto handleBounds = juce::Rectangle<float> (handleX, handleY, kHandleSize, kHandleSize);
 
         juce::ColourGradient handleGrad (
-            cream, handleBounds.getTopLeft(),
-            panelRecessed, handleBounds.getBottomRight(),
+            backgroundColour, handleBounds.getTopLeft(),
+            panelOutlineColour, handleBounds.getBottomRight(),
             false);
         g.setGradientFill (handleGrad);
         g.fillRoundedRectangle (handleBounds, kHandleCornerRadius);
@@ -93,16 +93,16 @@ namespace synthortion
         g.setColour (warmGray.withAlpha (0.5f));
         g.drawRoundedRectangle (handleBounds, kHandleCornerRadius, 0.75f);
 
-        // LED and violet glow
+        // LED and accent glow
         const float ledX = trackBounds.getRight() + 10.0f;
         const float ledY = trackBounds.getCentreY() - kLedSize * 0.5f;
         const auto ledBounds = juce::Rectangle<float> (ledX, ledY, kLedSize, kLedSize);
 
         const float activeLevel = controller != nullptr ? 1.0f - controller->getBypassMix() : 1.0f;
         const auto ledOffColour = warmGray.brighter (0.3f);
-        const auto ledColour = ledOffColour.interpolatedWith (violetBright, animationProgress * activeLevel);
+        const auto ledColour = ledOffColour.interpolatedWith (accentBrightColour, animationProgress * activeLevel);
 
-        ledGlow.setColor (violet);
+        ledGlow.setColor (accentColour);
         ledGlow.setOpacity (static_cast<double> (animationProgress * 0.85f * activeLevel));
         ledGlow.setRadius (static_cast<double> (kGlowRadius * animationProgress));
 

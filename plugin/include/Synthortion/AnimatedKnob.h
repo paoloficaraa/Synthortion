@@ -5,11 +5,11 @@
 
 namespace synthortion
 {
-    /** A rotary slider with a hybrid flat/relief look, animated LED value arc and violet glow.
+    /** A rotary slider with a hybrid flat/relief look, animated LED value arc and accent glow.
 
         The knob inherits from juce::Slider so standard APVTS SliderAttachments work unchanged.
         Value changes drive a short ease-out animation on the displayed LED arc via the shared
-        AnimationController. A blurred violet glow is rendered around the active arc using
+        AnimationController. A blurred accent glow is rendered around the active arc using
         Melatonin Blur.
     */
     class AnimatedKnob final : public juce::Slider

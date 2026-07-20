@@ -9,10 +9,10 @@
 
 namespace synthortion
 {
-    /** Custom hardware-style bypass toggle with a snappily animated vertical lever and violet LED glow.
+    /** Custom hardware-style bypass toggle with a snappily animated vertical lever and accent LED glow.
 
         The lever slides up (ON) and down (OFF) with a short ease-out cubic curve that snaps into the
-        end stop without overshooting. A violet LED to the right of the track fades in and out, rendered
+        end stop without overshooting. An LED to the right of the track fades in and out, rendered
         with a Melatonin Blur glow.
     */
     class BypassSwitch final : public juce::Button

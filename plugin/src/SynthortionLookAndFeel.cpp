@@ -3,18 +3,8 @@
 
 namespace
 {
-    const juce::Colour CREAM(0xFF000000);
-    const juce::Colour CREAM_DARK(0xFF000000);
-    const juce::Colour CREAM_SHADOW(0xFFFFFFFF);
-    const juce::Colour VIOLET(0xFFFFFFFF);
-    const juce::Colour COPPER(0xFFFFFFFF);
-    const juce::Colour COPPER_BRIGHT(0xFFFFFFFF);
-    const juce::Colour GRAPHITE(0xFFFFFFFF);
-    const juce::Colour WARM_GRAY(0xFFFFFFFF);
-    const juce::Colour TEXT_DARK(0xFFFFFFFF);
-    const juce::Colour LED_GREEN(0xFFFFFFFF);
-    const juce::Colour LED_OFF(0xFF000000);
-
+    const juce::Colour BLACK(0xFF000000);
+    const juce::Colour WHITE(0xFFFFFFFF);
 }
 
 SynthortionLookAndFeel::SynthortionLookAndFeel()
@@ -23,35 +13,35 @@ SynthortionLookAndFeel::SynthortionLookAndFeel()
       parameterValueFont (juce::FontOptions().withName("Montserrat").withHeight(12.0f).withStyle("Regular")),
       bypassLabelFont (juce::FontOptions().withName("Montserrat").withHeight(13.0f).withStyle("Medium"))
 {
-    setColour(juce::ResizableWindow::backgroundColourId, CREAM);
-    setColour(juce::DocumentWindow::backgroundColourId, CREAM);
-    setColour(juce::DialogWindow::backgroundColourId, CREAM);
+    setColour(juce::ResizableWindow::backgroundColourId, BLACK);
+    setColour(juce::DocumentWindow::backgroundColourId, BLACK);
+    setColour(juce::DialogWindow::backgroundColourId, BLACK);
 
-    setColour(juce::Slider::backgroundColourId, CREAM_DARK);
-    setColour(juce::Slider::thumbColourId, VIOLET);
-    setColour(juce::Slider::trackColourId, VIOLET);
-    setColour(juce::Slider::rotarySliderFillColourId, VIOLET);
-    setColour(juce::Slider::rotarySliderOutlineColourId, CREAM_SHADOW);
+    setColour(juce::Slider::backgroundColourId, BLACK);
+    setColour(juce::Slider::thumbColourId, WHITE);
+    setColour(juce::Slider::trackColourId, WHITE);
+    setColour(juce::Slider::rotarySliderFillColourId, WHITE);
+    setColour(juce::Slider::rotarySliderOutlineColourId, WHITE);
 
-    setColour(juce::TextButton::buttonColourId, CREAM_DARK);
-    setColour(juce::TextButton::buttonOnColourId, VIOLET);
-    setColour(juce::TextButton::textColourOffId, TEXT_DARK);
-    setColour(juce::TextButton::textColourOnId, CREAM);
+    setColour(juce::TextButton::buttonColourId, BLACK);
+    setColour(juce::TextButton::buttonOnColourId, WHITE);
+    setColour(juce::TextButton::textColourOffId, WHITE);
+    setColour(juce::TextButton::textColourOnId, BLACK);
 
-    setColour(juce::ToggleButton::textColourId, TEXT_DARK);
-    setColour(juce::ToggleButton::tickColourId, VIOLET);
-    setColour(juce::ToggleButton::tickDisabledColourId, WARM_GRAY);
+    setColour(juce::ToggleButton::textColourId, WHITE);
+    setColour(juce::ToggleButton::tickColourId, WHITE);
+    setColour(juce::ToggleButton::tickDisabledColourId, WHITE);
 
-    setColour(juce::Label::textColourId, TEXT_DARK);
+    setColour(juce::Label::textColourId, WHITE);
     setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
 
-    setColour(backgroundColourId, CREAM);
-    setColour(panelFillColourId, CREAM_DARK);
-    setColour(panelOutlineColourId, CREAM_SHADOW);
-    setColour(accentColourId, VIOLET);
-    setColour(accentBrightColourId, COPPER_BRIGHT);
-    setColour(textColourId, TEXT_DARK);
-    setColour(knobFillColourId, GRAPHITE);
+    setColour(backgroundColourId, BLACK);
+    setColour(panelFillColourId, BLACK);
+    setColour(panelOutlineColourId, WHITE);
+    setColour(accentColourId, WHITE);
+    setColour(accentBrightColourId, WHITE);
+    setColour(textColourId, WHITE);
+    setColour(knobFillColourId, WHITE);
 
     bebasNeueTypeface = juce::Typeface::createSystemTypefaceFor(BinaryData::BebasNeueRegular_ttf,
                                                                  BinaryData::BebasNeueRegular_ttfSize);
@@ -97,8 +87,8 @@ void SynthortionLookAndFeel::draw3DKnob(juce::Graphics& g, const juce::Rectangle
     drawCopperRim(g, knobBounds);
 
     juce::ColourGradient faceGrad(
-        GRAPHITE.brighter(0.15f), knobBounds.getTopLeft().translated(0, -radius * 0.1f),
-        GRAPHITE.darker(0.1f), knobBounds.getBottomRight().translated(0, radius * 0.05f),
+        WHITE.brighter(0.15f), knobBounds.getTopLeft().translated(0, -radius * 0.1f),
+        WHITE.darker(0.1f), knobBounds.getBottomRight().translated(0, radius * 0.05f),
         false);
     g.setGradientFill(faceGrad);
     g.fillEllipse(knobBounds.reduced(kKnobFaceReduction + 2.0f));
@@ -107,7 +97,7 @@ void SynthortionLookAndFeel::draw3DKnob(juce::Graphics& g, const juce::Rectangle
     const float majorTickLength = kKnobTickLength + 1.0f;
     const float minorTickLength = kKnobTickLength;
 
-    g.setColour(WARM_GRAY.withAlpha(0.4f));
+    g.setColour(WHITE.withAlpha(0.4f));
     for (int i = 0; i < kKnobNumTicks; ++i)
     {
         const float tickAngle = rotaryStartAngle + (static_cast<float>(i) / static_cast<float>(kKnobNumTicks - 1)) *
@@ -128,16 +118,16 @@ void SynthortionLookAndFeel::draw3DKnob(juce::Graphics& g, const juce::Rectangle
     const float pointerX = centreX + pointerLength * std::cos(angle - juce::MathConstants<float>::halfPi);
     const float pointerY = centreY + pointerLength * std::sin(angle - juce::MathConstants<float>::halfPi);
 
-    g.setColour(COPPER_BRIGHT);
+    g.setColour(WHITE);
     g.drawLine(centreX, centreY, pointerX, pointerY, kKnobPointerThickness);
 
-    g.setColour(CREAM);
+    g.setColour(BLACK);
     const float dotDiameter = kKnobCenterDotRadius * 2.0f;
     g.fillEllipse(centreX - kKnobCenterDotRadius, centreY - kKnobCenterDotRadius, dotDiameter, dotDiameter);
 
     if (isMouseOver || isMouseDown)
     {
-        g.setColour(COPPER.withAlpha(isMouseDown ? 0.3f : 0.15f));
+        g.setColour(WHITE.withAlpha(isMouseDown ? 0.3f : 0.15f));
         g.fillEllipse(knobBounds.reduced(kKnobFaceReduction + 2.0f));
     }
 }
@@ -154,8 +144,8 @@ void SynthortionLookAndFeel::drawCopperRim(juce::Graphics& g, const juce::Rectan
     g.fillPath(shadow);
 
     juce::ColourGradient rimGrad(
-        WARM_GRAY.brighter(0.2f), centreX - radius, centreY - radius,
-        GRAPHITE, centreX + radius, centreY + radius,
+        WHITE.brighter(0.2f), centreX - radius, centreY - radius,
+        WHITE, centreX + radius, centreY + radius,
         true);
     g.setGradientFill(rimGrad);
     g.fillEllipse(bounds);
@@ -177,7 +167,7 @@ void SynthortionLookAndFeel::drawLEDArc(juce::Graphics& g, const juce::Rectangle
     juce::Path backgroundArc;
     backgroundArc.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f,
                                  startAngle, endAngle, true);
-    g.setColour(COPPER.withAlpha(0.2f * activeLevel));
+    g.setColour(WHITE.withAlpha(0.2f * activeLevel));
     g.strokePath(backgroundArc, juce::PathStrokeType(arcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     if (activeLevel <= 0.0f)
@@ -186,7 +176,7 @@ void SynthortionLookAndFeel::drawLEDArc(juce::Graphics& g, const juce::Rectangle
     juce::Path valueArc;
     valueArc.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f,
                             startAngle, currentAngle, true);
-    g.setColour(COPPER.withAlpha(0.7f * activeLevel));
+    g.setColour(WHITE.withAlpha(0.7f * activeLevel));
     g.strokePath(valueArc, juce::PathStrokeType(arcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
@@ -202,7 +192,7 @@ void SynthortionLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleBut
     {
         auto textArea = bounds;
         textArea.removeFromLeft(kSwitchWidth + 8.0f);
-        g.setColour(TEXT_DARK);
+        g.setColour(WHITE);
         g.setFont(bypassLabelFont);
         g.drawFittedText(button.getButtonText(), textArea.toNearestInt(),
                          juce::Justification::centredLeft, 1);
@@ -211,11 +201,11 @@ void SynthortionLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleBut
     drawSwitchHandle(g, switchBounds, isOn, isHighlighted, isDown);
 
     juce::Rectangle<float> ledBounds(switchBounds.getX() + 4.0f, switchBounds.getCentreY() - 3.0f, 6.0f, 6.0f);
-    g.setColour(isOn ? LED_GREEN : LED_OFF);
+    g.setColour(isOn ? WHITE : BLACK);
     g.fillEllipse(ledBounds);
     if (isOn)
     {
-        g.setColour(LED_GREEN.withAlpha(0.4f));
+        g.setColour(WHITE.withAlpha(0.4f));
         g.fillEllipse(ledBounds.expanded(2.0f));
     }
 }
@@ -230,19 +220,19 @@ void SynthortionLookAndFeel::drawSwitchHandle(juce::Graphics& g, const juce::Rec
 
     auto switchBounds = juce::Rectangle<float>(x, y, w, h);
 
-    g.setColour(CREAM_SHADOW);
+    g.setColour(WHITE);
     g.fillRoundedRectangle(switchBounds.expanded(1.0f), kSwitchCornerRadius);
 
     juce::ColourGradient bgGrad(
-        isOn ? VIOLET.darker(0.3f) : CREAM_DARK.darker(0.2f),
+        isOn ? WHITE.darker(0.3f) : BLACK.darker(0.2f),
         switchBounds.getTopLeft(),
-        isOn ? VIOLET.darker(0.5f) : CREAM_DARK,
+        isOn ? WHITE.darker(0.5f) : BLACK,
         switchBounds.getBottomRight(),
         false);
     g.setGradientFill(bgGrad);
     g.fillRoundedRectangle(switchBounds, kSwitchCornerRadius);
 
-    g.setColour(isOn ? VIOLET : WARM_GRAY.withAlpha(0.3f));
+    g.setColour(isOn ? WHITE : WHITE.withAlpha(0.3f));
     g.drawRoundedRectangle(switchBounds, kSwitchCornerRadius, 1.0f);
 
     const float handleWidth = w * 0.4f;
@@ -253,15 +243,15 @@ void SynthortionLookAndFeel::drawSwitchHandle(juce::Graphics& g, const juce::Rec
     auto handleBounds = juce::Rectangle<float>(handleX, handleY, handleWidth, handleHeight);
 
     juce::ColourGradient handleGrad(
-        isHighlighted ? CREAM.brighter(0.2f) : CREAM,
+        isHighlighted ? BLACK.brighter(0.2f) : BLACK,
         handleBounds.getTopLeft(),
-        isHighlighted ? CREAM_SHADOW : CREAM_SHADOW.darker(0.2f),
+        isHighlighted ? WHITE : WHITE.darker(0.2f),
         handleBounds.getBottomRight(),
         false);
     g.setGradientFill(handleGrad);
     g.fillRoundedRectangle(handleBounds, 2.0f);
 
-    g.setColour(WARM_GRAY.darker(0.3f));
+    g.setColour(WHITE.darker(0.3f));
     g.drawRoundedRectangle(handleBounds, 2.0f, 0.5f);
 
     if (isDown)
@@ -276,24 +266,24 @@ void SynthortionLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::
 {
     auto r = bounds.toFloat();
 
-    g.fillAll(isRecessed ? CREAM_SHADOW : CREAM_DARK);
+    g.fillAll(isRecessed ? WHITE : BLACK);
 
     if (isRecessed)
     {
-        g.setColour(CREAM_SHADOW);
+        g.setColour(WHITE);
         g.fillRoundedRectangle(r, 6.0f);
 
-        g.setColour(CREAM);
+        g.setColour(BLACK);
         g.fillRoundedRectangle(r.reduced(2.0f), 5.0f);
 
-        g.setColour(WARM_GRAY.withAlpha(0.1f));
+        g.setColour(WHITE.withAlpha(0.1f));
         g.drawRoundedRectangle(r.reduced(0.5f), 6.0f, 0.5f);
     }
     else
     {
         juce::ColourGradient grad(
-            CREAM_DARK.brighter(0.05f), r.getTopLeft(),
-            CREAM_SHADOW.darker(0.1f), r.getBottomRight(),
+            BLACK.brighter(0.05f), r.getTopLeft(),
+            WHITE.darker(0.1f), r.getBottomRight(),
             false);
         g.setGradientFill(grad);
         g.fillRoundedRectangle(r, 6.0f);
@@ -330,7 +320,7 @@ void SynthortionLookAndFeel::drawSectionTitle(juce::Graphics& g, juce::Rectangle
     {
         auto labelArea = r.removeFromTop(kSectionTitleHeight).reduced(kSectionTitleInset, 0.0f);
 
-        g.setColour(TEXT_DARK.withAlpha(0.7f));
+        g.setColour(WHITE.withAlpha(0.7f));
         g.setFont(sectionHeadingFont);
         g.drawFittedText(title, labelArea.toNearestInt(),
                          juce::Justification::centredLeft, 1);
