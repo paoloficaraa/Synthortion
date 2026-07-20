@@ -131,11 +131,8 @@ void SynthortionLookAndFeel::drawCanonicalKnob(juce::Graphics& g, const juce::Re
     {
         g.setColour(pointerColour.withAlpha(litAlpha));
 
-        for (int i = 0; i < steps; ++i)
+        for (int i = 0; i < litCount; ++i)
         {
-            if (i >= litCount)
-                break;
-
             const float segStart = rotaryStartAngle + (static_cast<float>(i) / static_cast<float>(steps)) * angularSpan;
             const float segEnd = rotaryStartAngle + (static_cast<float>(i + 1) / static_cast<float>(steps)) * angularSpan;
 

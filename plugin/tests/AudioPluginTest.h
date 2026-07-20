@@ -1157,7 +1157,7 @@ namespace synthortion
             }
         }
 
-        juce:: MouseEvent makeMouseDownEvent (juce::Component& target)
+        juce::MouseEvent makeMouseDownEvent (juce::Component& target)
         {
             auto source = juce::Desktop::getInstance().getMainMouseSource();
             const juce::Point<float> pos (static_cast<float> (target.getWidth()) * 0.5f,

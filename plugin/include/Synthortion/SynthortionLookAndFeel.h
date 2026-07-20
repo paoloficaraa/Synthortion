@@ -27,21 +27,6 @@ public:
     void drawToggleButton(juce::Graphics&, juce::ToggleButton&,
                           bool isHighlighted, bool isDown) override;
 
-    /** Render a brutalist twin shadow: a 1 px-offset hard duplicate disc behind
-        the knob disc (carved-stencil affordance). Visible on hover/drag.
-    */
-    void drawTwinShadow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const;
-
-    /** Render a canonical knob: solid disc + thick pointer + N-step LED arc. */
-    void drawCanonicalKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                           float knobAngle, float sliderPos, bool isInverted,
-                           float rotaryStartAngle, float rotaryEndAngle, int steps) const;
-
-    /** Render an outline knob: #000 disc + #FFF outline + rim ticks + thick pointer. */
-    void drawOutlineKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                         float knobAngle, float sliderPos, bool isInverted,
-                         float rotaryStartAngle, float rotaryEndAngle, int steps) const;
-
     void drawPanelBackground(juce::Graphics&, const juce::Rectangle<int>&,
                              bool isRecessed, const juce::String& title);
 
@@ -65,6 +50,16 @@ private:
                           bool isOn, bool isHighlighted, bool isDown) const;
     void drawSectionTitle(juce::Graphics& g, juce::Rectangle<float>& r,
                           const juce::String& title) const;
+
+    void drawTwinShadow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const;
+
+    void drawCanonicalKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                           float knobAngle, float sliderPos, bool isInverted,
+                           float rotaryStartAngle, float rotaryEndAngle, int steps) const;
+
+    void drawOutlineKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                         float knobAngle, float sliderPos, bool isInverted,
+                         float rotaryStartAngle, float rotaryEndAngle, int steps) const;
 
     juce::Typeface::Ptr bebasNeueTypeface;
     juce::Typeface::Ptr montserratTypeface;
