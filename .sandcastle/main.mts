@@ -132,7 +132,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           maxIterations: 100,
           idleTimeoutSeconds: 1800,
           // Implementer: Kimi K2.7 Code — specializzato per coding
-          agent: sandcastle.opencode("opencode-go/grok-4.5"),
+          agent: sandcastle.opencode("opencode-go/glm-5.2"),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
@@ -221,7 +221,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     maxIterations: 1,
     idleTimeoutSeconds: 1800,
     // Merger: Qwen3.7 Plus — merge e risoluzione conflitti
-    agent: sandcastle.opencode("opencode-go/glm-5.2"),
+    agent: sandcastle.opencode("opencode-go/qwen3.7-max"),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
       // A markdown list of branch names, one per line.
