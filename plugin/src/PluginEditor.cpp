@@ -8,7 +8,6 @@ namespace synthortion
     namespace Colours
     {
         const juce::Colour CREAM (0xFFF5F0EB);
-        const juce::Colour RACK_DARK (0xFF1A1520);
     }
 
     AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
@@ -36,22 +35,6 @@ namespace synthortion
         setOpaque (true);
         setLookAndFeel (&lookAndFeel);
         startTimer (1000 / kTimerHz);
-
-        for (int i = 0; i < kGrainFrames; ++i)
-        {
-            grainFrames[static_cast<size_t> (i)] = juce::Image (juce::Image::ARGB, kGrainTextureSize, kGrainTextureSize, true);
-            auto& frame = grainFrames[static_cast<size_t> (i)];
-            juce::Random random (i * 137 + 42);
-
-            for (int y = 0; y < kGrainTextureSize; ++y)
-            {
-                for (int x = 0; x < kGrainTextureSize; ++x)
-                {
-                    const auto value = static_cast<float> (random.nextInt (256)) / 255.0f;
-                    frame.setPixelAt (x, y, juce::Colour::greyLevel (value).withAlpha (0.5f));
-                }
-            }
-        }
 
         addAndMakeVisible (distortionPanel);
         addAndMakeVisible (chorusPanel);
@@ -90,56 +73,31 @@ namespace synthortion
 
     void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     {
-        drawRackBackground (g);
+        // DEADLOCK substrate: a single pure-#000 fill across the whole editor
+        // bbox, then the 1-bit dither grain and scanline texture drawn BEFORE
+        // child widgets so they sit on the substrate rather than competing
+        // with knob arcs, scope traces and meter bars rendered on top.
+        g.fillAll (juce::Colour (0xFF000000));
+
+        const auto bounds = getLocalBounds();
+        drawGrainOverlay (g);
+        glitchOverlay.drawScanlines (g, bounds);
     }
 
     void AudioPluginAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
     {
-        drawGrainOverlay (g);
-    }
-
-    void AudioPluginAudioProcessorEditor::drawRackBackground (juce::Graphics& g)
-    {
-        const float bypassMix = animationController.getBypassMix();
-        const auto bg = Colours::CREAM.interpolatedWith (Colours::CREAM.darker (0.12f), bypassMix);
-        g.fillAll (bg);
-
-        auto localBounds = getLocalBounds();
-        auto leftEar = localBounds.removeFromLeft (kRackEarWidth);
-        auto rightEar = localBounds.removeFromRight (kRackEarWidth);
-
-        g.setColour (Colours::RACK_DARK);
-        g.fillRect (leftEar);
-        g.fillRect (rightEar);
-
-        // Rack ear screw holes
-        g.setColour (juce::Colour (0xFF404040));
-        auto drawScrew = [&] (int x, int y)
-        {
-            g.fillEllipse (static_cast<float> (x), static_cast<float> (y), 6.0f, 6.0f);
-            g.setColour (juce::Colour (0xFF202020));
-            g.drawLine (x + 1.0f, y + 3.0f, x + 5.0f, y + 3.0f, 1.0f);
-            g.setColour (juce::Colour (0xFF404040));
-        };
-        drawScrew (4, 14);
-        drawScrew (getWidth() - 11, 14);
-        drawScrew (4, getHeight() - 20);
-        drawScrew (getWidth() - 11, getHeight() - 20);
+        // CRT-glass dust layer rendered above every child widget so the dead
+        // pixels visibly twinkle over knobs/panels/scope/meter.
+        glitchOverlay.drawDeadPixelScatter (g, getLocalBounds());
     }
 
     void AudioPluginAudioProcessorEditor::drawGrainOverlay (juce::Graphics& g)
     {
-        const auto& frame = grainFrames[static_cast<size_t> (grainFrameIndex)];
-        const auto dest = getLocalBounds().toFloat();
-
-        g.setOpacity (kGrainAlpha);
-        g.drawImage (frame, dest, juce::RectanglePlacement::stretchToFit);
-        g.setOpacity (1.0f);
-    }
-
-    void AudioPluginAudioProcessorEditor::updateGrainAnimation()
-    {
-        grainFrameIndex = (grainFrameIndex + 1) % kGrainFrames;
+        // 1-bit dithered noise: the grain tile buffer lives in GlitchOverlay and
+        // every pixel is either pure #000 or pure #FFF (no grey, no alpha). Drawn
+        // at 1.0 opacity via nearest-neighbour resampling to keep the dither
+        // blocks crisp.
+        glitchOverlay.drawDitherNoise (g, getLocalBounds());
     }
 
     void AudioPluginAudioProcessorEditor::resized()
@@ -237,7 +195,7 @@ namespace synthortion
     {
         updateMainControlLabels();
         updateBypassState();
-        updateGrainAnimation();
+        glitchOverlay.tick();
 
         lookAndFeel.setBypassMix (animationController.getBypassMix());
 

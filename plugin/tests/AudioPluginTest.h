@@ -7,6 +7,7 @@
 #include "Synthortion/AudioScopeRingBuffer.h"
 #include "Synthortion/SynthortionLookAndFeel.h"
 #include "Synthortion/BypassComponent.h"
+#include "Synthortion/GlitchOverlay.h"
 #include "Synthortion/MeterComponent.h"
 #include "Synthortion/OscilloscopeComponent.h"
 #include "Synthortion/PanelComponent.h"
@@ -135,9 +136,12 @@ namespace synthortion
             testAnimationControllerBypassMixDefaultsToZero();
             testDeadlockKnobRendersWhiteFace();
             testMeterBarFadesWithBypassMix();
-            testEditorBackgroundDimsWhenBypassed();
+            testEditorBackgroundUnaffectedByBypass();
             testComingSoonPanelRendersPlaceholder();
             testBypassTransitionPropagatesToComponents();
+            testGlitchOverlayDitherIsBinary();
+            testGlitchOverlayTickAdvancesDitherFrame();
+            testGlitchOverlayRerollsDeadPixelsApprox80ms();
         }
 
     private:
@@ -872,9 +876,9 @@ namespace synthortion
                     "Bypassed meter bar should fade back to the bar background");
         }
 
-        void testEditorBackgroundDimsWhenBypassed()
+        void testEditorBackgroundUnaffectedByBypass()
         {
-            beginTest ("Plugin editor background dims when bypassed");
+            beginTest ("Plugin editor black substrate is unaffected by bypass");
 
             AudioPluginAudioProcessor processor;
             AudioPluginAudioProcessorEditor editor (processor);
@@ -882,15 +886,95 @@ namespace synthortion
             editor.getAnimationController().setBypassMix (0.0f);
             editor.repaint();
             const auto activeSnapshot = editor.createComponentSnapshot (editor.getLocalBounds());
-            const auto activePixel = activeSnapshot.getPixelAt (140, 30);
 
             editor.getAnimationController().setBypassMix (1.0f);
             editor.repaint();
             const auto bypassedSnapshot = editor.createComponentSnapshot (editor.getLocalBounds());
-            const auto bypassedPixel = bypassedSnapshot.getPixelAt (140, 30);
 
-            expect (bypassedPixel.getBrightness() < activePixel.getBrightness(),
-                    "Bypassed editor background should be dimmer than active background");
+            // Sample points inside the pure-background ear strips where no child
+            // widget is placed (resized() insets kRackEarWidth == 15), so the
+            // pixels only ever see the #000 substrate + dither + scanlines + dead
+            // pixels. None of these layers depend on bypass mix, so the substrate
+            // must be byte-identical between the active and bypassed snapshots.
+            const juce::Point<int> samplePoints[] = {
+                { 5, 30 },
+                { 5, 200 },
+                { 5, 400 },
+                { editor.getWidth() - 5, 30 },
+                { editor.getWidth() - 5, 200 }
+            };
+
+            for (const auto& p : samplePoints)
+            {
+                expect (activeSnapshot.getPixelAt (p.x, p.y) == bypassedSnapshot.getPixelAt (p.x, p.y),
+                        "Pure-black DEADLOCK substrate must not dim with bypass mix");
+            }
+        }
+
+        void testGlitchOverlayDitherIsBinary()
+        {
+            beginTest ("GlitchOverlay dither noise renders only pure #000 or #FFF pixels");
+
+            GlitchOverlay overlay;
+            juce::Image image (juce::Image::ARGB, GlitchOverlay::tileSizeForTests(), GlitchOverlay::tileSizeForTests(), true);
+            juce::Graphics g (image);
+            overlay.drawDitherNoise (g, juce::Rectangle<int> (0, 0, GlitchOverlay::tileSizeForTests(), GlitchOverlay::tileSizeForTests()));
+
+            bool onlyBinary = true;
+            bool hasWhite = false;
+
+            for (int y = 0; y < GlitchOverlay::tileSizeForTests() && onlyBinary; ++y)
+            {
+                for (int x = 0; x < GlitchOverlay::tileSizeForTests(); ++x)
+                {
+                    const auto c = image.getPixelAt (x, y);
+
+                    if (c == juce::Colour (0xFFFFFFFF))
+                        hasWhite = true;
+                    else if (c != juce::Colour (0xFF000000))
+                        onlyBinary = false;
+                }
+            }
+
+            expect (onlyBinary, "Dither tile must contain only pure #000 or #FFF pixels (no grey)");
+            expect (hasWhite, "Dither tile should contain duty-cycle #FFF pixels");
+        }
+
+        void testGlitchOverlayTickAdvancesDitherFrame()
+        {
+            beginTest ("GlitchOverlay::tick advances the dither frame index");
+
+            GlitchOverlay overlay;
+
+            expect (overlay.getGrainFrameIndex() == 0, "Dither frame index should start at 0");
+
+            overlay.tick();
+            expect (overlay.getGrainFrameIndex() == 1, "Dither frame index should advance to 1 after one tick");
+        }
+
+        void testGlitchOverlayRerollsDeadPixelsApprox80ms()
+        {
+            beginTest ("GlitchOverlay::tick re-rolls dead pixels every ~80 ms (5 ticks at 60 Hz)");
+
+            GlitchOverlay overlay;
+            const int initial = overlay.getDeadPixelRerollCount();
+
+            for (int i = 0; i < 5; ++i)
+                overlay.tick();
+
+            expect (overlay.getDeadPixelRerollCount() == initial + 1,
+                    "Dead pixels should re-roll once after 5 ticks (~83 ms)");
+
+            for (int i = 0; i < 4; ++i)
+                overlay.tick();
+
+            expect (overlay.getDeadPixelRerollCount() == initial + 1,
+                    "Dead pixels should not re-roll again before the next 5-tick window");
+
+            overlay.tick();
+
+            expect (overlay.getDeadPixelRerollCount() == initial + 2,
+                    "Dead pixels should re-roll a second time after 10 ticks");
         }
 
         void testComingSoonPanelRendersPlaceholder()

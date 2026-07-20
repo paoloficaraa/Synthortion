@@ -33,6 +33,7 @@ PRIVATE
     src/OscilloscopeComponent.cpp
     src/MeterComponent.cpp
     src/AnimatedKnob.cpp
+    src/GlitchOverlay.cpp
 )
 
 target_include_directories(Synthortion
@@ -95,6 +96,7 @@ PRIVATE
     src/OscilloscopeComponent.cpp
     src/MeterComponent.cpp
     src/AnimatedKnob.cpp
+    src/GlitchOverlay.cpp
 )
 
 target_include_directories(SynthortionTests

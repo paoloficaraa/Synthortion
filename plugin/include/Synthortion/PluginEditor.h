@@ -4,6 +4,7 @@
 #include "Synthortion/AnimationController.h"
 #include "Synthortion/AudioScopeRingBuffer.h"
 #include "Synthortion/BypassComponent.h"
+#include "Synthortion/GlitchOverlay.h"
 #include "Synthortion/MeterComponent.h"
 #include "Synthortion/OscilloscopeComponent.h"
 #include "Synthortion/PanelComponent.h"
@@ -40,10 +41,6 @@ namespace synthortion
         static constexpr int kWindowWidth = 720;
         static constexpr int kWindowHeight = 440;
 
-        static constexpr int kGrainTextureSize = 64;
-        static constexpr int kGrainFrames = 8;
-        static constexpr float kGrainAlpha = 0.06f;
-
         static constexpr int kRackEarWidth = 15;
         static constexpr int kSideBarWidth = 55;
         static constexpr int kTopBarHeight = 90;
@@ -61,9 +58,7 @@ namespace synthortion
 
         void updateMainControlLabels();
         void updateBypassState();
-        void drawRackBackground (juce::Graphics& g);
         void drawGrainOverlay (juce::Graphics& g);
-        void updateGrainAnimation();
 
         AudioPluginAudioProcessor& processorRef;
         SynthortionLookAndFeel lookAndFeel;
@@ -125,8 +120,7 @@ namespace synthortion
         std::unique_ptr<SliderAttachment> inputGainAttachment;
         std::unique_ptr<SliderAttachment> outputGainAttachment;
 
-        std::array<juce::Image, kGrainFrames> grainFrames;
-        int grainFrameIndex = 0;
+        GlitchOverlay glitchOverlay;
 
         bool lastBypassState = false;
 
