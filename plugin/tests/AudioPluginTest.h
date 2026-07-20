@@ -131,6 +131,12 @@ namespace synthortion
             testAnimatedKnobIsASlider();
             testAnimatedKnobHasRotaryStyle();
             testAnimatedKnobSnapsArcDuringDrag();
+            testAnimatedKnobDefaultStyleIsCanonical();
+            testAnimatedKnobStepCountMatchesStyle();
+            testAnimatedKnobStepEasingQuantizesHard();
+            testCanonicalKnobInvertsFaceOnMouseDown();
+            testTwinShadowRendersOnDrag();
+            testEditorKnobsUseFourCanonicalAndFourOutline();
             testEditorContainsEightAnimatedKnobs();
             testAnimatedKnobBindsToParameter();
             testInputMeterIsOnLeftSideBar();
@@ -573,7 +579,7 @@ namespace synthortion
 
         void testAnimatedKnobSnapsArcDuringDrag()
         {
-            beginTest ("AnimatedKnob arc snaps instantly during mouse drag");
+            beginTest ("AnimatedKnob snaps displayed value to target within one step during drag");
 
             juce::Component dummy;
             AnimationController controller (&dummy);
@@ -605,19 +611,9 @@ namespace synthortion
             knob.mouseDown (downEvent);
             knob.setValue (1.0, juce::sendNotificationSync);
 
-            const auto dragSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
-            const auto dragPixel = dragSnapshot.getPixelAt (30, 7);
-
-            knob.setValue (0.0, juce::dontSendNotification);
-            knob.snapToCurrentValue();
-            knob.setValue (1.0, juce::dontSendNotification);
-            knob.snapToCurrentValue();
-
-            const auto snappedSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
-            const auto snappedPixel = snappedSnapshot.getPixelAt (30, 7);
-
-            expect (std::abs (dragPixel.getBrightness() - snappedPixel.getBrightness()) < 0.05f,
-                    "Drag-initiated value change should render the arc at the target immediately");
+            const float step = 1.0f / static_cast<float> (knob.getStepCount());
+            expect (std::abs (knob.getDisplayProportion() - 1.0f) < step,
+                    "During drag the displayed proportion should snap to the target within one Step");
         }
 
         void testEditorContainsEightAnimatedKnobs()
@@ -824,7 +820,7 @@ namespace synthortion
 
         void testDeadlockKnobRendersWhiteFace()
         {
-            beginTest ("Knob renders a flat white face in the DEADLOCK palette");
+            beginTest ("Knob renders a flat white canonical face in the DEADLOCK palette");
 
             juce::Component dummy;
             AnimationController controller (&dummy);
@@ -839,10 +835,10 @@ namespace synthortion
             knob.setLookAndFeel (&lookAndFeel);
 
             const auto snapshot = knob.createComponentSnapshot (knob.getLocalBounds());
-            const auto facePixel = snapshot.getPixelAt (35, 35);
+            const auto facePixel = snapshot.getPixelAt (15, 30);
 
             expect (facePixel.getBrightness() > 0.9f,
-                    "Knob face should render pure white in the binary DEADLOCK palette");
+                    "Canonical knob face should render pure white in the binary DEADLOCK palette");
             expect (std::abs (lookAndFeel.getBypassMix()) < 1.0e-6f,
                     "LnF bypass mix should default to the active state");
         }
@@ -1143,6 +1139,151 @@ namespace synthortion
 
             // 1 px #FFF horizontal rule directly beneath the 22 pt title row.
             expect (snapshot.getPixelAt (50, 22) == white, "Rule beneath the title row should be #FFF");
+        }
+
+        void countKnobsByStyleRecursive (juce::Component& parent, int& canonical, int& outline)
+        {
+            for (auto* child : parent.getChildren())
+            {
+                if (auto* knob = dynamic_cast<AnimatedKnob*> (child))
+                {
+                    if (knob->getKnobStyle() == AnimatedKnob::KnobStyle::Canonical)
+                        ++canonical;
+                    else
+                        ++outline;
+                }
+
+                countKnobsByStyleRecursive (*child, canonical, outline);
+            }
+        }
+
+        juce:: MouseEvent makeMouseDownEvent (juce::Component& target)
+        {
+            auto source = juce::Desktop::getInstance().getMainMouseSource();
+            const juce::Point<float> pos (static_cast<float> (target.getWidth()) * 0.5f,
+                                          static_cast<float> (target.getHeight()) * 0.5f);
+            const auto now = juce::Time::getCurrentTime();
+
+            return juce::MouseEvent (source,
+                                    pos,
+                                    juce::ModifierKeys (juce::ModifierKeys::leftButtonModifier),
+                                    0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                    &target,
+                                    &target,
+                                    now,
+                                    pos,
+                                    now,
+                                    1,
+                                    false);
+        }
+
+        void testAnimatedKnobDefaultStyleIsCanonical()
+        {
+            beginTest ("AnimatedKnob defaults to the Canonical brutalist style");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            AnimatedKnob knob (controller);
+
+            expect (knob.getKnobStyle() == AnimatedKnob::KnobStyle::Canonical,
+                    "Newly constructed AnimatedKnobs should default to the Canonical large style");
+        }
+
+        void testAnimatedKnobStepCountMatchesStyle()
+        {
+            beginTest ("AnimatedKnob exposes Step counts of 16 (Canonical) and 8 (Outline)");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            AnimatedKnob knob (controller);
+
+            expect (knob.getStepCount() == 16, "Canonical knob Step count should be 16");
+
+            knob.setKnobStyle (AnimatedKnob::KnobStyle::Outline);
+            expect (knob.getStepCount() == 8, "Outline knob Step count should be 8");
+        }
+
+        void testAnimatedKnobStepEasingQuantizesHard()
+        {
+            beginTest ("AnimatedKnob::quantizeStepProgress jumps in hard steps with no interpolation");
+
+            expect (std::abs (AnimatedKnob::quantizeStepProgress (0.0f, 16) - 0.0f) < 1.0e-6f,
+                    "progress 0 should quantise to the 0/N step");
+            expect (std::abs (AnimatedKnob::quantizeStepProgress (0.499f, 16) - 0.5f) < 1.0e-6f,
+                    "progress ~0.5 with N=16 should snap to the 8/16 step (0.5)");
+            expect (std::abs (AnimatedKnob::quantizeStepProgress (1.0f, 16) - 1.0f) < 1.0e-6f,
+                    "progress 1 should quantise to the N/N step (1)");
+            expect (std::abs (AnimatedKnob::quantizeStepProgress (0.34f, 8) - 0.375f) < 1.0e-6f,
+                    "progress ~0.34 with N=8 should snap to the 3/8 step (0.375)");
+        }
+
+        void testCanonicalKnobInvertsFaceOnMouseDown()
+        {
+            beginTest ("Canonical knob inverts its disc from #FFF to #000 on mouse-down");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            SynthortionLookAndFeel lookAndFeel;
+
+            AnimatedKnob knob (controller);
+            knob.setRange (0.0, 1.0);
+            knob.setValue (0.5, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+            knob.setSize (60, 60);
+            knob.setLookAndFeel (&lookAndFeel);
+
+            const auto idleSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+            expect (idleSnapshot.getPixelAt (15, 30).getBrightness() > 0.9f,
+                    "Canonical knob face should be pure #FFF at rest");
+
+            knob.mouseDown (makeMouseDownEvent (knob));
+
+            const auto pressedSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+            expect (pressedSnapshot.getPixelAt (15, 30).getBrightness() < 0.1f,
+                    "Canonical knob face should invert to pure #000 on mouse-down");
+        }
+
+        void testTwinShadowRendersOnDrag()
+        {
+            beginTest ("AnimatedKnob renders a hard twin shadow ring on mouse-down");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            SynthortionLookAndFeel lookAndFeel;
+
+            AnimatedKnob knob (controller);
+            knob.setRange (0.0, 1.0);
+            knob.setValue (0.5, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+            knob.setSize (60, 60);
+            knob.setLookAndFeel (&lookAndFeel);
+
+            const auto idleSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+            knob.mouseDown (makeMouseDownEvent (knob));
+            const auto pressedSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+
+            const auto idlePixel = idleSnapshot.getPixelAt (50, 51);
+            const auto pressedPixel = pressedSnapshot.getPixelAt (50, 51);
+
+            expect (idlePixel.getAlpha() == 0 || idlePixel.getBrightness() < 0.1f,
+                    "Pixel outside the rest knob disc should be the transparent substrate");
+            expect (pressedPixel.getAlpha() > 0 && pressedPixel.getBrightness() > idlePixel.getBrightness(),
+                    "On mouse-down the twin-shadow #FFF ring should render a light pixel lower-right of the disc");
+        }
+
+        void testEditorKnobsUseFourCanonicalAndFourOutline()
+        {
+            beginTest ("Editor knobs split 4 Canonical (large) + 4 Outline (small)");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            int canonical = 0;
+            int outline = 0;
+            countKnobsByStyleRecursive (editor, canonical, outline);
+
+            expect (canonical == 4, "Editor should expose exactly four Canonical (large) knobs");
+            expect (outline == 4, "Editor should expose exactly four Outline (small) knobs");
         }
     };
 

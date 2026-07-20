@@ -27,6 +27,21 @@ public:
     void drawToggleButton(juce::Graphics&, juce::ToggleButton&,
                           bool isHighlighted, bool isDown) override;
 
+    /** Render a brutalist twin shadow: a 1 px-offset hard duplicate disc behind
+        the knob disc (carved-stencil affordance). Visible on hover/drag.
+    */
+    void drawTwinShadow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const;
+
+    /** Render a canonical knob: solid disc + thick pointer + N-step LED arc. */
+    void drawCanonicalKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                           float knobAngle, float sliderPos, bool isInverted,
+                           float rotaryStartAngle, float rotaryEndAngle, int steps) const;
+
+    /** Render an outline knob: #000 disc + #FFF outline + rim ticks + thick pointer. */
+    void drawOutlineKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                         float knobAngle, float sliderPos, bool isInverted,
+                         float rotaryStartAngle, float rotaryEndAngle, int steps) const;
+
     void drawPanelBackground(juce::Graphics&, const juce::Rectangle<int>&,
                              bool isRecessed, const juce::String& title);
 
@@ -46,12 +61,6 @@ public:
     float getBypassMix() const noexcept { return bypassMix; }
 
 private:
-    void draw3DKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                   float angle, float sliderPos, bool isMouseOver, bool isMouseDown,
-                   float rotaryStartAngle, float rotaryEndAngle) const;
-    void drawCopperRim(juce::Graphics& g, const juce::Rectangle<float>& bounds) const;
-    void drawLEDArc(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                    float startAngle, float endAngle, float sliderPos) const;
     void drawSwitchHandle(juce::Graphics& g, const juce::Rectangle<float>& bounds,
                           bool isOn, bool isHighlighted, bool isDown) const;
     void drawSectionTitle(juce::Graphics& g, juce::Rectangle<float>& r,
@@ -67,13 +76,12 @@ private:
     float bypassMix = 0.0f;
 
     static constexpr float kKnobReduction = 2.0f;
-    static constexpr float kKnobFaceReduction = 1.5f;
-    static constexpr float kKnobPointerLength = 0.65f;
-    static constexpr float kKnobPointerThickness = 2.5f;
-    static constexpr float kKnobCenterDotRadius = 2.0f;
-    static constexpr int kKnobNumTicks = 12;
+    static constexpr float kKnobPointerThickness = 4.0f;
+    static constexpr float kKnobPointerLength = 0.78f;
+    static constexpr float kKnobArcInset = 5.0f;
+    static constexpr float kKnobArcThickness = 3.0f;
     static constexpr float kKnobTickLength = 3.0f;
-    static constexpr float kKnobTickStartOffset = 2.0f;
+    static constexpr float kKnobTickStartOffset = 1.0f;
 
     static constexpr float kSwitchWidth = 36.0f;
     static constexpr float kSwitchHeight = 18.0f;

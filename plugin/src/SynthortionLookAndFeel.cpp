@@ -1,4 +1,5 @@
 #include "Synthortion/SynthortionLookAndFeel.h"
+#include "Synthortion/AnimatedKnob.h"
 #include <BinaryData.h>
 
 namespace
@@ -63,20 +64,51 @@ juce::Typeface::Ptr SynthortionLookAndFeel::getTypefaceForFont(const juce::Font&
 }
 
 void SynthortionLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
-                                          float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
-                                          juce::Slider& slider)
+                                           float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
+                                           juce::Slider& slider)
 {
     auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(kKnobReduction);
     const float knobAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
-    const bool isMouseOver = slider.isMouseOverOrDragging();
-    const bool isMouseDown = slider.isMouseButtonDown();
+    const bool isHoverOrDrag = slider.isMouseOverOrDragging() || slider.isMouseButtonDown() || slider.getThumbBeingDragged() != -1;
 
-    draw3DKnob(g, bounds, knobAngle, sliderPos, isMouseOver, isMouseDown, rotaryStartAngle, rotaryEndAngle);
+    auto knobStyle = synthortion::AnimatedKnob::KnobStyle::Canonical;
+    int steps = synthortion::AnimatedKnob::kCanonicalSteps;
+
+    if (auto* animatedKnob = dynamic_cast<synthortion::AnimatedKnob*>(&slider))
+    {
+        knobStyle = animatedKnob->getKnobStyle();
+        steps = animatedKnob->getStepCount();
+    }
+
+    const float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
+    const float centreX = bounds.getCentreX();
+    const float centreY = bounds.getCentreY();
+    const float diameter = radius * 2.0f;
+    const auto knobBounds = juce::Rectangle<float>(centreX - radius, centreY - radius, diameter, diameter);
+
+    if (isHoverOrDrag)
+        drawTwinShadow(g, knobBounds);
+
+    if (knobStyle == synthortion::AnimatedKnob::KnobStyle::Outline)
+        drawOutlineKnob(g, bounds, knobAngle, sliderPos, isHoverOrDrag, rotaryStartAngle, rotaryEndAngle, steps);
+    else
+        drawCanonicalKnob(g, bounds, knobAngle, sliderPos, isHoverOrDrag, rotaryStartAngle, rotaryEndAngle, steps);
 }
 
-void SynthortionLookAndFeel::draw3DKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                                    float angle, float sliderPos, bool isMouseOver, bool isMouseDown,
-                                    float rotaryStartAngle, float rotaryEndAngle) const
+void SynthortionLookAndFeel::drawTwinShadow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const
+{
+    const juce::Rectangle<float> offset = knobBounds.translated(1.0f, 1.0f);
+
+    g.setColour(WHITE);
+    g.fillEllipse(offset);
+
+    g.setColour(BLACK);
+    g.fillEllipse(offset.reduced(1.0f));
+}
+
+void SynthortionLookAndFeel::drawCanonicalKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                                           float knobAngle, float sliderPos, bool isInverted,
+                                           float rotaryStartAngle, float rotaryEndAngle, int steps) const
 {
     const float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
     const float centreX = bounds.getCentreX();
@@ -84,100 +116,85 @@ void SynthortionLookAndFeel::draw3DKnob(juce::Graphics& g, const juce::Rectangle
     const float diameter = radius * 2.0f;
     const auto knobBounds = juce::Rectangle<float>(centreX - radius, centreY - radius, diameter, diameter);
 
-    drawCopperRim(g, knobBounds);
+    const juce::Colour faceColour = isInverted ? BLACK : WHITE;
+    const juce::Colour pointerColour = isInverted ? WHITE : BLACK;
 
-    juce::ColourGradient faceGrad(
-        WHITE.brighter(0.15f), knobBounds.getTopLeft().translated(0, -radius * 0.1f),
-        WHITE.darker(0.1f), knobBounds.getBottomRight().translated(0, radius * 0.05f),
-        false);
-    g.setGradientFill(faceGrad);
-    g.fillEllipse(knobBounds.reduced(kKnobFaceReduction + 2.0f));
+    g.setColour(faceColour);
+    g.fillEllipse(knobBounds);
 
-    const float tickStart = radius - kKnobTickStartOffset - 2.0f;
-    const float majorTickLength = kKnobTickLength + 1.0f;
-    const float minorTickLength = kKnobTickLength;
+    const float arcRadius = radius - kKnobArcInset;
+    const int litCount = juce::jlimit(0, steps, juce::roundToInt(sliderPos * static_cast<float>(steps)));
+    const float angularSpan = rotaryEndAngle - rotaryStartAngle;
+    const float litAlpha = juce::jlimit(0.0f, 1.0f, 1.0f - bypassMix);
 
-    g.setColour(WHITE.withAlpha(0.4f));
-    for (int i = 0; i < kKnobNumTicks; ++i)
+    if (litAlpha > 0.0f)
     {
-        const float tickAngle = rotaryStartAngle + (static_cast<float>(i) / static_cast<float>(kKnobNumTicks - 1)) *
-                               (rotaryEndAngle - rotaryStartAngle);
-        const bool isMajor = (i == 0 || i == kKnobNumTicks - 1 || i == kKnobNumTicks / 2);
-        const float tickLen = isMajor ? majorTickLength : minorTickLength;
+        g.setColour(pointerColour.withAlpha(litAlpha));
 
-        const juce::Point<float> start(centreX + tickStart * std::cos(tickAngle),
-                                        centreY + tickStart * std::sin(tickAngle));
-        const juce::Point<float> end(centreX + (tickStart - tickLen) * std::cos(tickAngle),
-                                      centreY + (tickStart - tickLen) * std::sin(tickAngle));
-        g.drawLine(start.x, start.y, end.x, end.y, isMajor ? 1.5f : 0.8f);
+        for (int i = 0; i < steps; ++i)
+        {
+            if (i >= litCount)
+                break;
+
+            const float segStart = rotaryStartAngle + (static_cast<float>(i) / static_cast<float>(steps)) * angularSpan;
+            const float segEnd = rotaryStartAngle + (static_cast<float>(i + 1) / static_cast<float>(steps)) * angularSpan;
+
+            juce::Path segment;
+            segment.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f, segStart, segEnd, true);
+            g.strokePath(segment, juce::PathStrokeType(kKnobArcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::butt));
+        }
     }
-
-    drawLEDArc(g, knobBounds, rotaryStartAngle, rotaryEndAngle, sliderPos);
 
     const float pointerLength = radius * kKnobPointerLength;
-    const float pointerX = centreX + pointerLength * std::cos(angle - juce::MathConstants<float>::halfPi);
-    const float pointerY = centreY + pointerLength * std::sin(angle - juce::MathConstants<float>::halfPi);
+    const float pointerX = centreX + pointerLength * std::cos(knobAngle - juce::MathConstants<float>::halfPi);
+    const float pointerY = centreY + pointerLength * std::sin(knobAngle - juce::MathConstants<float>::halfPi);
 
-    g.setColour(WHITE);
+    g.setColour(pointerColour);
     g.drawLine(centreX, centreY, pointerX, pointerY, kKnobPointerThickness);
+}
 
-    g.setColour(BLACK);
-    const float dotDiameter = kKnobCenterDotRadius * 2.0f;
-    g.fillEllipse(centreX - kKnobCenterDotRadius, centreY - kKnobCenterDotRadius, dotDiameter, dotDiameter);
+void SynthortionLookAndFeel::drawOutlineKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                                         float knobAngle, float sliderPos, bool isInverted,
+                                         float rotaryStartAngle, float rotaryEndAngle, int steps) const
+{
+    juce::ignoreUnused (sliderPos);
+    const float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
+    const float centreX = bounds.getCentreX();
+    const float centreY = bounds.getCentreY();
+    const float diameter = radius * 2.0f;
+    const auto knobBounds = juce::Rectangle<float>(centreX - radius, centreY - radius, diameter, diameter);
 
-    if (isMouseOver || isMouseDown)
+    const juce::Colour faceColour = isInverted ? WHITE : BLACK;
+    const juce::Colour outlineColour = isInverted ? BLACK : WHITE;
+    const juce::Colour pointerColour = isInverted ? BLACK : WHITE;
+
+    g.setColour(faceColour);
+    g.fillEllipse(knobBounds);
+
+    g.setColour(outlineColour);
+    g.drawEllipse(knobBounds, 1.0f);
+
+    const float rimRadius = radius - kKnobTickStartOffset;
+    const float tickInner = rimRadius - kKnobTickLength;
+    const float angularSpan = rotaryEndAngle - rotaryStartAngle;
+
+    for (int i = 0; i < steps; ++i)
     {
-        g.setColour(WHITE.withAlpha(isMouseDown ? 0.3f : 0.15f));
-        g.fillEllipse(knobBounds.reduced(kKnobFaceReduction + 2.0f));
+        const float tickAngle = rotaryStartAngle + (static_cast<float>(i) / static_cast<float>(steps)) * angularSpan;
+
+        const juce::Point<float> start(centreX + rimRadius * std::cos(tickAngle),
+                                        centreY + rimRadius * std::sin(tickAngle));
+        const juce::Point<float> end(centreX + tickInner * std::cos(tickAngle),
+                                      centreY + tickInner * std::sin(tickAngle));
+        g.drawLine(start.x, start.y, end.x, end.y, 1.0f);
     }
-}
 
-void SynthortionLookAndFeel::drawCopperRim(juce::Graphics& g, const juce::Rectangle<float>& bounds) const
-{
-    const float radius = bounds.getWidth() * 0.5f;
-    const float centreX = bounds.getCentreX();
-    const float centreY = bounds.getCentreY();
+    const float pointerLength = radius * kKnobPointerLength;
+    const float pointerX = centreX + pointerLength * std::cos(knobAngle - juce::MathConstants<float>::halfPi);
+    const float pointerY = centreY + pointerLength * std::sin(knobAngle - juce::MathConstants<float>::halfPi);
 
-    juce::Path shadow;
-    shadow.addEllipse(bounds.reduced(1.0f).translated(1.5f, 2.0f));
-    g.setColour(juce::Colours::black.withAlpha(0.4f));
-    g.fillPath(shadow);
-
-    juce::ColourGradient rimGrad(
-        WHITE.brighter(0.2f), centreX - radius, centreY - radius,
-        WHITE, centreX + radius, centreY + radius,
-        true);
-    g.setGradientFill(rimGrad);
-    g.fillEllipse(bounds);
-}
-
-void SynthortionLookAndFeel::drawLEDArc(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                                    float startAngle, float endAngle, float sliderPos) const
-{
-    const float radius = bounds.getWidth() * 0.5f;
-    const float centreX = bounds.getCentreX();
-    const float centreY = bounds.getCentreY();
-
-    const float currentAngle = startAngle + sliderPos * (endAngle - startAngle);
-
-    const float arcRadius = radius - 6.0f;
-    const float arcThickness = 2.5f;
-    const float activeLevel = 1.0f - bypassMix;
-
-    juce::Path backgroundArc;
-    backgroundArc.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f,
-                                 startAngle, endAngle, true);
-    g.setColour(WHITE.withAlpha(0.2f * activeLevel));
-    g.strokePath(backgroundArc, juce::PathStrokeType(arcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-    if (activeLevel <= 0.0f)
-        return;
-
-    juce::Path valueArc;
-    valueArc.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f,
-                            startAngle, currentAngle, true);
-    g.setColour(WHITE.withAlpha(0.7f * activeLevel));
-    g.strokePath(valueArc, juce::PathStrokeType(arcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.setColour(pointerColour);
+    g.drawLine(centreX, centreY, pointerX, pointerY, kKnobPointerThickness);
 }
 
 void SynthortionLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,

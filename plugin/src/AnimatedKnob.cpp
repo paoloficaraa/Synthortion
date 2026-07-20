@@ -1,6 +1,5 @@
 #include "Synthortion/AnimatedKnob.h"
 #include "Synthortion/SynthortionLookAndFeel.h"
-#include <melatonin_blur/melatonin_blur.h>
 
 namespace synthortion
 {
@@ -24,8 +23,6 @@ namespace synthortion
     {
         if (auto* laf = dynamic_cast<SynthortionLookAndFeel*> (&getLookAndFeel()))
         {
-            drawArcGlow (g);
-
             laf->drawRotarySlider (g,
                                    getLocalBounds().getX(),
                                    getLocalBounds().getY(),
@@ -75,6 +72,16 @@ namespace synthortion
         repaint();
     }
 
+    float AnimatedKnob::quantizeStepProgress (float progress, int steps) noexcept
+    {
+        if (steps <= 0)
+            return progress;
+
+        const float clamped = juce::jlimit (0.0f, 1.0f, progress);
+        const int stepIndex = juce::jlimit (0, steps, juce::roundToInt (clamped * static_cast<float> (steps)));
+        return static_cast<float> (stepIndex) / static_cast<float> (steps);
+    }
+
     void AnimatedKnob::startArcAnimation()
     {
         const float target = juce::jlimit (0.0f, 1.0f, static_cast<float> (valueToProportionOfLength (getValue())));
@@ -89,10 +96,15 @@ namespace synthortion
             currentAnimator.reset();
         }
 
+        const int steps = getStepCount();
+
         currentAnimator = animationController.runAnimator (
             juce::ValueAnimatorBuilder()
                 .withDurationMs (250.0)
-                .withEasing (juce::Easings::createEaseOut())
+                .withEasing ([steps](float progress)
+                             {
+                                 return quantizeStepProgress (progress, steps);
+                             })
                 .withOnStartReturningValueChangedCallback (
                     [this, start, target]() -> juce::ValueAnimatorBuilder::ValueChangedCallback
                     {
@@ -102,37 +114,5 @@ namespace synthortion
                             repaint();
                         };
                     }));
-    }
-
-    void AnimatedKnob::drawArcGlow (juce::Graphics& g)
-    {
-        if (displayProportion <= 0.0f)
-            return;
-
-        const float activeLevel = 1.0f - animationController.getBypassMix();
-        if (activeLevel <= 0.0f)
-            return;
-
-        const auto bounds = getLocalBounds().toFloat();
-        const float radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
-        const float centreX = bounds.getCentreX();
-        const float centreY = bounds.getCentreY();
-
-        const float currentAngle = kStartAngle + displayProportion * (kEndAngle - kStartAngle);
-        const float arcRadius = radius - kArcInset;
-
-        juce::Path valueArc;
-        valueArc.addCentredArc (centreX, centreY, arcRadius, arcRadius, 0.0f,
-                                kStartAngle, currentAngle, true);
-
-        const auto glowColour = findColour (juce::Slider::rotarySliderFillColourId);
-        if (glowColour.isTransparent())
-            return;
-
-        melatonin::DropShadow glow (glowColour, kGlowRadius);
-        glow.setOpacity (static_cast<double> (activeLevel));
-        glow.render (g, valueArc, juce::PathStrokeType (kArcThickness,
-                                                        juce::PathStrokeType::curved,
-                                                        juce::PathStrokeType::rounded));
     }
 }

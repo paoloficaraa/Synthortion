@@ -7,7 +7,7 @@ namespace synthortion
 
     namespace Colours
     {
-        const juce::Colour CREAM (0xFFF5F0EB);
+        const juce::Colour WHITE (0xFFFFFFFF);
     }
 
     AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
@@ -49,19 +49,27 @@ namespace synthortion
 
         // DISTORTION
         setupKnobWithLabel (driveKnob, driveTitleLabel, driveLabel, "COLOR", "COLOR", driveAttachment, distortionPanel);
+        driveKnob.setKnobStyle (AnimatedKnob::KnobStyle::Canonical);
         setupKnobWithLabel (bitCrushKnob, bitCrushTitleLabel, bitCrushLabel, "BITCRUSH", "BITCRUSH", bitCrushAttachment, distortionPanel);
+        bitCrushKnob.setKnobStyle (AnimatedKnob::KnobStyle::Canonical);
 
         // CHORUS
         setupKnobWithLabel (chorusMixKnob, chorusMixTitleLabel, chorusMixLabel, "MIX", "CHORUS_MIX", chorusMixAttachment, chorusPanel);
+        chorusMixKnob.setKnobStyle (AnimatedKnob::KnobStyle::Outline);
 
         // DELAY
         setupKnobWithLabel (delayTimeKnob, delayTimeTitleLabel, delayTimeLabel, "TIME", "DELAY_TIME", delayTimeAttachment, delayPanel);
+        delayTimeKnob.setKnobStyle (AnimatedKnob::KnobStyle::Outline);
         setupKnobWithLabel (delayFeedbackKnob, delayFeedbackTitleLabel, delayFeedbackLabel, "FB", "DELAY_FEEDBACK", delayFeedbackAttachment, delayPanel);
+        delayFeedbackKnob.setKnobStyle (AnimatedKnob::KnobStyle::Outline);
         setupKnobWithLabel (delayMixKnob, delayMixTitleLabel, delayMixLabel, "MIX", "DELAY_MIX", delayMixAttachment, delayPanel);
+        delayMixKnob.setKnobStyle (AnimatedKnob::KnobStyle::Outline);
 
         // SIDE BARS
         setupKnobWithLabel (inputGainKnob, inputGainTitleLabel, inputGainLabel, "INPUT", "INPUT_GAIN", inputGainAttachment, *this);
+        inputGainKnob.setKnobStyle (AnimatedKnob::KnobStyle::Canonical);
         setupKnobWithLabel (outputGainKnob, outputGainTitleLabel, outputGainLabel, "OUTPUT", "OUTPUT_GAIN", outputGainAttachment, *this);
+        outputGainKnob.setKnobStyle (AnimatedKnob::KnobStyle::Canonical);
 
         setResizable (false, false);
         setSize (kWindowWidth, kWindowHeight);
@@ -223,13 +231,13 @@ namespace synthortion
         titleLabel.setText (title, juce::dontSendNotification);
         titleLabel.setJustificationType (juce::Justification::centred);
         titleLabel.setFont (lookAndFeel.getParameterLabelFont());
-        titleLabel.setColour (juce::Label::textColourId, Colours::CREAM);
+        titleLabel.setColour (juce::Label::textColourId, Colours::WHITE);
         parent.addAndMakeVisible (titleLabel);
 
         valueLabel.setText ("", juce::dontSendNotification);
         valueLabel.setJustificationType (juce::Justification::centred);
         valueLabel.setFont (lookAndFeel.getParameterValueFont());
-        valueLabel.setColour (juce::Label::textColourId, Colours::CREAM);
+        valueLabel.setColour (juce::Label::textColourId, Colours::WHITE);
         parent.addAndMakeVisible (valueLabel);
     }
 
