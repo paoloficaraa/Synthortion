@@ -2,13 +2,6 @@
 
 namespace synthortion
 {
-    namespace
-    {
-        const juce::Colour kBackground (0xFFF5F0EB);
-        const juce::Colour kTraceColour (0xFF7C3AED);
-        const juce::Colour kTraceGrey (0xFF6B6570);
-    }
-
     OscilloscopeComponent::OscilloscopeComponent (AudioScopeRingBuffer& rb,
                                                   AnimationController* animationController)
         : ringBuffer (rb),
@@ -90,53 +83,84 @@ namespace synthortion
 
     void OscilloscopeComponent::paint (juce::Graphics& g)
     {
-        g.fillAll (kBackground);
-
-        const float mix = controller != nullptr ? controller->getBypassMix() : 0.0f;
+        g.fillAll (juce::Colour (kSubstrateArgb));
 
         if (silent)
-            drawBreathLine (g);
-
-        if (bypassed)
         {
-            const float outputAlpha = 0.9f * (1.0f - mix * 0.5f);
-            drawTrace (g, scratchOutput, kTraceGrey, outputAlpha, flatlineAmplitude);
+            drawBreathLine (g);
+            return;
         }
-        else if (! silent)
+
+        if (! bypassed)
         {
             drawGhostTrails (g);
-            drawTrace (g, scratchInput, kTraceColour, 0.45f * (1.0f - mix * 0.5f), 1.0f);
-            drawTrace (g, scratchOutput, kTraceColour, 1.0f - mix * 0.3f, 1.0f);
+            drawTraceTriplet (g, scratchInput, true, 1.0f, 1.0f);
+            drawTraceTriplet (g, scratchOutput, false, 1.0f, 1.0f);
+        }
+        else
+        {
+            drawTraceTriplet (g, scratchOutput, false, flatlineAmplitude, 1.0f);
+        }
+
+        if (glitchOverlay != nullptr)
+            glitchOverlay->drawSweep (g, getLocalBounds(), glitchOverlay->getSweepPosition());
+    }
+
+    void OscilloscopeComponent::drawTraceTriplet (juce::Graphics& g, const juce::AudioBuffer<float>& buffer,
+                                                   bool oddRows, float amplitudeScale, float alpha)
+    {
+        if (glitchOverlay != nullptr)
+        {
+            glitchOverlay->drawTriplet (g, [this, &g, &buffer, oddRows, amplitudeScale, alpha]
+                                               (juce::Point<float> offset)
+                                               {
+                                                   drawPixelatedTrace (g, buffer, oddRows, offset.x,
+                                                                       amplitudeScale, alpha);
+                                               });
+        }
+        else
+        {
+            drawPixelatedTrace (g, buffer, oddRows, 0.0f, amplitudeScale, alpha);
         }
     }
 
-    void OscilloscopeComponent::drawTrace (juce::Graphics& g, const juce::AudioBuffer<float>& buffer,
-                                           juce::Colour colour, float alpha, float amplitudeScale)
+    void OscilloscopeComponent::drawPixelatedTrace (juce::Graphics& g, const juce::AudioBuffer<float>& buffer,
+                                                     bool oddRows, float xOffset, float amplitudeScale, float alpha)
     {
-        const auto bounds = getLocalBounds().toFloat();
         const int numSamples = buffer.getNumSamples();
         if (numSamples < 2)
             return;
 
-        juce::Path path;
-        const float midY = bounds.getCentreY();
-        const float gain = bounds.getHeight() * 0.35f;
-        const float stepX = bounds.getWidth() / static_cast<float> (numSamples - 1);
+        const int width = getWidth();
+        const int height = getHeight();
+        if (width <= 0 || height <= 0)
+            return;
+
+        const int midY = height / 2;
+        const float gain = static_cast<float> (height) * 0.35f;
+        const float stepX = static_cast<float> (width) / static_cast<float> (numSamples - 1);
+        const int xOff = static_cast<int> (std::round (xOffset));
+        const int parity = oddRows ? 1 : 0;
+
+        g.setColour (juce::Colour (kTraceArgb).withAlpha (alpha));
 
         for (int i = 0; i < numSamples; ++i)
         {
             const float sample = (buffer.getSample (0, i) + buffer.getSample (1, i)) * 0.5f * amplitudeScale;
-            const float x = static_cast<float> (i) * stepX;
-            const float y = midY - sample * gain;
+            const int x = static_cast<int> (std::round (static_cast<float> (i) * stepX)) + xOff;
+            const int waveY = static_cast<int> (std::round (static_cast<float> (midY) - sample * gain));
+            const int yTop = juce::jmin (midY, waveY);
+            const int yBottom = juce::jmax (midY, waveY);
 
-            if (i == 0)
-                path.startNewSubPath (x, y);
-            else
-                path.lineTo (x, y);
+            for (int y = yTop; y <= yBottom; ++y)
+            {
+                if (y < 0 || y >= height)
+                    continue;
+
+                if (y % 2 == parity)
+                    g.fillRect (x, y, 1, 1);
+            }
         }
-
-        g.setColour (colour.withAlpha (alpha));
-        g.strokePath (path, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved));
     }
 
     void OscilloscopeComponent::drawGhostTrails (juce::Graphics& g)
@@ -144,17 +168,20 @@ namespace synthortion
         for (int i = 0; i < kHistoryFrames; ++i)
         {
             const int idx = (historyIndex + kHistoryFrames - 1 - i) % kHistoryFrames;
-            const float alpha = 0.18f * static_cast<float> (kHistoryFrames - i);
-            drawTrace (g, history[static_cast<size_t> (idx)], kTraceColour, alpha, 1.0f);
+            drawPixelatedTrace (g, history[static_cast<size_t> (idx)], false,
+                                0.0f, 1.0f, kGhostAlphas[static_cast<size_t> (i)]);
         }
     }
 
     void OscilloscopeComponent::drawBreathLine (juce::Graphics& g)
     {
-        const float breath = 0.5f + 0.5f * std::sin (breathPhase);
-        g.setColour (kTraceColour.withAlpha (0.15f * breath));
-        const float y = getLocalBounds().toFloat().getCentreY();
-        g.drawLine (0.0f, y, static_cast<float> (getWidth()), y, 1.5f);
+        const bool on = static_cast<int> (breathPhase) % 2 == 0;
+        if (! on)
+            return;
+
+        g.setColour (juce::Colour (kTraceArgb));
+        const int y = getHeight() / 2;
+        g.drawHorizontalLine (y, 0.0f, static_cast<float> (getWidth()));
     }
 
     bool OscilloscopeComponent::detectSilence (const juce::AudioBuffer<float>& buffer) const noexcept

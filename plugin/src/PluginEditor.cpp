@@ -44,6 +44,7 @@ namespace synthortion
         comingSoonPanel.setGlitchOverlay (&glitchOverlay);
         addAndMakeVisible (bypassComponent);
         addAndMakeVisible (oscilloscope);
+        oscilloscope.setGlitchOverlay (&glitchOverlay);
         addAndMakeVisible (inputMeter);
         addAndMakeVisible (outputMeter);
 
