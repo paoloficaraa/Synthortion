@@ -111,6 +111,9 @@ namespace synthortion
             testBypassComponentLedTogglesOnClick();
             testBypassSwitchSnapsWithoutOvershoot();
             testBypassSwitchParameterAttachment();
+            testBypassSwitchRendersActiveWhiteBlock();
+            testBypassSwitchRendersBypassedBlackBlockWithOutline();
+            testBypassSwitchFiresSliceGlitchOnToggle();
             testPanelComponentTitleFont();
             testEditorIsOpaque();
             testPanelComponentIsOpaque();
@@ -156,6 +159,8 @@ namespace synthortion
             testGlitchOverlayRerollsDeadPixelsApprox80ms();
             testGlitchOverlayDriftBandDriftsLeftToRight();
             testGlitchOverlayFlickerBlockTogglesEveryThirtyTicks();
+            testGlitchOverlayBypassSliceBurstWindow();
+            testGlitchOverlayDrawBypassSlicesRendersBandsWhenActive();
             testPanelComponentRendersBrutalistShape();
         }
 
@@ -183,32 +188,30 @@ namespace synthortion
 
         void testBypassComponentLedTogglesOnClick()
         {
-            beginTest ("BypassComponent LED toggles on programmatic click");
+            beginTest ("BypassComponent toggles to bypassed state on programmatic click");
 
             BypassComponent bypass;
-            bypass.setSize (200, 24);
+            bypass.setSize (200, 80);
 
-            expect (! bypass.isLedOn());
+            expect (! bypass.isBypassed());
 
             bypass.getToggleButton().triggerClick();
             juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
 
-            expect (bypass.isLedOn());
+            expect (bypass.isBypassed());
             expect (bypass.getToggleButton().getToggleState());
         }
 
         void testBypassSwitchSnapsWithoutOvershoot()
         {
-            beginTest ("BypassSwitch easing snaps without overshoot or undershoot");
-
-            auto easing = juce::Easings::createCubicBezier (1.0f / 3.0f, 1.0f, 2.0f / 3.0f, 1.0f);
+            beginTest ("BypassSwitch Step easing quantises to N=8 ; never overshoots beyond [0, 1]");
 
             for (int i = 0; i <= 100; ++i)
             {
                 const float t = static_cast<float> (i) * 0.01f;
-                const float value = easing (t);
-                expect (value <= 1.0f, "Ease-out cubic should never overshoot 1.0");
-                expect (value >= 0.0f, "Ease-out cubic should never undershoot 0.0");
+                const float value = synthortion::AnimatedKnob::quantizeStepProgress (t, synthortion::BypassSwitch::kBypassSteps);
+                expect (value <= 1.0f, "Step easing should never overshoot 1.0");
+                expect (value >= 0.0f, "Step easing should never undershoot 0.0");
             }
         }
 
@@ -267,11 +270,11 @@ namespace synthortion
 
         void testBypassComponentIsNotOpaque()
         {
-            beginTest ("BypassComponent stays non-opaque for LED glow");
+            beginTest ("BypassComponent stays non-opaque so the slice glitch burst can bleed past its bounds");
 
             BypassComponent bypass;
 
-            expect (! bypass.isOpaque(), "BypassComponent should remain non-opaque to preserve semi-transparent LED glow");
+            expect (! bypass.isOpaque(), "BypassComponent should remain non-opaque so the GlitchOverlay slice bands are not clipped");
         }
 
         void testDeadlockPalette()
@@ -1284,6 +1287,147 @@ namespace synthortion
 
             expect (canonical == 4, "Editor should expose exactly four Canonical (large) knobs");
             expect (outline == 4, "Editor should expose exactly four Outline (small) knobs");
+        }
+
+        void testBypassSwitchRendersActiveWhiteBlock()
+        {
+            beginTest ("BypassSwitch active state renders a solid #FFF Block with #000 BYPASS text, no outline");
+
+            SynthortionLookAndFeel lookAndFeel;
+
+            BypassSwitch bypass (nullptr);
+            bypass.setSize (120, 80);
+            bypass.setLookAndFeel (&lookAndFeel);
+            bypass.setToggleState (false, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            const auto snap = bypass.createComponentSnapshot (bypass.getLocalBounds());
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            expect (snap.getPixelAt (15, 70) == white,
+                    "Active state: solid #FFF block fill at the lower-left interior, away from the BYPASS label");
+            expect (snap.getPixelAt (10, 10) == white,
+                    "Active state: no #000 outline ring at the upper-left interior");
+
+            bool hasBlackPixel = false;
+            for (int y = 28; y < 52 && ! hasBlackPixel; ++y)
+                for (int x = 30; x < 90 && ! hasBlackPixel; ++x)
+                    if (snap.getPixelAt (x, y).getBrightness() < 0.05f)
+                        hasBlackPixel = true;
+
+            expect (hasBlackPixel, "Active state: #000 BYPASS label BebasNeue 16pt must render");
+        }
+
+        void testBypassSwitchRendersBypassedBlackBlockWithOutline()
+        {
+            beginTest ("BypassSwitch bypassed state renders a solid #000 block with a 1 px #FFF outline");
+
+            SynthortionLookAndFeel lookAndFeel;
+
+            BypassSwitch bypass (nullptr);
+            bypass.setSize (120, 80);
+            bypass.setLookAndFeel (&lookAndFeel);
+            bypass.setToggleState (true, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            const auto snap = bypass.createComponentSnapshot (bypass.getLocalBounds());
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            expect (snap.getPixelAt (10, 70) == black,
+                    "Bypassed state: solid #000 block fill at the lower-left interior, away from the BYPASS label");
+
+            expect (snap.getPixelAt (0, 40) == white,
+                    "Bypassed state: 1 px #FFF outline ring on the left edge of the block");
+            expect (snap.getPixelAt (60, 79) == white,
+                    "Bypassed state: 1 px #FFF outline ring on the bottom edge of the block");
+
+            bool hasWhitePixel = false;
+            for (int y = 28; y < 52 && ! hasWhitePixel; ++y)
+                for (int x = 30; x < 90 && ! hasWhitePixel; ++x)
+                    if (snap.getPixelAt (x, y).getBrightness() > 0.95f)
+                        hasWhitePixel = true;
+
+            expect (hasWhitePixel, "Bypassed state: #FFF BYPASS label BebasNeue 16pt must render");
+        }
+
+        void testBypassSwitchFiresSliceGlitchOnToggle()
+        {
+            beginTest ("BypassSwitch fires GlitchOverlay::triggerBypassSlices on a state transition");
+
+            GlitchOverlay overlay;
+            BypassSwitch bypass (nullptr);
+            bypass.setGlitchOverlay (&overlay);
+            bypass.setSize (120, 80);
+
+            expect (! overlay.isBypassSliceActive(),
+                    "Slice glitch should be inactive before any toggle");
+
+            bypass.setToggleState (true, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+
+            expect (overlay.isBypassSliceActive(),
+                    "Toggling BypassSwitch to bypassed should fire the slice glitch burst");
+        }
+
+        void testGlitchOverlayBypassSliceBurstWindow()
+        {
+            beginTest ("GlitchOverlay::triggerBypassSlices launches a ~150 ms burst then snaps back");
+
+            GlitchOverlay overlay;
+
+            expect (! overlay.isBypassSliceActive(),
+                    "Slice glitch should be inactive at rest");
+
+            overlay.triggerBypassSlices();
+            expect (overlay.isBypassSliceActive(),
+                    "Slice glitch should activate immediately after triggerBypassSlices");
+
+            for (int i = 0; i < GlitchOverlay::bypassSliceDurationTicksForTests(); ++i)
+                overlay.tick();
+
+            expect (! overlay.isBypassSliceActive(),
+                    "Slice glitch should snap back after the ~150 ms burst window (kBypassSliceDurationTicks ticks)");
+        }
+
+        void testGlitchOverlayDrawBypassSlicesRendersBandsWhenActive()
+        {
+            beginTest ("GlitchOverlay::drawBypassSlices renders hard #FFF bands during the burst and no bands at rest");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            GlitchOverlay overlay;
+
+            // At rest: no bands drawn.
+            {
+                juce::Image img (juce::Image::ARGB, 64, 64, true);
+                juce::Graphics g (img);
+                g.fillAll (juce::Colours::black);
+                overlay.drawBypassSlices (g, img.getBounds());
+                expect (img.getPixelAt (20, 16) == black,
+                        "Inactive slice bands should not paint over the substrate");
+            }
+
+            // First tick on a freshly-triggered burst: bands render at their base positions.
+            overlay.triggerBypassSlices();
+
+            juce::Image img (juce::Image::ARGB, 64, 64, true);
+            juce::Graphics g (img);
+            g.fillAll (juce::Colours::black);
+            overlay.drawBypassSlices (g, img.getBounds());
+
+            expect (img.getPixelAt (20, 16) == white,
+                    "Slice band 1 (yFrac=0.25, thickness=2) should render at y=16");
+            expect (img.getPixelAt (20, 17) == white,
+                    "Slice band 1 should be exactly 2 px thick");
+            expect (img.getPixelAt (20, 18) == black,
+                    "Slice band 1 should end after 2 px");
+            expect (img.getPixelAt (20, 32) == white,
+                    "Slice band 2 (yFrac=0.50, thickness=2) should render at y=32");
+            expect (img.getPixelAt (20, 48) == white,
+                    "Slice band 3 (yFrac=0.75, thickness=2) should render at y=48");
         }
     };
 

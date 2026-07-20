@@ -1,4 +1,6 @@
 #include "Synthortion/BypassSwitch.h"
+#include "Synthortion/AnimatedKnob.h"
+#include "Synthortion/GlitchOverlay.h"
 
 namespace synthortion
 {
@@ -16,105 +18,41 @@ namespace synthortion
             controller->removeAnimator (*currentAnimator);
     }
 
-    bool BypassSwitch::isLedOn() const noexcept
+    bool BypassSwitch::isBypassed() const noexcept
     {
         return getToggleState();
     }
 
     void BypassSwitch::paintButton (juce::Graphics& g, bool /*isMouseOver*/, bool /*isMouseDown*/)
     {
-        auto bounds = getLocalBounds().toFloat();
+        const auto bounds = getLocalBounds().toFloat();
+        const bool renderBypassed = animationProgress >= 0.5f;
 
         const auto* laf = dynamic_cast<const SynthortionLookAndFeel*> (&getLookAndFeel());
-        auto getColour = [laf] (int colourId, juce::Colour defaultColour)
+        const auto getColour = [laf] (int colourId, juce::Colour defaultColour)
         {
             return laf != nullptr ? laf->findColour (colourId) : defaultColour;
         };
 
-        const auto accentColour = getColour (SynthortionLookAndFeel::accentColourId, juce::Colour (0xFFFFFFFF));
-        const auto accentBrightColour = getColour (SynthortionLookAndFeel::accentBrightColourId, juce::Colour (0xFFFFFFFF));
         const auto backgroundColour = getColour (SynthortionLookAndFeel::backgroundColourId, juce::Colour (0xFF000000));
-        const auto panelOutlineColour = getColour (SynthortionLookAndFeel::panelOutlineColourId, juce::Colour (0xFFFFFFFF));
-        const auto warmGray = juce::Colour (0xFF6B6570);
-        const auto textDark = juce::Colour (0xFF2E2A33);
+        const auto accentColour = getColour (SynthortionLookAndFeel::accentColourId, juce::Colour (0xFFFFFFFF));
 
-        // Label
-        const auto labelFont = laf != nullptr
-                                   ? laf->getBypassLabelFont()
-                                   : juce::FontOptions().withName ("Montserrat").withHeight (13.0f);
-        g.setColour (textDark);
-        g.setFont (labelFont);
-        g.drawFittedText (getButtonText(), bounds.removeFromTop (18.0f).toNearestInt(),
-                          juce::Justification::centred, 1);
+        const auto blockColour = renderBypassed ? backgroundColour : accentColour;
+        const auto labelColour = renderBypassed ? accentColour : backgroundColour;
 
-        bounds = bounds.withTrimmedTop (4.0f);
+        g.setColour (blockColour);
+        g.fillRect (bounds);
 
-        const float centreX = bounds.getCentreX();
-        const float trackX = centreX - kTrackWidth * 0.5f;
-        const float trackY = bounds.getCentreY() - kTrackHeight * 0.5f;
-        const auto trackBounds = juce::Rectangle<float> (trackX, trackY, kTrackWidth, kTrackHeight);
-
-        // Track background
-        g.setColour (panelOutlineColour.darker (0.15f));
-        g.fillRoundedRectangle (trackBounds, kTrackCornerRadius);
-
-        // Active fill on the top portion of the track, grows as the lever snaps upward.
-        // Clip to the track path so the fill stays inside the rounded border at every height.
-        const float activeHeight = kTrackHeight * animationProgress;
-        if (activeHeight > 1.0f)
+        if (renderBypassed)
         {
-            juce::Graphics::ScopedSaveState saveState (g);
-
-            juce::Path trackPath;
-            trackPath.addRoundedRectangle (trackBounds, kTrackCornerRadius);
-            g.reduceClipRegion (trackPath);
-
-            g.setColour (accentColour.withAlpha (0.35f));
-            g.fillRect (trackBounds.withHeight (activeHeight));
+            g.setColour (accentColour);
+            g.drawRect (bounds, 1.0f);
         }
 
-        // Track border
-        g.setColour (warmGray.withAlpha (0.4f));
-        g.drawRoundedRectangle (trackBounds, kTrackCornerRadius, 1.0f);
-
-        // Handle / lever
-        const float handleTravel = kTrackHeight - kHandleSize - kTrackInset * 2.0f;
-        const float handleX = trackX + (kTrackWidth - kHandleSize) * 0.5f;
-        const float handleY = trackY + kTrackHeight - kTrackInset - kHandleSize - animationProgress * handleTravel;
-        const auto handleBounds = juce::Rectangle<float> (handleX, handleY, kHandleSize, kHandleSize);
-
-        juce::ColourGradient handleGrad (
-            backgroundColour, handleBounds.getTopLeft(),
-            panelOutlineColour, handleBounds.getBottomRight(),
-            false);
-        g.setGradientFill (handleGrad);
-        g.fillRoundedRectangle (handleBounds, kHandleCornerRadius);
-
-        g.setColour (warmGray.withAlpha (0.5f));
-        g.drawRoundedRectangle (handleBounds, kHandleCornerRadius, 0.75f);
-
-        // LED and accent glow
-        const float ledX = trackBounds.getRight() + 10.0f;
-        const float ledY = trackBounds.getCentreY() - kLedSize * 0.5f;
-        const auto ledBounds = juce::Rectangle<float> (ledX, ledY, kLedSize, kLedSize);
-
-        const float activeLevel = controller != nullptr ? 1.0f - controller->getBypassMix() : 1.0f;
-        const auto ledOffColour = warmGray.brighter (0.3f);
-        const auto ledColour = ledOffColour.interpolatedWith (accentBrightColour, animationProgress * activeLevel);
-
-        ledGlow.setColor (accentColour);
-        ledGlow.setOpacity (static_cast<double> (animationProgress * 0.85f * activeLevel));
-        ledGlow.setRadius (static_cast<double> (kGlowRadius * animationProgress));
-
-        juce::Path ledPath;
-        ledPath.addEllipse (ledBounds);
-        ledGlow.render (g, ledPath);
-
-        g.setColour (ledColour);
-        g.fillEllipse (ledBounds);
-
-        g.setColour (warmGray.darker (0.2f));
-        g.drawEllipse (ledBounds, 0.75f);
+        g.setColour (labelColour);
+        g.setFont (juce::FontOptions().withName ("BebasNeue").withHeight (static_cast<float> (kBypassLabelHeight)).withStyle ("Regular"));
+        g.drawFittedText ("BYPASS", bounds.toNearestInt(),
+                          juce::Justification::centred, 1);
     }
 
     void BypassSwitch::resized()
@@ -131,6 +69,12 @@ namespace synthortion
     void BypassSwitch::startAnimation()
     {
         const float target = getToggleState() ? 1.0f : 0.0f;
+
+        if (std::abs (target - animationProgress) < 0.001f)
+            return;
+
+        if (glitchOverlay != nullptr)
+            glitchOverlay->triggerBypassSlices();
 
         if (controller == nullptr)
         {
@@ -149,7 +93,10 @@ namespace synthortion
         currentAnimator = controller->runAnimator (
             juce::ValueAnimatorBuilder()
                 .withDurationMs (kAnimationDurationMs)
-                .withEasing (juce::Easings::createCubicBezier (1.0f / 3.0f, 1.0f, 2.0f / 3.0f, 1.0f))
+                .withEasing ([] (float progress)
+                             {
+                                 return AnimatedKnob::quantizeStepProgress (progress, BypassSwitch::kBypassSteps);
+                             })
                 .withValueChangedCallback ([this] (float t)
                                            {
                                                animationProgress = juce::jlimit (

@@ -27,20 +27,45 @@ namespace synthortion
         // per second at a 60 Hz tick) centred on `bounds`; no-op when hidden.
         void drawFlickerBlock (juce::Graphics& g, juce::Rectangle<int> bounds);
 
+        // Horizontal Slice glitch burst fired when the bypass Block toggles
+        // state: 2-3 hard #FFF horizontal bands shift L/R by 1-3 px during the
+        // ~150 ms burst window, then snap back. Drawn over the children of the
+        // editor so the slice glitch visibly slides across the rendered UI.
+        void triggerBypassSlices();
+        void drawBypassSlices (juce::Graphics& g, juce::Rectangle<int> bounds);
+
         // Test accessors.
         int getGrainFrameIndex() const noexcept { return grainFrameIndex; }
         int getDeadPixelRerollCount() const noexcept { return deadPixelRerollCount; }
         int getFrameTickCount() const noexcept { return frameTickCount; }
         int getDriftBandStep() const noexcept;
         bool isFlickerBlockVisible() const noexcept;
+        bool isBypassSliceActive() const noexcept { return bypassSliceActive; }
         static constexpr int tileSizeForTests() noexcept { return kGrainTextureSize; }
         static constexpr int driftBandHeight() noexcept { return kDriftBandHeight; }
         static constexpr int flickerBlockSize() noexcept { return kFlickerBlockSize; }
         static constexpr int driftBandStepForTests() noexcept { return kDriftBandSteps; }
         static constexpr int driftBandStepTicksForTests() noexcept { return kDriftBandStepTicks; }
         static constexpr int flickerPeriodTicksForTests() noexcept { return kFlickerPeriodTicks; }
+        static constexpr int bypassSliceDurationTicksForTests() noexcept { return kBypassSliceDurationTicks; }
+        static constexpr int bypassSliceStepsForTests() noexcept { return kBypassSliceSteps; }
+        static constexpr int bypassSliceBandCountForTests() noexcept { return kBypassSliceBands; }
 
     private:
+        struct BypassSliceBand
+        {
+            float yFrac;
+            int thickness;
+            int shiftDir;
+            int shiftPx;
+        };
+
+        static constexpr int kBypassSliceDurationTicks = 9;   // ~150 ms at the 60 Hz timer
+        static constexpr int kBypassSliceSteps = 8;            // matched to the Block toggle's N=8 Step easing
+        static constexpr int kBypassSliceBands = 3;
+        std::array<BypassSliceBand, static_cast<size_t> (kBypassSliceBands)> bypassSliceBands {};
+        bool bypassSliceActive = false;
+        int bypassSliceElapsedTicks = 0;
         static constexpr int kGrainTextureSize = 64;
         static constexpr int kGrainFrames = 8;
         // Fraction of dither tile pixels that are #FFF (the rest are #000).
