@@ -12,12 +12,12 @@ public:
     enum ColourIds
     {
         backgroundColourId     = 0x1501001,
-        panelColourId          = 0x1501002,
-        panelRecessedColourId  = 0x1501003,
-        copperAccentColourId   = 0x1501004,
-        copperBrightColourId   = 0x1501005,
-        creamTextColourId      = 0x1501006,
-        graphiteKnobColourId  = 0x1501007,
+        panelFillColourId      = 0x1501002,
+        panelOutlineColourId   = 0x1501003,
+        accentColourId         = 0x1501004,
+        accentBrightColourId   = 0x1501005,
+        textColourId           = 0x1501006,
+        knobFillColourId       = 0x1501007,
     };
 
     void drawRotarySlider(juce::Graphics&, int x, int y, int width, int height,
@@ -59,7 +59,6 @@ private:
 
     juce::Typeface::Ptr bebasNeueTypeface;
     juce::Typeface::Ptr montserratTypeface;
-    juce::Typeface::Ptr montserratRegularTypeface;
 
     juce::Font sectionHeadingFont;
     juce::Font parameterLabelFont;

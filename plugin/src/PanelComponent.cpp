@@ -52,11 +52,11 @@ namespace synthortion
 
         auto* laf = dynamic_cast<SynthortionLookAndFeel*> (&getLookAndFeel());
         const auto textDark = laf != nullptr
-                                  ? laf->findColour (SynthortionLookAndFeel::creamTextColourId)
-                                  : juce::Colour (0xFF2E2A33);
+                                  ? laf->findColour (SynthortionLookAndFeel::textColourId)
+                                  : juce::Colour (0xFFFFFFFF);
         const auto cream = laf != nullptr
                                ? laf->findColour (SynthortionLookAndFeel::backgroundColourId)
-                               : juce::Colour (0xFFF5F0EB);
+                               : juce::Colour (0xFF000000);
 
         const auto placeholderFont = headingFont.withHeight (16.0f);
         const auto textArea = bounds.toNearestInt();

@@ -108,7 +108,7 @@ namespace synthortion
             testEditorIsOpaque();
             testPanelComponentIsOpaque();
             testBypassComponentIsNotOpaque();
-            testCopperColorPalette();
+            testDeadlockPalette();
             testEditorSizeIs720x440();
             testEditorContainsOscilloscope();
             testEditorContainsMeters();
@@ -133,7 +133,7 @@ namespace synthortion
             testMeterCalculatesRMS();
             testMeterPeakHoldJumpsToPeak();
             testAnimationControllerBypassMixDefaultsToZero();
-            testLookAndFeelDimsRotarySliderArcOnBypass();
+            testDeadlockKnobRendersWhiteFace();
             testMeterBarFadesWithBypassMix();
             testEditorBackgroundDimsWhenBypassed();
             testComingSoonPanelRendersPlaceholder();
@@ -255,17 +255,30 @@ namespace synthortion
             expect (! bypass.isOpaque(), "BypassComponent should remain non-opaque to preserve semi-transparent LED glow");
         }
 
-        void testCopperColorPalette()
+        void testDeadlockPalette()
         {
-            beginTest ("Color palette uses saturated violet and warm magenta");
+            beginTest ("DEADLOCK palette binds binary black/white colour slots");
 
             SynthortionLookAndFeel lookAndFeel;
 
-            const auto copper = lookAndFeel.findColour (SynthortionLookAndFeel::copperAccentColourId);
-            const auto copperBright = lookAndFeel.findColour (SynthortionLookAndFeel::copperBrightColourId);
+            const auto background = lookAndFeel.findColour (SynthortionLookAndFeel::backgroundColourId);
+            const auto panelFill = lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId);
+            const auto panelOutline = lookAndFeel.findColour (SynthortionLookAndFeel::panelOutlineColourId);
+            const auto accent = lookAndFeel.findColour (SynthortionLookAndFeel::accentColourId);
+            const auto accentBright = lookAndFeel.findColour (SynthortionLookAndFeel::accentBrightColourId);
+            const auto text = lookAndFeel.findColour (SynthortionLookAndFeel::textColourId);
+            const auto knobFill = lookAndFeel.findColour (SynthortionLookAndFeel::knobFillColourId);
 
-            expect (copper == juce::Colour (0xFF7C3AED), "COPPER should be #7C3AED");
-            expect (copperBright == juce::Colour (0xFFFF2D78), "COPPER_BRIGHT should be #FF2D78");
+            const juce::Colour black (0xFF000000);
+            const juce::Colour white (0xFFFFFFFF);
+
+            expect (background == black, "backgroundColourId should be pure #000");
+            expect (panelFill == black, "panelFillColourId should be pure #000");
+            expect (panelOutline == white, "panelOutlineColourId should be pure #FFF");
+            expect (accent == white, "accentColourId should be pure #FFF");
+            expect (accentBright == white, "accentBrightColourId should be pure #FFF");
+            expect (text == white, "textColourId should be pure #FFF");
+            expect (knobFill == white, "knobFillColourId should be pure #FFF");
         }
 
         void testEditorSizeIs720x440()
@@ -796,14 +809,12 @@ namespace synthortion
                     "setBypassMix should update the mix value");
         }
 
-        void testLookAndFeelDimsRotarySliderArcOnBypass()
+        void testDeadlockKnobRendersWhiteFace()
         {
-            beginTest ("SynthortionLookAndFeel dims the knob LED arc when bypassed");
+            beginTest ("Knob renders a flat white face in the DEADLOCK palette");
 
             juce::Component dummy;
             AnimationController controller (&dummy);
-            controller.setBypassMix (1.0f);
-
             SynthortionLookAndFeel lookAndFeel;
             lookAndFeel.setBypassMix (0.0f);
 
@@ -814,16 +825,13 @@ namespace synthortion
             knob.setSize (60, 60);
             knob.setLookAndFeel (&lookAndFeel);
 
-            const auto activeSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
-            const auto activePixel = activeSnapshot.getPixelAt (30, 7);
+            const auto snapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+            const auto facePixel = snapshot.getPixelAt (35, 35);
 
-            lookAndFeel.setBypassMix (1.0f);
-            knob.repaint();
-            const auto bypassedSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
-            const auto bypassedPixel = bypassedSnapshot.getPixelAt (30, 7);
-
-            expect (bypassedPixel.getBrightness() < activePixel.getBrightness(),
-                    "Bypassed knob arc pixel should be dimmer than active arc pixel");
+            expect (facePixel.getBrightness() > 0.9f,
+                    "Knob face should render pure white in the binary DEADLOCK palette");
+            expect (std::abs (lookAndFeel.getBypassMix()) < 1.0e-6f,
+                    "LnF bypass mix should default to the active state");
         }
 
         void testMeterBarFadesWithBypassMix()
@@ -890,7 +898,7 @@ namespace synthortion
             beginTest ("Coming Soon panel renders placeholder content");
 
             SynthortionLookAndFeel lookAndFeel;
-            const auto bg = lookAndFeel.findColour (SynthortionLookAndFeel::panelRecessedColourId);
+            const auto bg = lookAndFeel.findColour (SynthortionLookAndFeel::panelOutlineColourId);
 
             PanelComponent plainPanel ("OTHER", bg);
             plainPanel.setSize (100, 100);

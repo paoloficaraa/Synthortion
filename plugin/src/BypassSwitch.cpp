@@ -31,10 +31,10 @@ namespace synthortion
             return laf != nullptr ? laf->findColour (colourId) : fallback;
         };
 
-        const auto violet = getColour (SynthortionLookAndFeel::copperAccentColourId, juce::Colour (0xFF7C3AED));
-        const auto violetBright = getColour (SynthortionLookAndFeel::copperBrightColourId, juce::Colour (0xFFFF2D78));
-        const auto cream = getColour (SynthortionLookAndFeel::backgroundColourId, juce::Colour (0xFFF5F0EB));
-        const auto panelRecessed = getColour (SynthortionLookAndFeel::panelRecessedColourId, juce::Colour (0xFFDCD5CE));
+        const auto violet = getColour (SynthortionLookAndFeel::accentColourId, juce::Colour (0xFFFFFFFF));
+        const auto violetBright = getColour (SynthortionLookAndFeel::accentBrightColourId, juce::Colour (0xFFFFFFFF));
+        const auto cream = getColour (SynthortionLookAndFeel::backgroundColourId, juce::Colour (0xFF000000));
+        const auto panelRecessed = getColour (SynthortionLookAndFeel::panelOutlineColourId, juce::Colour (0xFFFFFFFF));
         const auto warmGray = juce::Colour (0xFF6B6570);
         const auto textDark = juce::Colour (0xFF2E2A33);
 

@@ -3,17 +3,17 @@
 
 namespace
 {
-    const juce::Colour CREAM(0xFFF5F0EB);
-    const juce::Colour CREAM_DARK(0xFFE8E2DC);
-    const juce::Colour CREAM_SHADOW(0xFFDCD5CE);
-    const juce::Colour VIOLET(0xFF7C3AED);
-    const juce::Colour COPPER(0xFF7C3AED);
-    const juce::Colour COPPER_BRIGHT(0xFFFF2D78);
-    const juce::Colour GRAPHITE(0xFF3A3540);
-    const juce::Colour WARM_GRAY(0xFF6B6570);
-    const juce::Colour TEXT_DARK(0xFF2E2A33);
-    const juce::Colour LED_GREEN(0xFF00F5D4);
-    const juce::Colour LED_OFF(0xFFB8B0A8);
+    const juce::Colour CREAM(0xFF000000);
+    const juce::Colour CREAM_DARK(0xFF000000);
+    const juce::Colour CREAM_SHADOW(0xFFFFFFFF);
+    const juce::Colour VIOLET(0xFFFFFFFF);
+    const juce::Colour COPPER(0xFFFFFFFF);
+    const juce::Colour COPPER_BRIGHT(0xFFFFFFFF);
+    const juce::Colour GRAPHITE(0xFFFFFFFF);
+    const juce::Colour WARM_GRAY(0xFFFFFFFF);
+    const juce::Colour TEXT_DARK(0xFFFFFFFF);
+    const juce::Colour LED_GREEN(0xFFFFFFFF);
+    const juce::Colour LED_OFF(0xFF000000);
 
 }
 
@@ -46,12 +46,12 @@ SynthortionLookAndFeel::SynthortionLookAndFeel()
     setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
 
     setColour(backgroundColourId, CREAM);
-    setColour(panelColourId, CREAM_DARK);
-    setColour(panelRecessedColourId, CREAM_SHADOW);
-    setColour(copperAccentColourId, VIOLET);
-    setColour(copperBrightColourId, COPPER_BRIGHT);
-    setColour(creamTextColourId, TEXT_DARK);
-    setColour(graphiteKnobColourId, GRAPHITE);
+    setColour(panelFillColourId, CREAM_DARK);
+    setColour(panelOutlineColourId, CREAM_SHADOW);
+    setColour(accentColourId, VIOLET);
+    setColour(accentBrightColourId, COPPER_BRIGHT);
+    setColour(textColourId, TEXT_DARK);
+    setColour(knobFillColourId, GRAPHITE);
 
     bebasNeueTypeface = juce::Typeface::createSystemTypefaceFor(BinaryData::BebasNeueRegular_ttf,
                                                                  BinaryData::BebasNeueRegular_ttfSize);
@@ -67,11 +67,7 @@ juce::Typeface::Ptr SynthortionLookAndFeel::getTypefaceForFont(const juce::Font&
         return bebasNeueTypeface;
 
     if (fontName.containsIgnoreCase("Montserrat"))
-    {
-        if (fontName.containsIgnoreCase("Regular"))
-            return montserratRegularTypeface;
         return montserratTypeface;
-    }
 
     return montserratTypeface;
 }
