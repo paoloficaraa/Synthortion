@@ -2,15 +2,22 @@
 
 namespace synthortion
 {
+    namespace
+    {
+        // Live pixels between the panel rule and the COMING SOON label, and
+        // between the label and the glitch motion row, expressed in CSS px.
+        constexpr float kContentTopPad = 6.0f;
+        constexpr float kPlaceholderMotionMargin = 16.0f;
+    }
     PanelComponent::PanelComponent (const juce::String& panelTitle, const juce::Colour& backgroundColour)
         : title (panelTitle),
           bgColour (backgroundColour),
-          headingFont (juce::FontOptions().withName("BebasNeue").withHeight(18.0f).withStyle("Regular"))
+          headingFont (juce::FontOptions().withName("BebasNeue").withHeight(22.0f).withStyle("Regular"))
     {
         setOpaque (true);
     }
 
-    void PanelComponent::paint (juce::Graphics& g)
+void PanelComponent::paint (juce::Graphics& g)
     {
         g.fillAll (bgColour);
 
@@ -21,12 +28,15 @@ namespace synthortion
         else
         {
             g.setColour (bgColour);
-            g.fillRoundedRectangle (getLocalBounds().toFloat().reduced (1.0f), 6.0f);
+            g.fillRect (getLocalBounds().toFloat());
+
+            g.setColour (juce::Colours::white);
+            g.drawRect (getLocalBounds().toFloat(), 1.0f);
 
             if (title.isNotEmpty())
             {
                 auto labelArea = getLocalBounds().toFloat().removeFromTop (22.0f).reduced (8.0f, 0.0f);
-                g.setColour (juce::Colours::white.withAlpha (0.6f));
+                g.setColour (juce::Colours::white);
                 g.setFont (headingFont);
                 g.drawFittedText (title, labelArea.toNearestInt(), juce::Justification::centredLeft, 1);
             }
@@ -47,40 +57,45 @@ namespace synthortion
 
     void PanelComponent::drawPlaceholderContent (juce::Graphics& g)
     {
-        auto bounds = getLocalBounds().toFloat().reduced (8.0f);
-        bounds.removeFromTop (22.0f);
+        // Layout below the panel title row (0..22 px) and its 1 px rule:
+        // ── COMING SOON label centred over the content,
+        // ── 2 px-tall drift band drifting across the panel width,
+        // ── 4x4 px flicker block beneath the band.
+        const auto panel = getLocalBounds();
+        const float ruleY = 22.0f + 1.0f + kContentTopPad;
+        const auto panelW = static_cast<float> (panel.getWidth());
+        const auto panelH = static_cast<float> (panel.getHeight());
 
         auto* laf = dynamic_cast<SynthortionLookAndFeel*> (&getLookAndFeel());
         const auto textColour = laf != nullptr
                                   ? laf->findColour (SynthortionLookAndFeel::textColourId)
                                   : juce::Colour (0xFFFFFFFF);
-        const auto backgroundColour = laf != nullptr
-                               ? laf->findColour (SynthortionLookAndFeel::backgroundColourId)
-                               : juce::Colour (0xFF000000);
 
-        const auto placeholderFont = headingFont.withHeight (16.0f);
-        const auto textArea = bounds.toNearestInt();
-
-        // Embossed shadow
-        g.setColour (textColour.withAlpha (0.2f));
-        g.setFont (placeholderFont);
-        g.drawFittedText ("COMING SOON", textArea.translated (1, 1), juce::Justification::centred, 1);
-
-        // Embossed highlight
-        g.setColour (backgroundColour.brighter (0.25f).withAlpha (0.45f));
-        g.drawFittedText ("COMING SOON", textArea.translated (-1, -1), juce::Justification::centred, 1);
-
-        // Main label
-        g.setColour (textColour.withAlpha (0.55f));
-        g.drawFittedText ("COMING SOON", textArea, juce::Justification::centred, 1);
-
-        // Stylised ellipsis icon
-        g.setColour (textColour.withAlpha (0.35f));
-        const float dotY = bounds.getCentreY() + 18.0f;
-        for (int i = -1; i <= 1; ++i)
+        // Single-pass BebasNeue 22 pt #FFF COMING SOON label centred below the rule.
         {
-            const float x = bounds.getCentreX() + static_cast<float> (i) * 10.0f;
-            g.fillEllipse (x - 2.0f, dotY - 2.0f, 4.0f, 4.0f);
+            juce::Rectangle<float> labelArea (panel.getX(), ruleY,
+                                              panelW, juce::jmax (1.0f, panelH - ruleY - kPlaceholderMotionMargin));
+            g.setColour (textColour);
+            g.setFont (headingFont);
+            g.drawFittedText ("COMING SOON", labelArea.toNearestInt(),
+                              juce::Justification::centred, 1);
+        }
+
+        // Drift band + flicker block read their per-frame state from
+        // GlitchOverlay, advanced transitively by PluginEditor::timerCallback.
+        // No overlay attached (unit tests) -> only the centred label renders.
+        if (glitchOverlay != nullptr)
+        {
+            const float motionY = panelH - kPlaceholderMotionMargin;
+            const juce::Rectangle<int> bandArea (panel.getX(),
+                                                 static_cast<int> (motionY),
+                                                 panel.getWidth(), 2);
+            glitchOverlay->drawHorizontalBand (g, bandArea);
+
+            const juce::Rectangle<int> flickerArea (panel.getCentreX() - 2,
+                                                    static_cast<int> (motionY) + 4,
+                                                    4, 4);
+            glitchOverlay->drawFlickerBlock (g, flickerArea);
         }
     }
 }

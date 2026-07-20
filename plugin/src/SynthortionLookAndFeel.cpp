@@ -8,7 +8,7 @@ namespace
 }
 
 SynthortionLookAndFeel::SynthortionLookAndFeel()
-    : sectionHeadingFont (juce::FontOptions().withName("BebasNeue").withHeight(18.0f).withStyle("Regular")),
+    : sectionHeadingFont (juce::FontOptions().withName("BebasNeue").withHeight(kSectionTitleHeight).withStyle("Regular")),
       parameterLabelFont (juce::FontOptions().withName("Montserrat").withHeight(13.0f).withStyle("Medium")),
       parameterValueFont (juce::FontOptions().withName("Montserrat").withHeight(12.0f).withStyle("Regular")),
       bypassLabelFont (juce::FontOptions().withName("Montserrat").withHeight(13.0f).withStyle("Medium"))
@@ -264,53 +264,36 @@ void SynthortionLookAndFeel::drawSwitchHandle(juce::Graphics& g, const juce::Rec
 void SynthortionLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Rectangle<int>& bounds,
                                              bool isRecessed, const juce::String& title)
 {
-    auto r = bounds.toFloat();
-
-    g.fillAll(isRecessed ? WHITE : BLACK);
-
-    if (isRecessed)
-    {
-        g.setColour(WHITE);
-        g.fillRoundedRectangle(r, 6.0f);
-
-        g.setColour(BLACK);
-        g.fillRoundedRectangle(r.reduced(2.0f), 5.0f);
-
-        g.setColour(WHITE.withAlpha(0.1f));
-        g.drawRoundedRectangle(r.reduced(0.5f), 6.0f, 0.5f);
-    }
-    else
-    {
-        juce::ColourGradient grad(
-            BLACK.brighter(0.05f), r.getTopLeft(),
-            WHITE.darker(0.1f), r.getBottomRight(),
-            false);
-        g.setGradientFill(grad);
-        g.fillRoundedRectangle(r, 6.0f);
-
-        g.setColour(juce::Colours::black.withAlpha(0.3f));
-        g.drawRoundedRectangle(r.reduced(1.0f), 5.0f, 0.5f);
-
-        g.setColour(juce::Colours::white.withAlpha(0.2f));
-        g.drawRoundedRectangle(r.reduced(2.0f), 4.0f, 0.5f);
-    }
-
-    drawSectionTitle(g, r, title);
+    drawPanelBackground(g, bounds, isRecessed, title, BLACK);
 }
 
 void SynthortionLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Rectangle<int>& bounds,
                                              bool /*isRecessed*/, const juce::String& title,
-                                             const juce::Colour& bgColour)
+                                             const juce::Colour& /*bgColour*/)
 {
-    auto r = bounds.toFloat();
+    const auto r = bounds.toFloat();
 
-    g.setColour(bgColour);
-    g.fillRoundedRectangle(r.reduced(1.0f), 6.0f);
+    g.setColour(BLACK);
+    g.fillRect(r);
 
-    g.setColour(juce::Colours::black.withAlpha(0.3f));
-    g.drawRoundedRectangle(r.reduced(1.0f), 5.0f, 0.5f);
+    g.setColour(WHITE);
+    g.drawRect(r, 1.0f);
 
-    drawSectionTitle(g, r, title);
+    auto titleRect = r;
+    drawSectionTitle(g, titleRect, title);
+
+    if (title.isNotEmpty())
+    {
+        const float ruleY = r.getY() + kSectionTitleHeight;
+        g.setColour(WHITE);
+        g.drawHorizontalLine(static_cast<int>(ruleY), r.getX(), r.getRight());
+    }
+
+    g.setColour(WHITE);
+    g.fillRect(r.getX(), r.getY(), 2.0f, 2.0f);
+    g.fillRect(r.getRight() - 2.0f, r.getY(), 2.0f, 2.0f);
+    g.fillRect(r.getX(), r.getBottom() - 2.0f, 2.0f, 2.0f);
+    g.fillRect(r.getRight() - 2.0f, r.getBottom() - 2.0f, 2.0f, 2.0f);
 }
 
 void SynthortionLookAndFeel::drawSectionTitle(juce::Graphics& g, juce::Rectangle<float>& r,
@@ -320,7 +303,7 @@ void SynthortionLookAndFeel::drawSectionTitle(juce::Graphics& g, juce::Rectangle
     {
         auto labelArea = r.removeFromTop(kSectionTitleHeight).reduced(kSectionTitleInset, 0.0f);
 
-        g.setColour(WHITE.withAlpha(0.7f));
+        g.setColour(WHITE);
         g.setFont(sectionHeadingFont);
         g.drawFittedText(title, labelArea.toNearestInt(),
                          juce::Justification::centredLeft, 1);

@@ -41,6 +41,7 @@ namespace synthortion
         addAndMakeVisible (delayPanel);
         addAndMakeVisible (comingSoonPanel);
         comingSoonPanel.setPlaceholder (true);
+        comingSoonPanel.setGlitchOverlay (&glitchOverlay);
         addAndMakeVisible (bypassComponent);
         addAndMakeVisible (oscilloscope);
         addAndMakeVisible (inputMeter);

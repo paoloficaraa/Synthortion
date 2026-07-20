@@ -11,6 +11,7 @@ namespace synthortion
     void GlitchOverlay::tick()
     {
         grainFrameIndex = (grainFrameIndex + 1) % kGrainFrames;
+        ++frameTickCount;
 
         if (++ticksSinceReroll >= kDeadPixelRerollTicks)
         {
@@ -18,6 +19,46 @@ namespace synthortion
             rerollDeadPixels (lastDeadPixelBounds);
             ++deadPixelRerollCount;
         }
+    }
+
+    int GlitchOverlay::getDriftBandStep() const noexcept
+    {
+        return (frameTickCount / kDriftBandStepTicks) % kDriftBandSteps;
+    }
+
+    bool GlitchOverlay::isFlickerBlockVisible() const noexcept
+    {
+        return (frameTickCount / kFlickerPeriodTicks) % 2 == 0;
+    }
+
+    void GlitchOverlay::drawHorizontalBand (juce::Graphics& g, juce::Rectangle<int> bounds)
+    {
+        if (bounds.getWidth() <= 0 || bounds.getHeight() <= 0)
+            return;
+
+        const int step = getDriftBandStep();
+        const int stride = juce::jmax (1, bounds.getWidth() / kDriftBandSteps);
+        const int bandWidth = juce::jmax (1, stride);
+        const int x = bounds.getX() + step * stride;
+        const int y = bounds.getY();
+
+        g.setColour (juce::Colour (kWhiteArgb));
+        g.fillRect (x, y, bandWidth, kDriftBandHeight);
+    }
+
+    void GlitchOverlay::drawFlickerBlock (juce::Graphics& g, juce::Rectangle<int> bounds)
+    {
+        if (bounds.getWidth() < kFlickerBlockSize || bounds.getHeight() < kFlickerBlockSize)
+            return;
+
+        if (! isFlickerBlockVisible())
+            return;
+
+        const int x = bounds.getCentreX() - kFlickerBlockSize / 2;
+        const int y = bounds.getCentreY() - kFlickerBlockSize / 2;
+
+        g.setColour (juce::Colour (kWhiteArgb));
+        g.fillRect (x, y, kFlickerBlockSize, kFlickerBlockSize);
     }
 
     void GlitchOverlay::drawDitherNoise (juce::Graphics& g, juce::Rectangle<int> bounds)

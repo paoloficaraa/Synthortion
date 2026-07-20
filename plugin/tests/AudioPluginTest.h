@@ -63,7 +63,7 @@ private:
         SynthortionLookAndFeel lookAndFeel;
 
         auto heading = lookAndFeel.getSectionHeadingFont();
-        expect (juce::roundToInt(heading.getHeight()) == 18, "Section heading should be 18px");
+        expect (juce::roundToInt(heading.getHeight()) == 22, "Section heading should be 22px (BebasNeue panel title size per issue #20)");
         expect (lookAndFeel.getTypefaceForFont(heading) == lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("BebasNeue")),
                 "Section heading should resolve to the BebasNeue typeface");
 
@@ -101,7 +101,13 @@ namespace synthortion
 
         void runTest() override
         {
-            testPanelComponentRendersBackgroundColour();
+            // Slice C: drawPanelBackground now paints a flat #000 panel
+            // regardless of the bgColour argument, so the centre == bgColour
+            // assertion in testPanelComponentRendersBackgroundColour no longer
+            // holds. The visual test will be deleted in Slice I; called out via
+            // acceptance criteria #6 of issue #20. Left commented so the other
+            // behavioural tests run cleanly.
+            // testPanelComponentRendersBackgroundColour();
             testBypassComponentLedTogglesOnClick();
             testBypassSwitchSnapsWithoutOvershoot();
             testBypassSwitchParameterAttachment();
@@ -142,6 +148,9 @@ namespace synthortion
             testGlitchOverlayDitherIsBinary();
             testGlitchOverlayTickAdvancesDitherFrame();
             testGlitchOverlayRerollsDeadPixelsApprox80ms();
+            testGlitchOverlayDriftBandDriftsLeftToRight();
+            testGlitchOverlayFlickerBlockTogglesEveryThirtyTicks();
+            testPanelComponentRendersBrutalistShape();
         }
 
     private:
@@ -222,12 +231,12 @@ namespace synthortion
 
         void testPanelComponentTitleFont()
         {
-            beginTest ("PanelComponent title font is BebasNeue 18px");
+            beginTest ("PanelComponent title font is BebasNeue 22px");
 
             PanelComponent panel ("DISTORTION", juce::Colours::black);
             auto font = panel.getTitleFont();
 
-            expect (juce::roundToInt(font.getHeight()) == 18, "Panel title should be 18px");
+            expect (juce::roundToInt(font.getHeight()) == 22, "Panel title should be 22px per DEADLOCK Slice C issue #20");
             expect (font.getTypefaceName().containsIgnoreCase("Bebas"), "Panel title should use BebasNeue");
         }
 
@@ -1027,6 +1036,113 @@ namespace synthortion
                     "Bypass button should follow PLUGIN_BYPASS");
             expect (editor.getOscilloscope().isBypassed(),
                     "Oscilloscope should receive bypass state");
+        }
+
+        void testGlitchOverlayDriftBandDriftsLeftToRight()
+        {
+            beginTest ("GlitchOverlay::drawHorizontalBand drifts L->R in 16 hard steps");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            GlitchOverlay overlay;
+            expect (overlay.getDriftBandStep() == 0, "Drift band starts at step 0");
+
+            const auto drawBand = [&overlay] (juce::Image& img) {
+                img.clear (img.getBounds(), juce::Colours::transparentBlack);
+                juce::Graphics g (img);
+                g.fillAll (juce::Colours::black);
+                overlay.drawHorizontalBand (g, img.getBounds());
+            };
+
+            juce::Image img (juce::Image::ARGB, 64, 32, true);
+            drawBand (img);
+
+            // Band is 2 px tall (y=0..1) and starts flush with the left edge.
+            expect (img.getPixelAt (0, 0) == white, "Drift band left edge should be #FFF at step 0");
+            expect (img.getPixelAt (0, 1) == white, "Drift band should be 2 px tall at y=1");
+            expect (img.getPixelAt (0, 2) == black, "Drift band should stop at y=2");
+
+            // kDriftBandStepTicks (8 ticks at 60 Hz) advance the band one step.
+            for (int i = 0; i < GlitchOverlay::driftBandStepTicksForTests(); ++i)
+                overlay.tick();
+
+            expect (overlay.getDriftBandStep() == 1, "Drift band step should advance to 1 after kDriftBandStepTicks ticks");
+
+            drawBand (img);
+            expect (img.getPixelAt (0, 0) == black, "Drift band should leave the left edge after one step");
+            const int stride = juce::jmax (1, 64 / GlitchOverlay::driftBandStepForTests());
+            expect (img.getPixelAt (stride, 0) == white, "Drift band should land on step 1 at the next stride cell");
+        }
+
+        void testGlitchOverlayFlickerBlockTogglesEveryThirtyTicks()
+        {
+            beginTest ("GlitchOverlay::drawFlickerBlock toggles on/off every 30 ticks (500 ms at 60 Hz)");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+
+            GlitchOverlay overlay;
+
+            auto blockVisibleAtCentre = [&overlay, white] {
+                juce::Image img (juce::Image::ARGB, 32, 32, true);
+                juce::Graphics g (img);
+                g.fillAll (juce::Colours::black);
+                overlay.drawFlickerBlock (g, img.getBounds());
+                return img.getPixelAt (img.getWidth() / 2, img.getHeight() / 2) == white;
+            };
+
+            expect (overlay.isFlickerBlockVisible(), "Flicker block should be on at tick 0");
+            expect (blockVisibleAtCentre(), "Flicker block should render #FFF at tick 0");
+
+            for (int i = 0; i < GlitchOverlay::flickerPeriodTicksForTests(); ++i)
+                overlay.tick();
+
+            expect (! overlay.isFlickerBlockVisible(), "Flicker block should turn off after kFlickerPeriodTicks ticks");
+            expect (! blockVisibleAtCentre(), "Flicker block should draw nothing when hidden");
+
+            for (int i = 0; i < GlitchOverlay::flickerPeriodTicksForTests(); ++i)
+                overlay.tick();
+
+            expect (overlay.isFlickerBlockVisible(), "Flicker block should turn back on after kFlickerPeriodTicks more ticks");
+            expect (blockVisibleAtCentre(), "Flicker block should re-render #FFF after the second 30-tick window");
+        }
+
+        void testPanelComponentRendersBrutalistShape()
+        {
+            beginTest ("PanelComponent renders brutalist shape: #FFF outline + #000 fill + rule + corner ticks");
+
+            SynthortionLookAndFeel lookAndFeel;
+            PanelComponent panel ("DISTORTION", juce::Colour (0xFF000000));
+            panel.setSize (100, 100);
+            panel.setLookAndFeel (&lookAndFeel);
+
+            const auto snapshot = panel.createComponentSnapshot (panel.getLocalBounds());
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            // Flat #000 fill on the panel interior.
+            expect (snapshot.getPixelAt (50, 50) == black, "Brutalist panel interior should be flat #000");
+            expect (snapshot.getPixelAt (50, 80) == black, "Brutalist panel interior below the rule should be flat #000");
+
+            // 1 px #FFF hard-square outline on every edge.
+            expect (snapshot.getPixelAt (50, 0) == white, "Top edge outline should be #FFF");
+            expect (snapshot.getPixelAt (50, 99) == white, "Bottom edge outline should be #FFF");
+            expect (snapshot.getPixelAt (0, 50) == white, "Left edge outline should be #FFF");
+            expect (snapshot.getPixelAt (99, 50) == white, "Right edge outline should be #FFF");
+
+            // 2 px #FFF corner ticks stacking over the outline at every corner.
+            expect (snapshot.getPixelAt (0, 0) == white && snapshot.getPixelAt (1, 1) == white,
+                    "Top-left 2x2 corner tick should be #FFF");
+            expect (snapshot.getPixelAt (99, 0) == white && snapshot.getPixelAt (98, 1) == white,
+                    "Top-right 2x2 corner tick should be #FFF");
+            expect (snapshot.getPixelAt (0, 99) == white && snapshot.getPixelAt (1, 98) == white,
+                    "Bottom-left 2x2 corner tick should be #FFF");
+            expect (snapshot.getPixelAt (99, 99) == white && snapshot.getPixelAt (98, 98) == white,
+                    "Bottom-right 2x2 corner tick should be #FFF");
+
+            // 1 px #FFF horizontal rule directly beneath the 22 pt title row.
+            expect (snapshot.getPixelAt (50, 22) == white, "Rule beneath the title row should be #FFF");
         }
     };
 
