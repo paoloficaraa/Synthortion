@@ -83,7 +83,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // not write code. (Structured output requires maxIterations: 1.)
     maxIterations: 1,
     // Planner: GLM-5.2 Max — forte ragionamento e analisi dipendenze
-    agent: sandcastle.opencode("opencode-go/kimi-k3"),
+    agent: sandcastle.opencode("opencode/claude-sonnet-5", { variant: "max" }),
     promptFile: "./.sandcastle/plan-prompt.md",
     // Extract and validate the <plan> JSON into a typed object. Throws
     // StructuredOutputError if the tag is missing, the JSON is malformed, or
@@ -132,7 +132,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           maxIterations: 100,
           idleTimeoutSeconds: 1800,
           // Implementer: Kimi K2.7 Code — specializzato per coding
-          agent: sandcastle.opencode("opencode-go/glm-5.2"),
+          agent: sandcastle.opencode("opencode-go/glm-5.2", { variant: "max" }),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
@@ -148,7 +148,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
             maxIterations: 1,
             idleTimeoutSeconds: 1800,
             // Reviewer: DeepSeek V4 Pro — attento ai dettagli e sicurezza
-            agent: sandcastle.opencode("opencode-go/deepseek-v4-pro"),
+            agent: sandcastle.opencode("opencode-go/deepseek-v4-pro", { variant: "max" }),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
               BRANCH: issue.branch,
@@ -221,7 +221,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     maxIterations: 1,
     idleTimeoutSeconds: 1800,
     // Merger: Qwen3.7 Plus — merge e risoluzione conflitti
-    agent: sandcastle.opencode("opencode-go/qwen3.7-max"),
+    agent: sandcastle.opencode("opencode-go/qwen3.7-max", { variant: "max" }),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
       // A markdown list of branch names, one per line.
