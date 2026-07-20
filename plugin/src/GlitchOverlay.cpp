@@ -38,12 +38,11 @@ namespace synthortion
 
         const int step = getDriftBandStep();
         const int stride = juce::jmax (1, bounds.getWidth() / kDriftBandSteps);
-        const int bandWidth = juce::jmax (1, stride);
         const int x = bounds.getX() + step * stride;
         const int y = bounds.getY();
 
         g.setColour (juce::Colour (kWhiteArgb));
-        g.fillRect (x, y, bandWidth, kDriftBandHeight);
+        g.fillRect (x, y, stride, kDriftBandHeight);
     }
 
     void GlitchOverlay::drawFlickerBlock (juce::Graphics& g, juce::Rectangle<int> bounds)
