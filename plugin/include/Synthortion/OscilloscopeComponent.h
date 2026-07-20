@@ -2,17 +2,19 @@
 
 #include "Synthortion/AnimationController.h"
 #include "Synthortion/AudioScopeRingBuffer.h"
+#include "Synthortion/GlitchOverlay.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <array>
 #include <optional>
 
 namespace synthortion
 {
-    /** Real-time dual-trace oscilloscope with ghost trails and idle breathing animation.
+    /** Real-time dual-trace oscilloscope with ghost trails and idle flicker animation.
 
         Reads pre-DSP (input) and post-DSP (output) samples from the lock-free
-        AudioScopeRingBuffer and renders them as two overlaid traces. Updates are
-        driven by the AnimationController's VBlank timeline for fluid motion.
+        AudioScopeRingBuffer and renders them as two pixelated vertical-stroke
+        traces on the DEADLOCK Plotter substrate. Updates are driven by the
+        AnimationController's VBlank timeline for fluid motion.
     */
     class OscilloscopeComponent final : public juce::Component
     {
@@ -25,6 +27,7 @@ namespace synthortion
         void resized() override;
 
         void setBypassed (bool bypassed) noexcept;
+        void setGlitchOverlay (GlitchOverlay* overlay) noexcept { glitchOverlay = overlay; }
 
         /** Manual refresh entry point for tests and non-VBlank environments. */
         void refresh();
@@ -41,8 +44,10 @@ namespace synthortion
         void startAnimation();
         void updateFrame();
 
-        void drawTrace (juce::Graphics& g, const juce::AudioBuffer<float>& buffer,
-                        juce::Colour colour, float alpha, float amplitudeScale);
+        void drawTraceTriplet (juce::Graphics& g, const juce::AudioBuffer<float>& buffer,
+                               bool oddRows, float amplitudeScale, float alpha);
+        void drawPixelatedTrace (juce::Graphics& g, const juce::AudioBuffer<float>& buffer,
+                                 bool oddRows, float xOffset, float amplitudeScale, float alpha);
         void drawGhostTrails (juce::Graphics& g);
         void drawBreathLine (juce::Graphics& g);
 
@@ -51,6 +56,7 @@ namespace synthortion
 
         AudioScopeRingBuffer& ringBuffer;
         AnimationController* controller;
+        GlitchOverlay* glitchOverlay = nullptr;
         std::optional<juce::Animator> currentAnimator;
         bool animationRunning = false;
 
@@ -59,6 +65,10 @@ namespace synthortion
         static constexpr float kBreathIncrement = 0.04f;
         static constexpr float kFlatlineDecay = 0.92f;
         static constexpr double kFrameDurationMs = 1000.0 / 60.0;
+
+        static constexpr juce::uint32 kTraceArgb = 0xFFFFFFFF;
+        static constexpr juce::uint32 kSubstrateArgb = 0xFF000000;
+        static constexpr std::array<float, kHistoryFrames> kGhostAlphas { 0.60f, 0.30f, 0.15f };
 
         std::array<juce::AudioBuffer<float>, kHistoryFrames> history;
         int historyIndex = 0;
@@ -72,5 +82,8 @@ namespace synthortion
         float flatlineAmplitude = 0.0f;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OscilloscopeComponent)
+
+    public:
+        static constexpr std::array<float, kHistoryFrames> ghostAlphasForTests() noexcept { return kGhostAlphas; }
     };
 }

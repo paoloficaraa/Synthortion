@@ -31,6 +31,41 @@ namespace synthortion
         return (frameTickCount / kFlickerPeriodTicks) % 2 == 0;
     }
 
+    int GlitchOverlay::getSweepStep() const noexcept
+    {
+        return (frameTickCount / kSweepStepTicks) % kSweepSteps;
+    }
+
+    float GlitchOverlay::getSweepPosition() const noexcept
+    {
+        return static_cast<float> (getSweepStep()) / static_cast<float> (kSweepSteps);
+    }
+
+    void GlitchOverlay::drawTriplet (juce::Graphics& g, std::function<void (juce::Point<float>)> strokeAtOffset)
+    {
+        juce::ignoreUnused (g);
+        if (! strokeAtOffset)
+            return;
+
+        strokeAtOffset (juce::Point<float> { -1.0f, 0.0f });
+        strokeAtOffset (juce::Point<float> {  0.0f, 0.0f });
+        strokeAtOffset (juce::Point<float> {  1.0f, 0.0f });
+    }
+
+    void GlitchOverlay::drawSweep (juce::Graphics& g, juce::Rectangle<int> bounds, float position)
+    {
+        if (bounds.getWidth() <= 0 || bounds.getHeight() <= 0)
+            return;
+
+        const float clamped = juce::jlimit (0.0f, 1.0f, position);
+        const int usable = juce::jmax (0, bounds.getWidth() - kSweepWidth);
+        const int x = bounds.getX()
+                    + static_cast<int> (std::round (clamped * static_cast<float> (usable)));
+
+        g.setColour (juce::Colour (kWhiteArgb));
+        g.fillRect (x, bounds.getY(), kSweepWidth, bounds.getHeight());
+    }
+
     void GlitchOverlay::drawHorizontalBand (juce::Graphics& g, juce::Rectangle<int> bounds)
     {
         if (bounds.getWidth() <= 0 || bounds.getHeight() <= 0)

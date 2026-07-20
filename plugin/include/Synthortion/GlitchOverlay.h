@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <functional>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 namespace synthortion
@@ -27,18 +28,33 @@ namespace synthortion
         // per second at a 60 Hz tick) centred on `bounds`; no-op when hidden.
         void drawFlickerBlock (juce::Graphics& g, juce::Rectangle<int> bounds);
 
+        // RGB-split Triplet: invokes @p strokeAtOffset three times at horizontal
+        // offsets -1, 0, +1 px so the caller's stroke renders as three parallel
+        // lines (the strict palette forbids real RGB, so all three are #FFF).
+        void drawTriplet (juce::Graphics& g, std::function<void (juce::Point<float>)> strokeAtOffset);
+
+        // Scan-charge Sweep: a kSweepWidth-px vertical #FFF band at the L->R
+        // position @p position in [0, 1] across `bounds`. The position is
+        // advanced per tick via getSweepPosition().
+        void drawSweep (juce::Graphics& g, juce::Rectangle<int> bounds, float position);
+
         // Test accessors.
         int getGrainFrameIndex() const noexcept { return grainFrameIndex; }
         int getDeadPixelRerollCount() const noexcept { return deadPixelRerollCount; }
         int getFrameTickCount() const noexcept { return frameTickCount; }
         int getDriftBandStep() const noexcept;
         bool isFlickerBlockVisible() const noexcept;
+        int getSweepStep() const noexcept;
+        float getSweepPosition() const noexcept;
         static constexpr int tileSizeForTests() noexcept { return kGrainTextureSize; }
         static constexpr int driftBandHeight() noexcept { return kDriftBandHeight; }
         static constexpr int flickerBlockSize() noexcept { return kFlickerBlockSize; }
         static constexpr int driftBandStepForTests() noexcept { return kDriftBandSteps; }
         static constexpr int driftBandStepTicksForTests() noexcept { return kDriftBandStepTicks; }
         static constexpr int flickerPeriodTicksForTests() noexcept { return kFlickerPeriodTicks; }
+        static constexpr int sweepWidthForTests() noexcept { return kSweepWidth; }
+        static constexpr int sweepStepsForTests() noexcept { return kSweepSteps; }
+        static constexpr int sweepStepTicksForTests() noexcept { return kSweepStepTicks; }
 
     private:
         static constexpr int kGrainTextureSize = 64;
@@ -57,6 +73,12 @@ namespace synthortion
         static constexpr int kDriftBandStepTicks = 8;   // 16 * 8 = 128 ticks ~= 0.5 Hz cycle
         static constexpr int kFlickerBlockSize = 4;
         static constexpr int kFlickerPeriodTicks = 30;  // 500 ms on / 500 ms off
+
+        // Scan-charge Sweep constants (Slice F). Same 16-step / 8-tick cadence
+        // as the drift band => ~0.5 Hz L->R wipe at a 60 Hz tick.
+        static constexpr int kSweepWidth = 4;
+        static constexpr int kSweepSteps = 16;
+        static constexpr int kSweepStepTicks = 8;
 
         static constexpr juce::uint32 kBlackArgb = 0xFF000000;
         static constexpr juce::uint32 kWhiteArgb = 0xFFFFFFFF;

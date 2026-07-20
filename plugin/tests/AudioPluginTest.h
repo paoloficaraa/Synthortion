@@ -128,6 +128,13 @@ namespace synthortion
             testOscilloscopeDetectsSignal();
             testOscilloscopeBypassFlattensOutput();
             testOscilloscopeBoundsInEditor();
+            testOscilloscopePixelLaneInterleave();
+            testOscilloscopeTracesMergeIntoContinuousStreak();
+            testOscilloscopeTripletRendersThreeParallelColumns();
+            testOscilloscopeSweepRendersViaSharedOverlay();
+            testOscilloscopeGhostTrailsUseThreeDiscreteAlphas();
+            testOscilloscopeSilentCenterlineFlickersHard();
+            testOscilloscopeBypassDecaysOutputAmplitude();
             testAnimatedKnobIsASlider();
             testAnimatedKnobHasRotaryStyle();
             testAnimatedKnobSnapsArcDuringDrag();
@@ -156,6 +163,8 @@ namespace synthortion
             testGlitchOverlayRerollsDeadPixelsApprox80ms();
             testGlitchOverlayDriftBandDriftsLeftToRight();
             testGlitchOverlayFlickerBlockTogglesEveryThirtyTicks();
+            testGlitchOverlayTripletDrawsThreeOffsets();
+            testGlitchOverlaySweepAdvancesLeftToRight();
             testPanelComponentRendersBrutalistShape();
         }
 
@@ -532,6 +541,234 @@ namespace synthortion
             }
 
             expect (false, "Editor should contain an OscilloscopeComponent to check bounds");
+        }
+
+        static juce::AudioBuffer<float> makeStereoSignal (int numSamples, float value)
+        {
+            juce::AudioBuffer<float> b (2, numSamples);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int i = 0; i < numSamples; ++i)
+                    b.setSample (ch, i, value);
+            return b;
+        }
+
+        static juce::AudioBuffer<float> makeStereoSpike (int numSamples, int spikeIndex, float value)
+        {
+            juce::AudioBuffer<float> b (2, numSamples);
+            for (int ch = 0; ch < 2; ++ch)
+                b.setSample (ch, spikeIndex, value);
+            return b;
+        }
+
+        void testOscilloscopePixelLaneInterleave()
+        {
+            beginTest ("Oscilloscope traces interleave: input on odd rows, output on even rows, pure #FFF, no AA");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            // Input-only signal: input = +1.0 (full scale), output = 0.0.
+            // input trace should paint odd rows; even rows (away from midY) stay #000.
+            {
+                AudioScopeRingBuffer buffer (512);
+                buffer.writeInput (makeStereoSignal (512, 1.0f));
+                buffer.writeOutput (makeStereoSignal (512, 0.0f));
+
+                OscilloscopeComponent scope (buffer, nullptr);
+                scope.setSize (100, 100);
+                GlitchOverlay overlay;
+                scope.setGlitchOverlay (&overlay);
+
+                for (int i = 0; i < 3; ++i)
+                    scope.refresh();
+
+                const auto snap = scope.createComponentSnapshot (scope.getLocalBounds());
+
+                expect (snap.getPixelAt (50, 49) == white,
+                        "Input trace should paint odd rows in pure #FFF (no anti-aliasing, no violet)");
+                expect (snap.getPixelAt (50, 48) == black,
+                        "Even rows outside the output stroke should stay #000 (no input bleed onto even rows)");
+            }
+
+            // Output-only signal: input = 0.0, output = +1.0.
+            // output trace should paint even rows; odd rows stay #000.
+            {
+                AudioScopeRingBuffer buffer (512);
+                buffer.writeInput (makeStereoSignal (512, 0.0f));
+                buffer.writeOutput (makeStereoSignal (512, 1.0f));
+
+                OscilloscopeComponent scope (buffer, nullptr);
+                scope.setSize (100, 100);
+                GlitchOverlay overlay;
+                scope.setGlitchOverlay (&overlay);
+
+                for (int i = 0; i < 3; ++i)
+                    scope.refresh();
+
+                const auto snap = scope.createComponentSnapshot (scope.getLocalBounds());
+
+                expect (snap.getPixelAt (50, 48) == white,
+                        "Output trace should paint even rows in pure #FFF");
+                expect (snap.getPixelAt (50, 49) == black,
+                        "Odd rows outside the input stroke should stay #000 (no output bleed onto odd rows)");
+            }
+        }
+
+        void testOscilloscopeTracesMergeIntoContinuousStreak()
+        {
+            beginTest ("Oscilloscope input==output traces merge into a continuous vertical streak");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+
+            AudioScopeRingBuffer buffer (512);
+            buffer.writeInput (makeStereoSignal (512, 1.0f));
+            buffer.writeOutput (makeStereoSignal (512, 1.0f));
+
+            OscilloscopeComponent scope (buffer, nullptr);
+            scope.setSize (100, 100);
+            GlitchOverlay overlay;
+            scope.setGlitchOverlay (&overlay);
+
+            for (int i = 0; i < 3; ++i)
+                scope.refresh();
+
+            const auto snap = scope.createComponentSnapshot (scope.getLocalBounds());
+
+            expect (snap.getPixelAt (50, 49) == white,
+                    "Odd rows should be #FFF from the input trace");
+            expect (snap.getPixelAt (50, 48) == white,
+                    "Even rows should be #FFF from the output trace; together they form a continuous streak");
+        }
+
+        void testOscilloscopeTripletRendersThreeParallelColumns()
+        {
+            beginTest ("Oscilloscope trace renders as a Triplet of 3 parallel columns via GlitchOverlay");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            AudioScopeRingBuffer buffer (512);
+            // Single-spike output so only one column carries a tall stroke; the
+            // Triplet then spreads that stroke to x-1, x, x+1.
+            buffer.writeInput (makeStereoSignal (512, 0.0f));
+            buffer.writeOutput (makeStereoSpike (512, 255, 1.0f));
+
+            OscilloscopeComponent scope (buffer, nullptr);
+            scope.setSize (100, 100);
+            GlitchOverlay overlay;
+            scope.setGlitchOverlay (&overlay);
+
+            for (int i = 0; i < 3; ++i)
+                scope.refresh();
+
+            const auto snap = scope.createComponentSnapshot (scope.getLocalBounds());
+
+            expect (snap.getPixelAt (49, 48) == white, "Triplet left copy should render at x-1");
+            expect (snap.getPixelAt (50, 48) == white, "Triplet centre copy should render at x");
+            expect (snap.getPixelAt (51, 48) == white, "Triplet right copy should render at x+1");
+            expect (snap.getPixelAt (48, 48) == black, "No triplet stroke one column left of the triplet");
+            expect (snap.getPixelAt (52, 48) == black, "No triplet stroke one column right of the triplet");
+        }
+
+        void testOscilloscopeSweepRendersViaSharedOverlay()
+        {
+            beginTest ("Oscilloscope renders the scan-charge Sweep band through the shared GlitchOverlay");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            AudioScopeRingBuffer buffer (512);
+            // Small-amplitude signal keeps the trace near midY so the top of the
+            // scope is clear except for the Sweep band.
+            buffer.writeInput (makeStereoSignal (512, 0.1f));
+            buffer.writeOutput (makeStereoSignal (512, 0.1f));
+
+            OscilloscopeComponent scope (buffer, nullptr);
+            scope.setSize (100, 100);
+            GlitchOverlay overlay;
+            scope.setGlitchOverlay (&overlay);
+
+            for (int i = 0; i < 3; ++i)
+                scope.refresh();
+
+            const auto snap = scope.createComponentSnapshot (scope.getLocalBounds());
+
+            // Fresh overlay => sweep position 0 => 4px band at the left edge.
+            expect (snap.getPixelAt (1, 10) == white,
+                    "Sweep band should render #FFF at the left edge at position 0");
+            expect (snap.getPixelAt (5, 10) == black,
+                    "Outside the sweep band and away from the trace the substrate should stay #000");
+        }
+
+        void testOscilloscopeGhostTrailsUseThreeDiscreteAlphas()
+        {
+            beginTest ("Oscilloscope ghost trails use 3 hard discrete opacity levels (no linear fade)");
+
+            const auto alphas = OscilloscopeComponent::ghostAlphasForTests();
+
+            expect (std::abs (alphas[0] - 0.60f) < 1.0e-6f, "Most-recent ghost trail should be 0.60 alpha");
+            expect (std::abs (alphas[1] - 0.30f) < 1.0e-6f, "Middle ghost trail should be 0.30 alpha");
+            expect (std::abs (alphas[2] - 0.15f) < 1.0e-6f, "Oldest ghost trail should be 0.15 alpha");
+            expect (alphas[0] > alphas[1] && alphas[1] > alphas[2],
+                    "Ghost trail alphas must be 3 descending discrete steps, not a linear fade formula");
+        }
+
+        void testOscilloscopeSilentCenterlineFlickersHard()
+        {
+            beginTest ("Oscilloscope silent centerline flickers on/off at 2 hard steps (no sine-modulated breath)");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            AudioScopeRingBuffer buffer (512);
+            buffer.writeInput (makeStereoSignal (512, 0.0f));
+            buffer.writeOutput (makeStereoSignal (512, 0.0f));
+
+            OscilloscopeComponent scope (buffer, nullptr);
+            scope.setSize (100, 100); // midY = 50
+
+            scope.refresh();
+            const auto onSnap = scope.createComponentSnapshot (scope.getLocalBounds());
+            expect (onSnap.getPixelAt (50, 50) == white,
+                    "Centerline should be hard full #FFF when on (no sine-modulated dim)");
+
+            for (int i = 0; i < 29; ++i)
+                scope.refresh();
+            const auto offSnap = scope.createComponentSnapshot (scope.getLocalBounds());
+            expect (offSnap.getPixelAt (50, 50) == black,
+                    "Centerline should be hard full off (#000) at the second flicker step");
+
+            for (int i = 0; i < 25; ++i)
+                scope.refresh();
+            const auto onSnap2 = scope.createComponentSnapshot (scope.getLocalBounds());
+            expect (onSnap2.getPixelAt (50, 50) == white,
+                    "Centerline should toggle back to hard #FFF (2-step flicker)");
+        }
+
+        void testOscilloscopeBypassDecaysOutputAmplitude()
+        {
+            beginTest ("Oscilloscope bypass decays output trace amplitude; trace is pure #FFF (kTraceGrey gone)");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            AudioScopeRingBuffer buffer (512);
+            buffer.writeInput (makeStereoSignal (512, 0.0f));
+            buffer.writeOutput (makeStereoSignal (512, 1.0f));
+
+            OscilloscopeComponent scope (buffer, nullptr);
+            scope.setSize (100, 100);
+
+            scope.refresh(); // un-bypassed: flatlineAmplitude -> 1.0
+            scope.setBypassed (true);
+            scope.refresh(); // bypassed: flatlineAmplitude -> 1.0 * 0.92 = 0.92
+
+            const auto snap = scope.createComponentSnapshot (scope.getLocalBounds());
+
+            expect (snap.getPixelAt (50, 48) == white,
+                    "Bypassed output trace should still render in pure #FFF (kTraceGrey removed)");
+            expect (snap.getPixelAt (50, 16) == black,
+                    "Bypassed output trace amplitude should decay so the stroke top sits below the full-scale position");
         }
 
         int countAnimatedKnobsRecursive (juce::Component& parent)
@@ -1101,6 +1338,77 @@ namespace synthortion
 
             expect (overlay.isFlickerBlockVisible(), "Flicker block should turn back on after kFlickerPeriodTicks more ticks");
             expect (blockVisibleAtCentre(), "Flicker block should re-render #FFF after the second 30-tick window");
+        }
+
+        void testGlitchOverlayTripletDrawsThreeOffsets()
+        {
+            beginTest ("GlitchOverlay::drawTriplet strokes at horizontal offsets -1, 0, +1");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            GlitchOverlay overlay;
+
+            juce::Image img (juce::Image::ARGB, 32, 8, true);
+            juce::Graphics g (img);
+            g.fillAll (juce::Colours::black);
+
+            const int baseX = 16;
+            const int y = 4;
+            overlay.drawTriplet (g, [baseX, y, &g] (juce::Point<float> off)
+            {
+                g.setColour (juce::Colours::white);
+                g.fillRect (baseX + static_cast<int> (off.x), y, 1, 1);
+            });
+
+            expect (img.getPixelAt (baseX - 1, y) == white, "Triplet left stroke should render at x-1");
+            expect (img.getPixelAt (baseX, y) == white, "Triplet centre stroke should render at x");
+            expect (img.getPixelAt (baseX + 1, y) == white, "Triplet right stroke should render at x+1");
+            expect (img.getPixelAt (baseX - 2, y) == black, "No triplet stroke at x-2");
+            expect (img.getPixelAt (baseX + 2, y) == black, "No triplet stroke at x+2");
+        }
+
+        void testGlitchOverlaySweepAdvancesLeftToRight()
+        {
+            beginTest ("GlitchOverlay::drawSweep wipes a 4px #FFF band L->R in 16 hard steps");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            GlitchOverlay overlay;
+            expect (overlay.getSweepStep() == 0, "Sweep should start at step 0");
+            expect (std::abs (overlay.getSweepPosition() - 0.0f) < 1.0e-6f, "Sweep position should start at 0");
+
+            auto drawSweepAt = [&overlay] (float position)
+            {
+                juce::Image img (juce::Image::ARGB, 64, 16, true);
+                juce::Graphics g (img);
+                g.fillAll (juce::Colours::black);
+                overlay.drawSweep (g, img.getBounds(), position);
+                return img;
+            };
+
+            const auto img0 = drawSweepAt (0.0f);
+            expect (img0.getPixelAt (0, 8) == white, "Sweep at position 0 should start at the left edge");
+            expect (img0.getPixelAt (3, 8) == white, "Sweep band should be kSweepWidth (4px) wide");
+            expect (img0.getPixelAt (4, 8) == black, "Sweep band should stop at x = kSweepWidth");
+
+            const auto imgMid = drawSweepAt (0.5f);
+            expect (imgMid.getPixelAt (30, 8) == white, "Sweep at position 0.5 should land at x = round(0.5 * (64-4)) = 30");
+            expect (imgMid.getPixelAt (33, 8) == white, "Sweep band should span 4px from x=30");
+            expect (imgMid.getPixelAt (29, 8) == black, "Sweep band should not bleed left of x=30");
+            expect (imgMid.getPixelAt (34, 8) == black, "Sweep band should not bleed right of x=33");
+
+            const auto imgEnd = drawSweepAt (1.0f);
+            expect (imgEnd.getPixelAt (60, 8) == white, "Sweep at position 1 should reach the right edge");
+            expect (imgEnd.getPixelAt (63, 8) == white, "Sweep band should fit within bounds at the right edge");
+
+            for (int i = 0; i < GlitchOverlay::sweepStepTicksForTests(); ++i)
+                overlay.tick();
+
+            expect (overlay.getSweepStep() == 1, "Sweep step should advance to 1 after kSweepStepTicks ticks");
+            expect (std::abs (overlay.getSweepPosition() - (1.0f / static_cast<float> (GlitchOverlay::sweepStepsForTests()))) < 1.0e-6f,
+                    "Sweep position should be 1/16 after one step");
         }
 
         void testPanelComponentRendersBrutalistShape()
