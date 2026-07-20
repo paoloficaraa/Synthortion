@@ -81,9 +81,9 @@ namespace synthortion
         bool silent = true;
         float flatlineAmplitude = 0.0f;
 
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OscilloscopeComponent)
+
     public:
         static constexpr std::array<float, kHistoryFrames> ghostAlphasForTests() noexcept { return kGhostAlphas; }
-
-        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OscilloscopeComponent)
     };
 }
