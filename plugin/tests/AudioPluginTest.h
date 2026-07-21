@@ -58,32 +58,50 @@ private:
 
     void testTypographyScale()
     {
-        beginTest("Typography scale fonts are pre-computed and resolve correctly");
+        beginTest("Typography scale collapses to BebasNeue 22/14/14/16 pt with -0.5 tight kerning");
 
         SynthortionLookAndFeel lookAndFeel;
+        const auto bebas = lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("BebasNeue"));
 
         auto heading = lookAndFeel.getSectionHeadingFont();
-        expect (juce::roundToInt(heading.getHeight()) == 22, "Section heading should be 22px (BebasNeue panel title size per issue #20)");
-        expect (lookAndFeel.getTypefaceForFont(heading) == lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("BebasNeue")),
+        expect (juce::roundToInt(heading.getHeight()) == 22,
+                "Section heading should be 22pt BebasNeue (panel titles) per issue #25");
+        expect (heading.getTypefaceName().containsIgnoreCase("Bebas"),
+                "Section heading should request the BebasNeue typeface");
+        expect (lookAndFeel.getTypefaceForFont(heading) == bebas,
                 "Section heading should resolve to the BebasNeue typeface");
+        expect (std::abs (heading.getExtraKerningFactor() + 0.5f) < 1.0e-6f,
+                "Section heading should apply -0.5 tight kerning per issue #25");
 
         auto paramLabel = lookAndFeel.getParameterLabelFont();
-        expect (juce::roundToInt(paramLabel.getHeight()) == 13, "Parameter label should be 13px");
-        expect (paramLabel.getTypefaceStyle() == "Medium", "Parameter label should be Medium weight");
-        expect (lookAndFeel.getTypefaceForFont(paramLabel) == lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("Montserrat")),
-                "Parameter label should resolve to the Montserrat typeface");
+        expect (juce::roundToInt(paramLabel.getHeight()) == 14,
+                "Parameter label should be 14pt BebasNeue (knob labels) per issue #25");
+        expect (paramLabel.getTypefaceName().containsIgnoreCase("Bebas"),
+                "Parameter label should request the BebasNeue typeface");
+        expect (lookAndFeel.getTypefaceForFont(paramLabel) == bebas,
+                "Parameter label should resolve to the BebasNeue typeface");
+        expect (std::abs (paramLabel.getExtraKerningFactor() + 0.5f) < 1.0e-6f,
+                "Parameter label should apply -0.5 tight kerning per issue #25");
 
         auto paramValue = lookAndFeel.getParameterValueFont();
-        expect (juce::roundToInt(paramValue.getHeight()) == 12, "Parameter value should be 12px");
-        expect (paramValue.getTypefaceStyle() == "Regular", "Parameter value should be Regular weight");
-        expect (lookAndFeel.getTypefaceForFont(paramValue) == lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("Montserrat")),
-                "Parameter value should resolve to the Montserrat typeface");
+        expect (juce::roundToInt(paramValue.getHeight()) == 14,
+                "Parameter value should be 14pt BebasNeue (knob value readouts) per issue #25");
+        expect (paramValue.getTypefaceName().containsIgnoreCase("Bebas"),
+                "Parameter value should request the BebasNeue typeface");
+        expect (lookAndFeel.getTypefaceForFont(paramValue) == bebas,
+                "Parameter value should resolve to the BebasNeue typeface");
+        expect (std::abs (paramValue.getExtraKerningFactor() + 0.5f) < 1.0e-6f,
+                "Parameter value should apply -0.5 tight kerning per issue #25");
 
         auto bypass = lookAndFeel.getBypassLabelFont();
-        expect (juce::roundToInt(bypass.getHeight()) == 13, "Bypass label should be 13px");
-        expect (bypass.getTypefaceStyle() == "Medium", "Bypass label should be Medium weight");
-        expect (lookAndFeel.getTypefaceForFont(bypass) == lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("Montserrat")),
-                "Bypass label should resolve to the Montserrat typeface");
+        expect (juce::roundToInt(bypass.getHeight()) == 16,
+                "Bypass label should be 16pt BebasNeue (Block toggle) per issue #25");
+        expect (bypass.getTypefaceName().containsIgnoreCase("Bebas"),
+                "Bypass label should request the BebasNeue typeface");
+        expect (lookAndFeel.getTypefaceForFont(bypass) == bebas,
+                "Bypass label should resolve to the BebasNeue typeface");
+        expect (std::abs (bypass.getExtraKerningFactor() + 0.5f) < 1.0e-6f,
+                "Bypass label should apply -0.5 tight kerning per issue #25");
     }
 };
 
@@ -258,13 +276,14 @@ testGlitchOverlayTripletDrawsThreeOffsets();
 
         void testPanelComponentTitleFont()
         {
-            beginTest ("PanelComponent title font is BebasNeue 22px");
+            beginTest ("PanelComponent title font is BebasNeue 22px with -0.5 tight kerning");
 
             PanelComponent panel ("DISTORTION", juce::Colours::black);
             auto font = panel.getTitleFont();
 
-            expect (juce::roundToInt(font.getHeight()) == 22, "Panel title should be 22px per DEADLOCK Slice C issue #20");
+            expect (juce::roundToInt(font.getHeight()) == 22, "Panel title should be 22px BebasNeue per DEADLOCK Slice C issue #20 / Slice H issue #25");
             expect (font.getTypefaceName().containsIgnoreCase("Bebas"), "Panel title should use BebasNeue");
+            expect (std::abs (font.getExtraKerningFactor() + 0.5f) < 1.0e-6f, "Panel title should apply -0.5 tight kerning per issue #25");
         }
 
         void testEditorIsOpaque()

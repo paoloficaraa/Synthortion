@@ -5,11 +5,6 @@ namespace synthortion
 {
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
 
-    namespace Colours
-    {
-        const juce::Colour WHITE (0xFFFFFFFF);
-    }
-
     AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
         : AudioProcessorEditor (&p),
           processorRef (p),
@@ -234,13 +229,13 @@ namespace synthortion
         titleLabel.setText (title, juce::dontSendNotification);
         titleLabel.setJustificationType (juce::Justification::centred);
         titleLabel.setFont (lookAndFeel.getParameterLabelFont());
-        titleLabel.setColour (juce::Label::textColourId, Colours::WHITE);
+        titleLabel.setColour (juce::Label::textColourId, lookAndFeel.findColour (SynthortionLookAndFeel::textColourId));
         parent.addAndMakeVisible (titleLabel);
 
         valueLabel.setText ("", juce::dontSendNotification);
         valueLabel.setJustificationType (juce::Justification::centred);
         valueLabel.setFont (lookAndFeel.getParameterValueFont());
-        valueLabel.setColour (juce::Label::textColourId, Colours::WHITE);
+        valueLabel.setColour (juce::Label::textColourId, lookAndFeel.findColour (SynthortionLookAndFeel::textColourId));
         parent.addAndMakeVisible (valueLabel);
     }
 

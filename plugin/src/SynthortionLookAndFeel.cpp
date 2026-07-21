@@ -9,10 +9,10 @@ namespace
 }
 
 SynthortionLookAndFeel::SynthortionLookAndFeel()
-    : sectionHeadingFont (juce::FontOptions().withName("BebasNeue").withHeight(kSectionTitleHeight).withStyle("Regular")),
-      parameterLabelFont (juce::FontOptions().withName("Montserrat").withHeight(13.0f).withStyle("Medium")),
-      parameterValueFont (juce::FontOptions().withName("Montserrat").withHeight(12.0f).withStyle("Regular")),
-      bypassLabelFont (juce::FontOptions().withName("Montserrat").withHeight(13.0f).withStyle("Medium"))
+    : sectionHeadingFont (juce::FontOptions().withName("BebasNeue").withHeight(kSectionTitleHeight).withStyle("Regular").withKerningFactor(-0.5f)),
+      parameterLabelFont (juce::FontOptions().withName("BebasNeue").withHeight(14.0f).withStyle("Regular").withKerningFactor(-0.5f)),
+      parameterValueFont (juce::FontOptions().withName("BebasNeue").withHeight(14.0f).withStyle("Regular").withKerningFactor(-0.5f)),
+      bypassLabelFont (juce::FontOptions().withName("BebasNeue").withHeight(16.0f).withStyle("Regular").withKerningFactor(-0.5f))
 {
     setColour(juce::ResizableWindow::backgroundColourId, BLACK);
     setColour(juce::DocumentWindow::backgroundColourId, BLACK);
