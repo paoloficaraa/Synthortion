@@ -90,6 +90,7 @@ namespace synthortion
     {
         glitchOverlay.drawBypassSlices (g, getLocalBounds());
         glitchOverlay.drawDeadPixelScatter (g, getLocalBounds());
+        glitchOverlay.drawBootBurst (g, getLocalBounds(), glitchOverlay.getBootBurstProgress());
     }
 
     void AudioPluginAudioProcessorEditor::drawGrainOverlay (juce::Graphics& g)
@@ -100,8 +101,6 @@ namespace synthortion
     void AudioPluginAudioProcessorEditor::resized()
     {
         auto bounds = getLocalBounds();
-        bounds.removeFromLeft (kRackEarWidth);
-        bounds.removeFromRight (kRackEarWidth);
 
         // Top bar
         auto topBar = bounds.removeFromTop (kTopBarHeight);
@@ -151,8 +150,8 @@ namespace synthortion
         chorusPanel.setBounds (bottomRow);
 
         // Layout knobs inside panels
-        const int largeKnob = 78;
-        const int smallKnob = 50;
+        const int largeKnob = 86;
+        const int smallKnob = 55;
 
         auto distArea = distortionPanel.getLocalBounds();
         auto distLeft = distArea.removeFromLeft (distArea.getWidth() / 2);
@@ -186,6 +185,12 @@ namespace synthortion
         delayMixKnob.setBounds (d3.withSizeKeepingCentre (smallKnob, smallKnob));
         delayMixTitleLabel.setBounds (d3.getX(), delayMixKnob.getY() - labelH - 2, d3.getWidth(), labelH);
         delayMixLabel.setBounds (d3.getX(), delayMixKnob.getBottom() + 2, d3.getWidth(), labelH);
+    }
+
+    void AudioPluginAudioProcessorEditor::visibilityChanged()
+    {
+        if (isVisible() && ! glitchOverlay.isBootBurstFired())
+            glitchOverlay.triggerBootBurst();
     }
 
     void AudioPluginAudioProcessorEditor::timerCallback()

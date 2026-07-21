@@ -26,6 +26,7 @@ namespace synthortion
         void paintOverChildren (juce::Graphics&) override;
         void resized() override;
         void timerCallback() override;
+        void visibilityChanged() override;
 
         BypassComponent& getBypassComponent() noexcept { return bypassComponent; }
         OscilloscopeComponent& getOscilloscope() noexcept { return oscilloscope; }
@@ -38,13 +39,12 @@ namespace synthortion
     private:
         static constexpr int kTimerHz = 60;
 
-        static constexpr int kWindowWidth = 720;
-        static constexpr int kWindowHeight = 440;
+        static constexpr int kWindowWidth = 800;
+        static constexpr int kWindowHeight = 480;
 
-        static constexpr int kRackEarWidth = 15;
         static constexpr int kSideBarWidth = 55;
         static constexpr int kTopBarHeight = 90;
-        static constexpr int kBypassWidth = 120;
+        static constexpr int kBypassWidth = 130;
         static constexpr int kGap = 10;
 
         void setupKnobWithLabel (AnimatedKnob& knob, juce::Label& titleLabel, juce::Label& valueLabel,

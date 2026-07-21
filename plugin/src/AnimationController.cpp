@@ -48,11 +48,22 @@ namespace synthortion
         bypassAnimator = runAnimator (
             juce::ValueAnimatorBuilder()
                 .withDurationMs (300.0)
-                .withEasing (juce::Easings::createEaseOut())
+                .withEasing ([] (float progress)
+                             {
+                                 return quantizeBypassProgress (progress);
+                             })
                 .withValueChangedCallback ([this, start] (float progress)
                                            {
                                                bypassMix.store (start + (bypassTarget - start) * progress);
                                            }));
+    }
+
+    float AnimationController::quantizeBypassProgress (float progress) noexcept
+    {
+        constexpr int steps = kBypassTransitionSteps;
+        const float clamped = juce::jlimit (0.0f, 1.0f, progress);
+        const int stepIndex = juce::jlimit (0, steps, juce::roundToInt (clamped * static_cast<float> (steps)));
+        return static_cast<float> (stepIndex) / static_cast<float> (steps);
     }
 
     void AnimationController::setBypassMix (float value) noexcept

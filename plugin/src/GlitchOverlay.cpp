@@ -22,6 +22,9 @@ namespace synthortion
 
         if (bypassSliceActive && ++bypassSliceElapsedTicks >= kBypassSliceDurationTicks)
             bypassSliceActive = false;
+
+        if (bootBurstActive && ++bootBurstElapsedTicks >= kBootBurstDurationTicks)
+            bootBurstActive = false;
     }
 
     void GlitchOverlay::triggerBypassSlices()
@@ -54,6 +57,88 @@ namespace synthortion
                                                               * static_cast<float> (band.shiftDir)
                                                               * progress);
             g.fillRect (x, y, bounds.getWidth(), band.thickness);
+        }
+    }
+
+    void GlitchOverlay::triggerBootBurst()
+    {
+        if (bootBurstFired)
+            return;
+
+        bootBurstFired = true;
+
+        for (auto& band : bootBurstBands)
+        {
+            band.yFrac = random.nextFloat();
+            band.thickness = 1 + random.nextInt (3);
+            band.shiftDir = (random.nextInt (2) == 0) ? -1 : +1;
+            band.shiftPx = 1 + random.nextInt (4);
+        }
+
+        for (auto& pixel : bootBurstDeadPixels)
+        {
+            pixel = juce::Point<float> { random.nextFloat(), random.nextFloat() };
+        }
+
+        bootBurstActive = true;
+        bootBurstElapsedTicks = 0;
+    }
+
+    float GlitchOverlay::getBootBurstProgress() const noexcept
+    {
+        if (! bootBurstActive)
+            return 0.0f;
+
+        return juce::jlimit (0.0f, 1.0f,
+                             static_cast<float> (bootBurstElapsedTicks)
+                                 / static_cast<float> (kBootBurstDurationTicks));
+    }
+
+    void GlitchOverlay::drawBootBurst (juce::Graphics& g, juce::Rectangle<int> bounds, float progress)
+    {
+        if (! bootBurstActive || bounds.isEmpty())
+            return;
+
+        const float clamped = juce::jlimit (0.0f, 1.0f, progress);
+
+        // Plotter #FFF flash: full-bounds #FFF for the first kBootBurstFlashTicks
+        // (~100 ms), then a linear fade back to transparent over the remaining
+        // ~300 ms so the rest of the burst composes over a dimming flash.
+        if (clamped < static_cast<float> (kBootBurstFlashTicks) / static_cast<float> (kBootBurstDurationTicks))
+        {
+            g.setColour (juce::Colour (kWhiteArgb));
+            g.fillRect (bounds);
+        }
+        else
+        {
+            const float fadeStart = static_cast<float> (kBootBurstFlashTicks) / static_cast<float> (kBootBurstDurationTicks);
+            const float fadeProgress = (clamped - fadeStart) / (1.0f - fadeStart);
+            const int alphaInt = juce::roundToInt ((1.0f - fadeProgress) * 255.0f);
+            const juce::uint8 alpha = static_cast<juce::uint8> (juce::jlimit (0, 255, alphaInt));
+            g.setColour (juce::Colour (static_cast<juce::uint8> (0xFF),
+                                       static_cast<juce::uint8> (0xFF),
+                                       static_cast<juce::uint8> (0xFF),
+                                       alpha));
+            g.fillRect (bounds);
+        }
+
+        // 6 random horizontal Slice displacements sliding L/R over the burst.
+        g.setColour (juce::Colour (kWhiteArgb));
+        for (const auto& band : bootBurstBands)
+        {
+            const int y = bounds.getY() + juce::roundToInt (band.yFrac * static_cast<float> (bounds.getHeight()));
+            const int x = bounds.getX() + juce::roundToInt (static_cast<float> (band.shiftPx)
+                                                              * static_cast<float> (band.shiftDir)
+                                                              * clamped);
+            g.fillRect (x, y, bounds.getWidth(), band.thickness);
+        }
+
+        // Dense Dead pixel field: precomputed fractions scaled to the bounds.
+        for (const auto& pixel : bootBurstDeadPixels)
+        {
+            const int x = bounds.getX() + juce::roundToInt (pixel.x * static_cast<float> (bounds.getWidth()));
+            const int y = bounds.getY() + juce::roundToInt (pixel.y * static_cast<float> (bounds.getHeight()));
+            g.fillRect (x, y, 1, 1);
         }
     }
 

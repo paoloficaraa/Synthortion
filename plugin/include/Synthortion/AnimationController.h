@@ -43,6 +43,18 @@ namespace synthortion
         /** Directly set the bypass mix. Intended for tests and one-off initialisation. */
         void setBypassMix (float value) noexcept;
 
+        /** Step count used by the global bypass transition easing (N = 8 per
+            DEADLOCK Slice I issue #26). The transition snaps the bypass mix to
+            one of N+1 hard steps instead of easing smoothly.
+        */
+        static constexpr int kBypassTransitionSteps = 8;
+
+        /** Quantised-step easing used by startBypassTransition. Maps a
+            continuous progress in [0, 1] to the nearest hard step boundary
+            in [0, 1] using kBypassTransitionSteps.
+        */
+        static float quantizeBypassProgress (float progress) noexcept;
+
     private:
         juce::VBlankAnimatorUpdater updater;
         std::atomic<float> bypassMix { 0.0f };

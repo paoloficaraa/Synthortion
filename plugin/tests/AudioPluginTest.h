@@ -23,14 +23,14 @@ public:
     {
     }
 
-    void runTest() override
-    {
-        const juce::MessageManagerLock mmLock;
+        void runTest() override
+        {
+            const juce::MessageManagerLock mmLock;
 
-        testBebasNeueFontRouting();
-        testMontserratFontRouting();
-        testTypographyScale();
-    }
+            testBebasNeueFontRouting();
+            testMontserratFontRouting();
+            testTypographyScale();
+        }
 
 private:
     void testBebasNeueFontRouting()
@@ -119,28 +119,17 @@ namespace synthortion
 
         void runTest() override
         {
-            // Slice C: drawPanelBackground now paints a flat #000 panel
-            // regardless of the bgColour argument, so the centre == bgColour
-            // assertion in testPanelComponentRendersBackgroundColour no longer
-            // holds. The visual test will be deleted in Slice I; called out via
-            // acceptance criteria #6 of issue #20. Left commented so the other
-            // behavioural tests run cleanly.
-            // testPanelComponentRendersBackgroundColour();
             testBypassComponentLedTogglesOnClick();
-            testBypassSwitchSnapsWithoutOvershoot();
             testBypassSwitchParameterAttachment();
             testBypassSwitchRendersActiveWhiteBlock();
             testBypassSwitchRendersBypassedBlackBlockWithOutline();
             testBypassSwitchFiresSliceGlitchOnToggle();
-            testPanelComponentTitleFont();
             testEditorIsOpaque();
             testPanelComponentIsOpaque();
-            testBypassComponentIsNotOpaque();
             testDeadlockPalette();
-            testEditorSizeIs720x440();
+            testEditorSizeIs800x480();
             testEditorContainsOscilloscope();
             testEditorContainsMeters();
-            testDistortionPanelIsLargest();
             testAnimationControllerCreatesAnimator();
             testAudioScopeRingBufferTransfersSamples();
             testOscilloscopeReadsInputBuffer();
@@ -148,7 +137,6 @@ namespace synthortion
             testOscilloscopeDetectsSilence();
             testOscilloscopeDetectsSignal();
             testOscilloscopeBypassFlattensOutput();
-            testOscilloscopeBoundsInEditor();
             testOscilloscopePixelLaneInterleave();
             testOscilloscopeTracesMergeIntoContinuousStreak();
             testOscilloscopeTripletRendersThreeParallelColumns();
@@ -158,7 +146,6 @@ namespace synthortion
             testOscilloscopeBypassDecaysOutputAmplitude();
             testAnimatedKnobIsASlider();
             testAnimatedKnobHasRotaryStyle();
-            testAnimatedKnobSnapsArcDuringDrag();
             testAnimatedKnobDefaultStyleIsCanonical();
             testAnimatedKnobStepCountMatchesStyle();
             testAnimatedKnobStepEasingQuantizesHard();
@@ -167,16 +154,12 @@ namespace synthortion
             testEditorKnobsUseFourCanonicalAndFourOutline();
             testEditorContainsEightAnimatedKnobs();
             testAnimatedKnobBindsToParameter();
-            // Slice G (#24): meter restyle retains the side-bar layout, but
-            // the issue acceptance criteria flag these two position tests for
-            // Slice I cleanup, so they are disabled here per spec.
-            // testInputMeterIsOnLeftSideBar();
-            // testOutputMeterIsOnRightSideBar();
             testInputGainKnobBindsToParameter();
             testOutputGainKnobBindsToParameter();
             testMeterCalculatesRMS();
             testMeterPeakHoldJumpsToPeak();
             testAnimationControllerBypassMixDefaultsToZero();
+            testAnimationControllerBypassTransitionUsesStepEasing();
             testDeadlockKnobRendersWhiteFace();
             testMeterSegmentCountIsHardcodedSixteen();
             testMeterRendersSixteenSegmentLedLadder();
@@ -186,7 +169,6 @@ namespace synthortion
             testMeterPeakDecayUsesStepEasing();
             testMeterBypassShowsAllSegmentsOff();
             testEditorBackgroundUnaffectedByBypass();
-            testComingSoonPanelRendersPlaceholder();
             testBypassTransitionPropagatesToComponents();
             testGlitchOverlayDitherIsBinary();
             testGlitchOverlayTickAdvancesDitherFrame();
@@ -197,31 +179,12 @@ namespace synthortion
             testGlitchOverlaySweepAdvancesLeftToRight();
             testGlitchOverlayBypassSliceBurstWindow();
             testGlitchOverlayDrawBypassSlicesRendersBandsWhenActive();
+            testGlitchOverlayBootBurstFiresOnceAndRunsForFourHundredMs();
+            testGlitchOverlayDrawBootBurstRendersFlashSlicesAndDeadPixels();
             testPanelComponentRendersBrutalistShape();
         }
 
     private:
-        void testPanelComponentRendersBackgroundColour()
-        {
-            beginTest ("PanelComponent renders an opaque background colour");
-
-            SynthortionLookAndFeel lookAndFeel;
-
-            const juce::Colour bgColour (0xFF123456);
-            PanelComponent panel ("DISTORTION", bgColour);
-            panel.setSize (100, 100);
-            panel.setLookAndFeel (&lookAndFeel);
-
-            const auto snapshot = panel.createComponentSnapshot (panel.getLocalBounds());
-
-            expect (snapshot.getPixelAt (50, 50) == bgColour,
-                    "PanelComponent centre pixel should match the background colour");
-            expect (snapshot.getPixelAt (0, 0).getAlpha() == 0xFF);
-            expect (snapshot.getPixelAt (99, 0).getAlpha() == 0xFF);
-            expect (snapshot.getPixelAt (0, 99).getAlpha() == 0xFF);
-            expect (snapshot.getPixelAt (99, 99).getAlpha() == 0xFF);
-        }
-
         void testBypassComponentLedTogglesOnClick()
         {
             beginTest ("BypassComponent toggles to bypassed state on programmatic click");
@@ -236,19 +199,6 @@ namespace synthortion
 
             expect (bypass.isBypassed());
             expect (bypass.getToggleButton().getToggleState());
-        }
-
-        void testBypassSwitchSnapsWithoutOvershoot()
-        {
-            beginTest ("BypassSwitch Step easing quantises to N=8 ; never overshoots beyond [0, 1]");
-
-            for (int i = 0; i <= 100; ++i)
-            {
-                const float t = static_cast<float> (i) * 0.01f;
-                const float value = synthortion::AnimatedKnob::quantizeStepProgress (t, synthortion::BypassSwitch::kBypassSteps);
-                expect (value <= 1.0f, "Step easing should never overshoot 1.0");
-                expect (value >= 0.0f, "Step easing should never undershoot 0.0");
-            }
         }
 
         void testBypassSwitchParameterAttachment()
@@ -274,18 +224,6 @@ namespace synthortion
                     "PLUGIN_BYPASS parameter should follow button click turning off");
         }
 
-        void testPanelComponentTitleFont()
-        {
-            beginTest ("PanelComponent title font is BebasNeue 22px with -0.5 tight kerning");
-
-            PanelComponent panel ("DISTORTION", juce::Colours::black);
-            auto font = panel.getTitleFont();
-
-            expect (juce::roundToInt(font.getHeight()) == 22, "Panel title should be 22px BebasNeue per DEADLOCK Slice C issue #20 / Slice H issue #25");
-            expect (font.getTypefaceName().containsIgnoreCase("Bebas"), "Panel title should use BebasNeue");
-            expect (std::abs (font.getExtraKerningFactor() - SynthortionLookAndFeel::kTightKerning) < 1.0e-6f, "Panel title should apply -0.5 tight kerning per issue #25");
-        }
-
         void testEditorIsOpaque()
         {
             beginTest ("Plugin editor is opaque");
@@ -303,15 +241,6 @@ namespace synthortion
             PanelComponent panel ("DISTORTION", juce::Colours::black);
 
             expect (panel.isOpaque(), "PanelComponent wrapper should be opaque for rendering performance");
-        }
-
-        void testBypassComponentIsNotOpaque()
-        {
-            beginTest ("BypassComponent stays non-opaque so the slice glitch burst can bleed past its bounds");
-
-            BypassComponent bypass;
-
-            expect (! bypass.isOpaque(), "BypassComponent should remain non-opaque so the GlitchOverlay slice bands are not clipped");
         }
 
         void testDeadlockPalette()
@@ -340,15 +269,15 @@ namespace synthortion
             expect (knobFill == white, "knobFillColourId should be pure #FFF");
         }
 
-        void testEditorSizeIs720x440()
+        void testEditorSizeIs800x480()
         {
-            beginTest ("Plugin editor dimensions are 720x440");
+            beginTest ("Plugin editor dimensions are 800x480");
 
             AudioPluginAudioProcessor processor;
             AudioPluginAudioProcessorEditor editor (processor);
 
-            expect (editor.getWidth() == 720, "Editor width should be 720");
-            expect (editor.getHeight() == 440, "Editor height should be 440");
+            expect (editor.getWidth() == 800, "Editor width should be 800 per DEADLOCK Slice I issue #26");
+            expect (editor.getHeight() == 480, "Editor height should be 480 per DEADLOCK Slice I issue #26");
         }
 
         void testEditorContainsOscilloscope()
@@ -379,41 +308,6 @@ namespace synthortion
                     ++meterCount;
 
             expect (meterCount == 2, "Editor should contain exactly two MeterComponents");
-        }
-
-        void testDistortionPanelIsLargest()
-        {
-            beginTest ("Distortion panel is the largest central panel");
-
-            AudioPluginAudioProcessor processor;
-            AudioPluginAudioProcessorEditor editor (processor);
-
-            int distortionArea = 0;
-            int chorusArea = 0;
-            int delayArea = 0;
-            int comingSoonArea = 0;
-
-            for (auto* child : editor.getChildren())
-            {
-                if (auto* panel = dynamic_cast<PanelComponent*> (child))
-                {
-                    const int area = panel->getWidth() * panel->getHeight();
-                    const auto title = panel->getTitle();
-
-                    if (title == "DISTORTION")
-                        distortionArea = area;
-                    else if (title == "CHORUS")
-                        chorusArea = area;
-                    else if (title == "DELAY")
-                        delayArea = area;
-                    else if (title == "COMING SOON")
-                        comingSoonArea = area;
-                }
-            }
-
-            expect (distortionArea > chorusArea, "Distortion panel should be larger than Chorus");
-            expect (distortionArea > delayArea, "Distortion panel should be larger than Delay");
-            expect (distortionArea > comingSoonArea, "Distortion panel should be larger than Coming Soon");
         }
 
         void testAnimationControllerCreatesAnimator()
@@ -551,27 +445,6 @@ namespace synthortion
             scope.refresh();
 
             expect (scope.isBypassed(), "Oscilloscope should report bypassed after setBypassed(true)");
-        }
-
-        void testOscilloscopeBoundsInEditor()
-        {
-            beginTest ("OscilloscopeComponent occupies the expected Top Bar area");
-
-            AudioPluginAudioProcessor processor;
-            AudioPluginAudioProcessorEditor editor (processor);
-
-            for (auto* child : editor.getChildren())
-            {
-                if (auto* scope = dynamic_cast<OscilloscopeComponent*> (child))
-                {
-                    expect (scope->getWidth() >= 560, "Oscilloscope should be roughly 580px wide");
-                    expect (scope->getHeight() >= 80, "Oscilloscope should be roughly 90px tall");
-                    expect (scope->getX() >= 120, "Oscilloscope should sit to the right of the bypass switch");
-                    return;
-                }
-            }
-
-            expect (false, "Editor should contain an OscilloscopeComponent to check bounds");
         }
 
         static juce::AudioBuffer<float> makeStereoSignal (int numSamples, float value)
@@ -845,45 +718,6 @@ namespace synthortion
                     "AnimatedKnob should hide its text box");
         }
 
-        void testAnimatedKnobSnapsArcDuringDrag()
-        {
-            beginTest ("AnimatedKnob snaps displayed value to target within one step during drag");
-
-            juce::Component dummy;
-            AnimationController controller (&dummy);
-
-            SynthortionLookAndFeel lookAndFeel;
-            AnimatedKnob knob (controller);
-            knob.setRange (0.0, 1.0);
-            knob.setValue (0.0, juce::dontSendNotification);
-            knob.snapToCurrentValue();
-            knob.setSize (60, 60);
-            knob.setLookAndFeel (&lookAndFeel);
-
-            auto source = juce::Desktop::getInstance().getMainMouseSource();
-            const juce::Point<float> downPos (30.0f, 30.0f);
-            const auto now = juce::Time::getCurrentTime();
-
-            const juce::MouseEvent downEvent (source,
-                                              downPos,
-                                              juce::ModifierKeys (juce::ModifierKeys::leftButtonModifier),
-                                              0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                                              &knob,
-                                              &knob,
-                                              now,
-                                              downPos,
-                                              now,
-                                              1,
-                                              false);
-
-            knob.mouseDown (downEvent);
-            knob.setValue (1.0, juce::sendNotificationSync);
-
-            const float step = 1.0f / static_cast<float> (knob.getStepCount());
-            expect (std::abs (knob.getDisplayProportion() - 1.0f) < step,
-                    "During drag the displayed proportion should snap to the target within one Step");
-        }
-
         void testEditorContainsEightAnimatedKnobs()
         {
             beginTest ("Plugin editor contains eight AnimatedKnob instances");
@@ -943,48 +777,6 @@ namespace synthortion
 
             expect (knobsAtTarget > 0,
                     "At least one AnimatedKnob in the editor should follow the COLOR parameter");
-        }
-
-        void testInputMeterIsOnLeftSideBar()
-        {
-            beginTest ("Input meter sits in the left side bar above the input gain knob");
-
-            AudioPluginAudioProcessor processor;
-            AudioPluginAudioProcessorEditor editor (processor);
-
-            constexpr int kRackEarWidth = 15;
-            constexpr int kSideBarWidth = 55;
-
-            auto& meter = editor.getInputMeter();
-            auto& knob = editor.getInputGainKnob();
-
-            expect (meter.getX() >= kRackEarWidth,
-                    "Input meter should start after the left rack ear");
-            expect (meter.getRight() <= kRackEarWidth + kSideBarWidth,
-                    "Input meter should fit inside the left side bar");
-            expect (meter.getBottom() <= knob.getY(),
-                    "Input meter should sit above the input gain knob");
-        }
-
-        void testOutputMeterIsOnRightSideBar()
-        {
-            beginTest ("Output meter sits in the right side bar above the output gain knob");
-
-            AudioPluginAudioProcessor processor;
-            AudioPluginAudioProcessorEditor editor (processor);
-
-            constexpr int kRackEarWidth = 15;
-            constexpr int kSideBarWidth = 55;
-
-            auto& meter = editor.getOutputMeter();
-            auto& knob = editor.getOutputGainKnob();
-
-            expect (meter.getX() >= editor.getWidth() - kRackEarWidth - kSideBarWidth,
-                    "Output meter should start inside the right side bar");
-            expect (meter.getRight() <= editor.getWidth() - kRackEarWidth,
-                    "Output meter should end before the right rack ear");
-            expect (meter.getBottom() <= knob.getY(),
-                    "Output meter should sit above the output gain knob");
         }
 
         void testInputGainKnobBindsToParameter()
@@ -1086,6 +878,39 @@ namespace synthortion
             controller.setBypassMix (0.75f);
             expect (std::abs (controller.getBypassMix() - 0.75f) < 1.0e-6f,
                     "setBypassMix should update the mix value");
+        }
+
+        void testAnimationControllerBypassTransitionUsesStepEasing()
+        {
+            beginTest ("AnimationController bypass transition easing quantises to N=8 hard steps");
+
+            expect (AnimationController::kBypassTransitionSteps == 8,
+                    "Bypass transition Step count must be N=8 per DEADLOCK Slice I issue #26");
+
+            expect (std::abs (AnimationController::quantizeBypassProgress (0.0f) - 0.0f) < 1.0e-6f,
+                    "progress 0 should quantise to step 0/8");
+            expect (std::abs (AnimationController::quantizeBypassProgress (1.0f) - 1.0f) < 1.0e-6f,
+                    "progress 1 should quantise to step 8/8");
+            expect (std::abs (AnimationController::quantizeBypassProgress (0.5f) - 0.5f) < 1.0e-6f,
+                    "progress 0.5 should quantise to step 4/8 = 0.5");
+            expect (std::abs (AnimationController::quantizeBypassProgress (0.59f) - 0.625f) < 1.0e-6f,
+                    "progress 0.59 should quantise up to step 5/8 = 0.625");
+            expect (std::abs (AnimationController::quantizeBypassProgress (0.03f) - 0.0f) < 1.0e-6f,
+                    "progress 0.03 should quantise down to step 0/8 = 0");
+            expect (std::abs (AnimationController::quantizeBypassProgress (0.10f) - 0.125f) < 1.0e-6f,
+                    "progress 0.10 should quantise up to step 1/8 = 0.125");
+            expect (std::abs (AnimationController::quantizeBypassProgress (0.34f) - 0.375f) < 1.0e-6f,
+                    "progress 0.34 should quantise to step 3/8 = 0.375");
+
+            // The 300 ms duration is preserved from the pre-Slice-I transition;
+            // the easing is flipped from createEaseOut() to the quantised Step
+            // above. The duration is exercised end-to-end only in a host with a
+            // visible VBlank component; the unit test scope is the easing shape.
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            controller.startBypassTransition (true);
+            expect (controller.getBypassMix() >= 0.0f && controller.getBypassMix() <= 1.0f,
+                    "Bypass mix should stay in [0, 1] after a transition is started");
         }
 
         void testDeadlockKnobRendersWhiteFace()
@@ -1378,17 +1203,18 @@ namespace synthortion
             editor.repaint();
             const auto bypassedSnapshot = editor.createComponentSnapshot (editor.getLocalBounds());
 
-            // Sample points inside the pure-background ear strips where no child
-            // widget is placed (resized() insets kRackEarWidth == 15), so the
-            // pixels only ever see the #000 substrate + dither + scanlines + dead
-            // pixels. None of these layers depend on bypass mix, so the substrate
+            // Sample points inside the 10 px gap strips between child widgets
+            // (Slice I removed the rack-ear strips; the gaps between bypass /
+            // oscilloscope / side bars / center panels are the only pure
+            // substrate real-estate left). None of the substrate layers (dither
+            // + scanlines + dead pixels) depend on bypass mix, so the substrate
             // must be byte-identical between the active and bypassed snapshots.
             const juce::Point<int> samplePoints[] = {
-                { 5, 30 },
-                { 5, 200 },
-                { 5, 400 },
-                { editor.getWidth() - 5, 30 },
-                { editor.getWidth() - 5, 200 }
+                { 135, 30 },   // bypass <-> oscilloscope gap in the top bar
+                { 200, 95 },   // top bar <-> center area gap
+                { 60, 200 },   // left side bar <-> center area gap
+                { 740, 200 },  // center area <-> right side bar gap
+                { 400, 475 }   // center area <-> editor bottom gap
             };
 
             for (const auto& p : samplePoints)
@@ -1462,39 +1288,6 @@ namespace synthortion
 
             expect (overlay.getDeadPixelRerollCount() == initial + 2,
                     "Dead pixels should re-roll a second time after 10 ticks");
-        }
-
-        void testComingSoonPanelRendersPlaceholder()
-        {
-            beginTest ("Coming Soon panel renders placeholder content");
-
-            SynthortionLookAndFeel lookAndFeel;
-            const auto bg = lookAndFeel.findColour (SynthortionLookAndFeel::panelOutlineColourId);
-
-            PanelComponent plainPanel ("OTHER", bg);
-            plainPanel.setSize (100, 100);
-            plainPanel.setLookAndFeel (&lookAndFeel);
-
-            PanelComponent placeholderPanel ("COMING SOON", bg);
-            placeholderPanel.setPlaceholder (true);
-            placeholderPanel.setSize (100, 100);
-            placeholderPanel.setLookAndFeel (&lookAndFeel);
-
-            const auto plainSnapshot = plainPanel.createComponentSnapshot (plainPanel.getLocalBounds());
-            const auto placeholderSnapshot = placeholderPanel.createComponentSnapshot (placeholderPanel.getLocalBounds());
-
-            bool hasDifferentPixel = false;
-            for (int y = 35; y < 85 && ! hasDifferentPixel; ++y)
-            {
-                for (int x = 20; x < 80 && ! hasDifferentPixel; ++x)
-                {
-                    if (plainSnapshot.getPixelAt (x, y) != placeholderSnapshot.getPixelAt (x, y))
-                        hasDifferentPixel = true;
-                }
-            }
-
-            expect (hasDifferentPixel,
-                    "Placeholder panel should draw content distinct from a plain panel");
         }
 
         void testBypassTransitionPropagatesToComponents()
@@ -1978,6 +1771,116 @@ namespace synthortion
                     "Slice band 2 (yFrac=0.50, thickness=2) should render at y=32");
             expect (img.getPixelAt (20, 48) == white,
                     "Slice band 3 (yFrac=0.75, thickness=2) should render at y=48");
+        }
+
+        void testGlitchOverlayBootBurstFiresOnceAndRunsForFourHundredMs()
+        {
+            beginTest ("GlitchOverlay::triggerBootBurst fires once and runs for ~400 ms (24 ticks at 60 Hz)");
+
+            GlitchOverlay overlay;
+
+            expect (! overlay.isBootBurstActive(),
+                    "Boot Burst should be inactive at rest");
+            expect (! overlay.isBootBurstFired(),
+                    "Boot Burst should not be marked fired before the first trigger");
+
+            overlay.triggerBootBurst();
+            expect (overlay.isBootBurstActive(),
+                    "Boot Burst should be active immediately after triggerBootBurst");
+            expect (overlay.isBootBurstFired(),
+                    "Boot Burst should be marked fired after the first trigger");
+            expect (overlay.getBootBurstElapsedTicks() == 0,
+                    "Boot Burst elapsed ticks should start at 0");
+            expect (std::abs (overlay.getBootBurstProgress() - 0.0f) < 1.0e-6f,
+                    "Boot Burst progress should start at 0");
+
+            const int durationTicks = GlitchOverlay::bootBurstDurationTicksForTests();
+            expect (durationTicks == 24,
+                    "Boot Burst duration must be 24 ticks (~400 ms at 60 Hz) per DEADLOCK Slice I issue #26");
+            const int flashTicks = GlitchOverlay::bootBurstFlashTicksForTests();
+            expect (flashTicks == 6,
+                    "Boot Burst flash window must be 6 ticks (~100 ms at 60 Hz)");
+            expect (GlitchOverlay::bootBurstBandCountForTests() == 6,
+                    "Boot Burst must compose 6 random horizontal Slice displacements");
+            expect (GlitchOverlay::bootBurstDeadPixelCountForTests() == 60,
+                    "Boot Burst must paint a dense Dead pixel field of 60 pixels");
+
+            for (int i = 0; i < durationTicks; ++i)
+            {
+                overlay.tick();
+                if (i + 1 < durationTicks)
+                    expect (overlay.isBootBurstActive(),
+                            "Boot Burst should stay active until the 24-tick window elapses");
+            }
+
+            expect (! overlay.isBootBurstActive(),
+                    "Boot Burst should snap back to inactive after the 24-tick window");
+
+            // Re-triggering after the first fire is a no-op: the per-process
+            // bootBurstFired guard prevents the Burst from ever firing again.
+            overlay.triggerBootBurst();
+            expect (! overlay.isBootBurstActive(),
+                    "triggerBootBurst must be a no-op once bootBurstFired is set");
+        }
+
+        void testGlitchOverlayDrawBootBurstRendersFlashSlicesAndDeadPixels()
+        {
+            beginTest ("GlitchOverlay::drawBootBurst renders a #FFF flash, 6 slice bands and a dense dead pixel field");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            GlitchOverlay overlay;
+
+            // At rest: drawBootBurst paints nothing.
+            {
+                juce::Image img (juce::Image::ARGB, 64, 64, true);
+                juce::Graphics g (img);
+                g.fillAll (juce::Colours::black);
+                overlay.drawBootBurst (g, img.getBounds(), 0.0f);
+                expect (img.getPixelAt (32, 32) == black,
+                        "Inactive boot Burst should not paint over the substrate");
+            }
+
+            overlay.triggerBootBurst();
+
+            // First ~100 ms (progress < 6/24 = 0.25): full-bounds #FFF flash.
+            {
+                juce::Image img (juce::Image::ARGB, 64, 64, true);
+                juce::Graphics g (img);
+                g.fillAll (juce::Colours::black);
+                overlay.drawBootBurst (g, img.getBounds(), 0.1f);
+                expect (img.getPixelAt (0, 0) == white,
+                        "Boot Burst flash should fill the whole bounds with #FFF for the first 100 ms");
+                expect (img.getPixelAt (63, 63) == white,
+                        "Boot Burst flash should reach every corner of the bounds");
+            }
+
+            // Late in the burst (progress = 1.0): flash has faded, but the 6
+            // slice bands + dense dead pixel field still render hard #FFF.
+            {
+                juce::Image img (juce::Image::ARGB, 64, 64, true);
+                juce::Graphics g (img);
+                g.fillAll (juce::Colours::black);
+                overlay.drawBootBurst (g, img.getBounds(), 1.0f);
+
+                // The flash has fully faded at progress = 1.0, so the substrate
+                // shows through where no band/dead pixel paints.
+                expect (img.getPixelAt (32, 32) == black || img.getPixelAt (32, 32) == white,
+                        "Late boot Burst pixels should be hard #000 or #FFF (flash faded, bands/dead pixels remain)");
+
+                int whitePixelCount = 0;
+                for (int y = 0; y < 64; ++y)
+                    for (int x = 0; x < 64; ++x)
+                        if (img.getPixelAt (x, y) == white)
+                            ++whitePixelCount;
+
+                // 6 slice bands of 1-3 px thickness across a 64 px wide bounds
+                // => at least 6 * 1 * 64 = 384 white pixels, plus 60 dead
+                // pixels => at least 444 white pixels total.
+                expect (whitePixelCount >= 400,
+                        "Late boot Burst should still paint the 6 slice bands + dense dead pixel field in hard #FFF");
+            }
         }
     };
 

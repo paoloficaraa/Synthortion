@@ -45,15 +45,28 @@ namespace synthortion
         void triggerBypassSlices();
         void drawBypassSlices (juce::Graphics& g, juce::Rectangle<int> bounds);
 
+        // One-time boot Burst fired on the first window show after process
+        // launch. Composes 6 random horizontal Slice displacements + a dense
+        // Dead pixel field + a Plotter #FFF flash that holds for 100 ms then
+        // fades over the remaining ~300 ms of the 400 ms burst. Once fired
+        // the Burst never fires again in the same process (guarded by
+        // bootBurstFired).
+        void triggerBootBurst();
+        void drawBootBurst (juce::Graphics& g, juce::Rectangle<int> bounds, float progress);
+
         // Test accessors.
         int getGrainFrameIndex() const noexcept { return grainFrameIndex; }
         int getDeadPixelRerollCount() const noexcept { return deadPixelRerollCount; }
         int getFrameTickCount() const noexcept { return frameTickCount; }
         int getDriftBandStep() const noexcept;
         bool isFlickerBlockVisible() const noexcept;
-int getSweepStep() const noexcept;
+        int getSweepStep() const noexcept;
         float getSweepPosition() const noexcept;
         bool isBypassSliceActive() const noexcept { return bypassSliceActive; }
+        bool isBootBurstActive() const noexcept { return bootBurstActive; }
+        bool isBootBurstFired() const noexcept { return bootBurstFired; }
+        int getBootBurstElapsedTicks() const noexcept { return bootBurstElapsedTicks; }
+        float getBootBurstProgress() const noexcept;
         static constexpr int tileSizeForTests() noexcept { return kGrainTextureSize; }
         static constexpr int driftBandHeight() noexcept { return kDriftBandHeight; }
         static constexpr int flickerBlockSize() noexcept { return kFlickerBlockSize; }
@@ -66,9 +79,21 @@ int getSweepStep() const noexcept;
         static constexpr int bypassSliceDurationTicksForTests() noexcept { return kBypassSliceDurationTicks; }
         static constexpr int bypassSliceStepsForTests() noexcept { return kBypassSliceSteps; }
         static constexpr int bypassSliceBandCountForTests() noexcept { return kBypassSliceBands; }
+        static constexpr int bootBurstDurationTicksForTests() noexcept { return kBootBurstDurationTicks; }
+        static constexpr int bootBurstFlashTicksForTests() noexcept { return kBootBurstFlashTicks; }
+        static constexpr int bootBurstBandCountForTests() noexcept { return kBootBurstBands; }
+        static constexpr int bootBurstDeadPixelCountForTests() noexcept { return kBootBurstDeadPixels; }
 
     private:
         struct BypassSliceBand
+        {
+            float yFrac;
+            int thickness;
+            int shiftDir;
+            int shiftPx;
+        };
+
+        struct BootBurstBand
         {
             float yFrac;
             int thickness;
@@ -82,6 +107,19 @@ int getSweepStep() const noexcept;
         std::array<BypassSliceBand, static_cast<size_t> (kBypassSliceBands)> bypassSliceBands {};
         bool bypassSliceActive = false;
         int bypassSliceElapsedTicks = 0;
+
+        // Boot Burst constants (Slice I). 400 ms total / 100 ms flash at the
+        // 60 Hz editor timer => 24 ticks total, 6 ticks of full #FFF flash.
+        static constexpr int kBootBurstDurationTicks = 24;
+        static constexpr int kBootBurstFlashTicks = 6;
+        static constexpr int kBootBurstBands = 6;
+        static constexpr int kBootBurstDeadPixels = 60;
+        std::array<BootBurstBand, static_cast<size_t> (kBootBurstBands)> bootBurstBands {};
+        std::array<juce::Point<float>, static_cast<size_t> (kBootBurstDeadPixels)> bootBurstDeadPixels {};
+        bool bootBurstActive = false;
+        bool bootBurstFired = false;
+        int bootBurstElapsedTicks = 0;
+
         static constexpr int kGrainTextureSize = 64;
         static constexpr int kGrainFrames = 8;
         // Fraction of dither tile pixels that are #FFF (the rest are #000).
