@@ -19,6 +19,42 @@ namespace synthortion
             rerollDeadPixels (lastDeadPixelBounds);
             ++deadPixelRerollCount;
         }
+
+        if (bypassSliceActive && ++bypassSliceElapsedTicks >= kBypassSliceDurationTicks)
+            bypassSliceActive = false;
+    }
+
+    void GlitchOverlay::triggerBypassSlices()
+    {
+        bypassSliceBands[0] = { 0.25f, 2, -1, 2 };
+        bypassSliceBands[1] = { 0.50f, 2, +1, 3 };
+        bypassSliceBands[2] = { 0.75f, 2, -1, 1 };
+
+        bypassSliceActive = true;
+        bypassSliceElapsedTicks = 0;
+    }
+
+    void GlitchOverlay::drawBypassSlices (juce::Graphics& g, juce::Rectangle<int> bounds)
+    {
+        if (! bypassSliceActive || bounds.isEmpty())
+            return;
+
+        const float rawProgress = static_cast<float> (bypassSliceElapsedTicks)
+                                  / static_cast<float> (kBypassSliceDurationTicks);
+        const int stepIndex = juce::jlimit (0, kBypassSliceSteps,
+                                             juce::roundToInt (rawProgress * static_cast<float> (kBypassSliceSteps)));
+        const float progress = static_cast<float> (stepIndex) / static_cast<float> (kBypassSliceSteps);
+
+        g.setColour (juce::Colour (kWhiteArgb));
+
+        for (const auto& band : bypassSliceBands)
+        {
+            const int y = bounds.getY() + juce::roundToInt (band.yFrac * static_cast<float> (bounds.getHeight()));
+            const int x = bounds.getX() + juce::roundToInt (static_cast<float> (band.shiftPx)
+                                                              * static_cast<float> (band.shiftDir)
+                                                              * progress);
+            g.fillRect (x, y, bounds.getWidth(), band.thickness);
+        }
     }
 
     int GlitchOverlay::getDriftBandStep() const noexcept

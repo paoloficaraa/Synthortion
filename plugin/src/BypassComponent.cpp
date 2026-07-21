@@ -1,4 +1,5 @@
 #include "Synthortion/BypassComponent.h"
+#include "Synthortion/GlitchOverlay.h"
 
 namespace synthortion
 {
@@ -33,8 +34,13 @@ namespace synthortion
         bypassSwitch.setBounds (getLocalBounds());
     }
 
-    bool BypassComponent::isLedOn() const noexcept
+    bool BypassComponent::isBypassed() const noexcept
     {
-        return bypassSwitch.isLedOn();
+        return bypassSwitch.isBypassed();
+    }
+
+    void BypassComponent::setGlitchOverlay (GlitchOverlay* overlay) noexcept
+    {
+        bypassSwitch.setGlitchOverlay (overlay);
     }
 }

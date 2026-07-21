@@ -43,6 +43,7 @@ namespace synthortion
         comingSoonPanel.setPlaceholder (true);
         comingSoonPanel.setGlitchOverlay (&glitchOverlay);
         addAndMakeVisible (bypassComponent);
+        bypassComponent.setGlitchOverlay (&glitchOverlay);
         addAndMakeVisible (oscilloscope);
         oscilloscope.setGlitchOverlay (&glitchOverlay);
         addAndMakeVisible (inputMeter);
@@ -92,6 +93,7 @@ namespace synthortion
 
     void AudioPluginAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
     {
+        glitchOverlay.drawBypassSlices (g, getLocalBounds());
         glitchOverlay.drawDeadPixelScatter (g, getLocalBounds());
     }
 

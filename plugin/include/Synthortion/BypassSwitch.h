@@ -4,16 +4,22 @@
 #include "Synthortion/SynthortionLookAndFeel.h"
 #include <juce_animation/juce_animation.h>
 #include <juce_gui_basics/juce_gui_basics.h>
-#include <melatonin_blur/melatonin_blur.h>
 #include <optional>
 
 namespace synthortion
 {
-    /** Custom hardware-style bypass toggle with a snappily animated vertical lever and accent LED glow.
+    class GlitchOverlay;
 
-        The lever slides up (ON) and down (OFF) with a short ease-out cubic curve that snaps into the
-        end stop without overshooting. An LED to the right of the track fades in and out, rendered
-        with a Melatonin Blur glow.
+    /** Brutalist Block toggle. The bypass state is encoded entirely by colour
+        inversion: the active (signal flows) state renders a solid #FFF block
+        with a #000 BYPASS label centered inside; the bypassed state renders a
+        solid #000 block with a #FFF BYPASS label and a 1 px #FFF outline around
+        the block. No LED, no rounded track and no lever survive.
+
+        State transitions drive a Step-quantised easing (N = 8) preserving the
+        existing 120 ms duration, and fire a GlitchOverlay horizontal Slice
+        glitch burst that visibly slides across the editor background for the
+        ~150 ms burst window matched to the step duration.
     */
     class BypassSwitch final : public juce::Button
     {
@@ -21,7 +27,13 @@ namespace synthortion
         explicit BypassSwitch (AnimationController* animationController = nullptr);
         ~BypassSwitch() override;
 
-        bool isLedOn() const noexcept;
+        bool isBypassed() const noexcept;
+
+        void setGlitchOverlay (GlitchOverlay* overlay) noexcept { glitchOverlay = overlay; }
+
+        float getAnimationProgress() const noexcept { return animationProgress; }
+
+        static constexpr int kBypassSteps = 8;
 
     private:
         void paintButton (juce::Graphics& g, bool isMouseOver, bool isMouseDown) override;
@@ -31,22 +43,15 @@ namespace synthortion
         void startAnimation();
 
         AnimationController* controller;
+        GlitchOverlay* glitchOverlay = nullptr;
         float animationProgress { 0.0f };
         float animationStart { 0.0f };
         float animationTarget { 0.0f };
         bool animationRunning { false };
 
         std::optional<juce::Animator> currentAnimator;
-        melatonin::DropShadow ledGlow;
 
-        static constexpr float kTrackWidth = 28.0f;
-        static constexpr float kTrackHeight = 56.0f;
-        static constexpr float kTrackCornerRadius = 14.0f;
-        static constexpr float kHandleSize = 22.0f;
-        static constexpr float kHandleCornerRadius = 11.0f;
-        static constexpr float kLedSize = 8.0f;
-        static constexpr float kGlowRadius = 10.0f;
-        static constexpr float kTrackInset = 3.0f;
+        static constexpr int kBypassLabelHeight = 16;
         static constexpr double kAnimationDurationMs = 120.0;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BypassSwitch)

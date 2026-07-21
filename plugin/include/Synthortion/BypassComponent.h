@@ -7,7 +7,12 @@
 
 namespace synthortion
 {
-    /** Transparent top bar containing the spring-animated bypass toggle and its LED indicator. */
+    class GlitchOverlay;
+
+    /** Top bar containing the brutalist Block-style bypass toggle. Wraps the
+        BypassSwitch ButtonAttachment for PLUGIN_BYPASS; the actual drawing and
+        state-transition glitch burst live on the BypassSwitch itself.
+    */
     class BypassComponent final : public juce::Component
     {
     public:
@@ -19,8 +24,11 @@ namespace synthortion
         void paint (juce::Graphics& g) override;
         void resized() override;
 
-        bool isLedOn() const noexcept;
+        bool isBypassed() const noexcept;
         juce::Button& getToggleButton() noexcept { return bypassSwitch; }
+        BypassSwitch& getBypassSwitch() noexcept { return bypassSwitch; }
+
+        void setGlitchOverlay (GlitchOverlay* overlay) noexcept;
 
     private:
         void setupButton();
