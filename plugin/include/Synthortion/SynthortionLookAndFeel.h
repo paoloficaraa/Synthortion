@@ -45,6 +45,8 @@ public:
     /** Current bypass dimming mix in [0, 1]. */
     float getBypassMix() const noexcept { return bypassMix; }
 
+    static constexpr float kTightKerning = -0.5f;
+
 private:
     void drawSwitchHandle(juce::Graphics& g, const juce::Rectangle<float>& bounds,
                           bool isOn, bool isHighlighted, bool isDown) const;

@@ -50,7 +50,7 @@ namespace synthortion
         }
 
         g.setColour (labelColour);
-        g.setFont (juce::FontOptions().withName ("BebasNeue").withHeight (static_cast<float> (kBypassLabelHeight)).withStyle ("Regular").withKerningFactor (-0.5f));
+        g.setFont (juce::FontOptions().withName ("BebasNeue").withHeight (static_cast<float> (kBypassLabelHeight)).withStyle ("Regular").withKerningFactor (SynthortionLookAndFeel::kTightKerning));
         g.drawFittedText ("BYPASS", bounds.toNearestInt(),
                           juce::Justification::centred, 1);
     }

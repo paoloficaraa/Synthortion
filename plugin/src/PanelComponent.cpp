@@ -11,7 +11,7 @@ namespace synthortion
     PanelComponent::PanelComponent (const juce::String& panelTitle, const juce::Colour& backgroundColour)
         : title (panelTitle),
           bgColour (backgroundColour),
-          headingFont (juce::FontOptions().withName("BebasNeue").withHeight(kTitleHeight).withStyle("Regular").withKerningFactor(-0.5f))
+          headingFont (juce::FontOptions().withName("BebasNeue").withHeight(kTitleHeight).withStyle("Regular").withKerningFactor(SynthortionLookAndFeel::kTightKerning))
     {
         setOpaque (true);
     }

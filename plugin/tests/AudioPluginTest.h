@@ -70,7 +70,7 @@ private:
                 "Section heading should request the BebasNeue typeface");
         expect (lookAndFeel.getTypefaceForFont(heading) == bebas,
                 "Section heading should resolve to the BebasNeue typeface");
-        expect (std::abs (heading.getExtraKerningFactor() + 0.5f) < 1.0e-6f,
+        expect (std::abs (heading.getExtraKerningFactor() - SynthortionLookAndFeel::kTightKerning) < 1.0e-6f,
                 "Section heading should apply -0.5 tight kerning per issue #25");
 
         auto paramLabel = lookAndFeel.getParameterLabelFont();
@@ -80,7 +80,7 @@ private:
                 "Parameter label should request the BebasNeue typeface");
         expect (lookAndFeel.getTypefaceForFont(paramLabel) == bebas,
                 "Parameter label should resolve to the BebasNeue typeface");
-        expect (std::abs (paramLabel.getExtraKerningFactor() + 0.5f) < 1.0e-6f,
+        expect (std::abs (paramLabel.getExtraKerningFactor() - SynthortionLookAndFeel::kTightKerning) < 1.0e-6f,
                 "Parameter label should apply -0.5 tight kerning per issue #25");
 
         auto paramValue = lookAndFeel.getParameterValueFont();
@@ -90,7 +90,7 @@ private:
                 "Parameter value should request the BebasNeue typeface");
         expect (lookAndFeel.getTypefaceForFont(paramValue) == bebas,
                 "Parameter value should resolve to the BebasNeue typeface");
-        expect (std::abs (paramValue.getExtraKerningFactor() + 0.5f) < 1.0e-6f,
+        expect (std::abs (paramValue.getExtraKerningFactor() - SynthortionLookAndFeel::kTightKerning) < 1.0e-6f,
                 "Parameter value should apply -0.5 tight kerning per issue #25");
 
         auto bypass = lookAndFeel.getBypassLabelFont();
@@ -100,7 +100,7 @@ private:
                 "Bypass label should request the BebasNeue typeface");
         expect (lookAndFeel.getTypefaceForFont(bypass) == bebas,
                 "Bypass label should resolve to the BebasNeue typeface");
-        expect (std::abs (bypass.getExtraKerningFactor() + 0.5f) < 1.0e-6f,
+        expect (std::abs (bypass.getExtraKerningFactor() - SynthortionLookAndFeel::kTightKerning) < 1.0e-6f,
                 "Bypass label should apply -0.5 tight kerning per issue #25");
     }
 };
@@ -193,7 +193,7 @@ namespace synthortion
             testGlitchOverlayRerollsDeadPixelsApprox80ms();
             testGlitchOverlayDriftBandDriftsLeftToRight();
             testGlitchOverlayFlickerBlockTogglesEveryThirtyTicks();
-testGlitchOverlayTripletDrawsThreeOffsets();
+            testGlitchOverlayTripletDrawsThreeOffsets();
             testGlitchOverlaySweepAdvancesLeftToRight();
             testGlitchOverlayBypassSliceBurstWindow();
             testGlitchOverlayDrawBypassSlicesRendersBandsWhenActive();
@@ -283,7 +283,7 @@ testGlitchOverlayTripletDrawsThreeOffsets();
 
             expect (juce::roundToInt(font.getHeight()) == 22, "Panel title should be 22px BebasNeue per DEADLOCK Slice C issue #20 / Slice H issue #25");
             expect (font.getTypefaceName().containsIgnoreCase("Bebas"), "Panel title should use BebasNeue");
-            expect (std::abs (font.getExtraKerningFactor() + 0.5f) < 1.0e-6f, "Panel title should apply -0.5 tight kerning per issue #25");
+            expect (std::abs (font.getExtraKerningFactor() - SynthortionLookAndFeel::kTightKerning) < 1.0e-6f, "Panel title should apply -0.5 tight kerning per issue #25");
         }
 
         void testEditorIsOpaque()
