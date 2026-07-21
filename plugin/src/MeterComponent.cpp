@@ -1,15 +1,16 @@
 #include "Synthortion/MeterComponent.h"
 
+#include <array>
+#include <cmath>
+
 namespace synthortion
 {
     namespace
     {
-        const juce::Colour kBackground (0xFFF5F0EB);
-        const juce::Colour kBarBackground (0xFFE5E0DA);
-        const juce::Colour kGradientTop (0xFFC4B5FD);
-        const juce::Colour kGradientBottom (0xFF7C3AED);
-        const juce::Colour kPeakMarker = juce::Colours::white.withAlpha (0.9f);
-        const juce::Colour kTickColour = juce::Colours::black.withAlpha (0.3f);
+        const juce::Colour kWhite (0xFFFFFFFF);
+        const juce::Colour kBlack (0xFF000000);
+
+        const std::array<float, 3> kReferenceTickDb { -6.0f, -12.0f, -24.0f };
     }
 
     MeterComponent::MeterComponent (AnimationController& controller)
@@ -71,13 +72,34 @@ namespace synthortion
         decayAnimator = animationController.runAnimator (
             juce::ValueAnimatorBuilder()
                 .withDurationMs (static_cast<double> (durationMs))
-                .withEasing (juce::Easings::createEaseOut())
+                .withEasing ([](float progress)
+                             {
+                                 return quantizeStepProgress (progress, kSegmentCount);
+                             })
                 .withValueChangedCallback (
                     [this, fromDb](float progress)
                     {
                         animatedPeakDb = fromDb + (kMinDb - fromDb) * progress;
                         repaint();
                     }));
+    }
+
+    float MeterComponent::quantizeStepProgress (float progress, int steps) noexcept
+    {
+        if (steps <= 0)
+            return progress;
+
+        const float clamped = juce::jlimit (0.0f, 1.0f, progress);
+        const int stepIndex = juce::jlimit (0, steps, juce::roundToInt (clamped * static_cast<float> (steps)));
+        return static_cast<float> (stepIndex) / static_cast<float> (steps);
+    }
+
+    int MeterComponent::dbToSegmentIndex (float db) const noexcept
+    {
+        const float t = juce::jlimit (0.0f, 1.0f, (db - kMinDb) / (kMaxDb - kMinDb));
+        const float scaled = t * static_cast<float> (kSegmentCount);
+        int index = static_cast<int> (std::ceil (scaled - 1.0e-5f));
+        return juce::jlimit (0, kSegmentCount, index);
     }
 
     float MeterComponent::computeRMS (const juce::AudioBuffer<float>& buffer) const
@@ -109,39 +131,44 @@ namespace synthortion
 
     void MeterComponent::paint (juce::Graphics& g)
     {
-        const auto bounds = getLocalBounds().toFloat();
-        const float activeLevel = 1.0f - animationController.getBypassMix();
+        const auto bounds = getLocalBounds();
+        g.fillAll (kBlack);
 
-        g.fillAll (kBackground);
+        const int barW = bounds.getWidth() / 2;
+        const int barX = bounds.getCentreX() - barW / 2;
+        const int barY = bounds.getY();
+        const int barH = bounds.getHeight();
+        const int barBottom = barY + barH;
 
-        const float barWidth = bounds.getWidth() * 0.5f;
-        const float barX = bounds.getCentreX() - barWidth * 0.5f;
+        const float segmentHeightF = static_cast<float> (barH) / static_cast<float> (kSegmentCount);
 
-        // Background bar
-        g.setColour (kBarBackground);
-        g.fillRoundedRectangle (barX, bounds.getY(), barWidth, bounds.getHeight(), 4.0f);
+        const int litCount = bypassed ? 0 : dbToSegmentIndex (rmsDb);
 
-        // RMS bar
-        const float rmsH = levelToHeight (rmsDb);
-        juce::ColourGradient grad (
-            kGradientBottom.withAlpha (activeLevel), barX, bounds.getBottom(),
-            kGradientTop.withAlpha (activeLevel), barX, bounds.getY(),
-            false);
-        g.setGradientFill (grad);
-        g.fillRoundedRectangle (barX, bounds.getBottom() - rmsH, barWidth, rmsH, 4.0f);
-
-        // Peak hold marker
-        const float peakH = levelToHeight (animatedPeakDb);
-        g.setColour (kPeakMarker.withAlpha (0.9f * activeLevel));
-        const float markerY = bounds.getBottom() - peakH;
-        g.fillRect (barX - 2.0f, markerY, barWidth + 4.0f, 2.0f);
-
-        // Reference ticks
-        g.setColour (kTickColour);
-        for (float db : { -6.0f, -12.0f, -24.0f })
+        for (int i = 0; i < kSegmentCount; ++i)
         {
-            const float y = bounds.getBottom() - levelToHeight (db);
-            g.drawLine (barX - 3.0f, y, barX + barWidth + 3.0f, y, 1.0f);
+            const int segTop = juce::roundToInt (static_cast<float> (barBottom) - static_cast<float> (i + 1) * segmentHeightF);
+            const int segBottom = juce::roundToInt (static_cast<float> (barBottom) - static_cast<float> (i) * segmentHeightF);
+            g.setColour (i < litCount ? kWhite : kBlack);
+            g.fillRect (barX, segTop, barW, segBottom - segTop);
+        }
+
+        const int peakSeg = dbToSegmentIndex (animatedPeakDb);
+        if (peakSeg > 0)
+        {
+            const int markerY = juce::roundToInt (static_cast<float> (barBottom) - static_cast<float> (peakSeg) * segmentHeightF);
+            g.setColour (kWhite);
+            g.fillRect (barX, markerY, barW, 1);
+        }
+
+        g.setColour (kWhite);
+        g.drawRect (barX, barY, barW, barH, 1);
+
+        g.setColour (kBlack);
+        for (float db : kReferenceTickDb)
+        {
+            const int tickY = juce::roundToInt (static_cast<float> (barBottom) - levelToHeight (db));
+            g.fillRect (barX, tickY, 1, 1);
+            g.fillRect (barX + barW - 1, tickY, 1, 1);
         }
     }
 }

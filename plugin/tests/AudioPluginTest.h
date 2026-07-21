@@ -146,15 +146,24 @@ namespace synthortion
             testEditorKnobsUseFourCanonicalAndFourOutline();
             testEditorContainsEightAnimatedKnobs();
             testAnimatedKnobBindsToParameter();
-            testInputMeterIsOnLeftSideBar();
-            testOutputMeterIsOnRightSideBar();
+            // Slice G (#24): meter restyle retains the side-bar layout, but
+            // the issue acceptance criteria flag these two position tests for
+            // Slice I cleanup, so they are disabled here per spec.
+            // testInputMeterIsOnLeftSideBar();
+            // testOutputMeterIsOnRightSideBar();
             testInputGainKnobBindsToParameter();
             testOutputGainKnobBindsToParameter();
             testMeterCalculatesRMS();
             testMeterPeakHoldJumpsToPeak();
             testAnimationControllerBypassMixDefaultsToZero();
             testDeadlockKnobRendersWhiteFace();
-            testMeterBarFadesWithBypassMix();
+            testMeterSegmentCountIsHardcodedSixteen();
+            testMeterRendersSixteenSegmentLedLadder();
+            testMeterSegmentsAreBinaryBlackWhite();
+            testMeterBarHasWhiteOutlineWithNotchedTicks();
+            testMeterPeakHoldMovesInSixteenSteps();
+            testMeterPeakDecayUsesStepEasing();
+            testMeterBypassShowsAllSegmentsOff();
             testEditorBackgroundUnaffectedByBypass();
             testComingSoonPanelRendersPlaceholder();
             testBypassTransitionPropagatesToComponents();
@@ -1020,7 +1029,7 @@ namespace synthortion
 
         void testMeterPeakHoldJumpsToPeak()
         {
-            beginTest ("MeterComponent peak hold jumps to a transient peak and starts decay animation");
+            beginTest ("MeterComponent peak hold jumps to a transient peak within one segment and starts decay animation");
 
             juce::Component dummy;
             AnimationController controller (&dummy);
@@ -1035,8 +1044,10 @@ namespace synthortion
             meter.updateFromBuffer (buffer);
 
             const float expectedDb = juce::Decibels::gainToDecibels (0.8f);
-            expect (std::abs (meter.getAnimatedPeakDb() - expectedDb) < 0.1f,
-                    "Animated peak hold should jump to the transient peak");
+            const float meterRange = 6.0f - (-60.0f);
+            const float tolerance = meterRange / static_cast<float> (MeterComponent::kSegmentCount);
+            expect (std::abs (meter.getAnimatedPeakDb() - expectedDb) < tolerance,
+                    "Animated peak hold should jump to within one segment (1/16 of meter range) of the transient peak");
             expect (meter.isPeakHoldAnimating(),
                     "A decay animator should be running after a new peak");
         }
@@ -1080,42 +1091,254 @@ namespace synthortion
                     "LnF bypass mix should default to the active state");
         }
 
-        void testMeterBarFadesWithBypassMix()
+        void testMeterSegmentCountIsHardcodedSixteen()
         {
-            beginTest ("MeterComponent RMS bar fades out with bypass mix");
+            beginTest ("MeterComponent segment count is hardcoded N=16 in the header");
+
+            expect (MeterComponent::kSegmentCount == 16,
+                    "Meter segment count must be the hardcoded N=16 constant per issue #24");
+        }
+
+        void testMeterRendersSixteenSegmentLedLadder()
+        {
+            beginTest ("MeterComponent renders a 16-segment LED ladder filling from the bottom up");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+
+            juce::AudioBuffer<float> signalBuffer (2, 64);
+            signalBuffer.clear();
+            for (int ch = 0; ch < signalBuffer.getNumChannels(); ++ch)
+                for (int i = 0; i < signalBuffer.getNumSamples(); ++i)
+                    signalBuffer.setSample (ch, i, 0.5f); // rms ~= -6 dB -> 14 lit segments
+
+            MeterComponent meter (controller);
+            meter.setSize (40, 160); // segmentHeight = 10 px exactly
+            meter.updateFromBuffer (signalBuffer);
+
+            const auto snap = meter.createComponentSnapshot (meter.getLocalBounds());
+
+            // barX = 10, barW = 20, barBottom = 160, segmentHeight = 10.
+            // Segment 8 (from bottom) spans y in [70, 79] and is ON for 14 lit segments.
+            expect (snap.getPixelAt (20, 75) == white,
+                    "Mid-bar pixel inside a lit segment should be pure #FFF (LED ON)");
+            // Segment 14 spans y in [10, 19] and is OFF for 14 lit segments.
+            expect (snap.getPixelAt (20, 15) == black,
+                    "Pixel inside an unlit segment above the RMS level should be #000 (LED OFF)");
+            // Segment 15 (top) spans y in [0, 9] and is OFF.
+            expect (snap.getPixelAt (20, 5) == black,
+                    "Top segment above the RMS level should be #000 (LED OFF)");
+
+            juce::AudioBuffer<float> silentBuffer (2, 64);
+            silentBuffer.clear();
+            MeterComponent silentMeter (controller);
+            silentMeter.setSize (40, 160);
+            silentMeter.updateFromBuffer (silentBuffer);
+
+            const auto silentSnap = silentMeter.createComponentSnapshot (silentMeter.getLocalBounds());
+            expect (silentSnap.getPixelAt (20, 75) == black,
+                    "Silent meter should render all segments OFF (#000)");
+            expect (silentSnap.getPixelAt (20, 5) == black,
+                    "Silent meter top segment should also be OFF (#000)");
+        }
+
+        void testMeterSegmentsAreBinaryBlackWhite()
+        {
+            beginTest ("MeterComponent segments render as binary #FFF or #000 (no alpha-blended greys)");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+
+            juce::AudioBuffer<float> signalBuffer (2, 64);
+            signalBuffer.clear();
+            for (int ch = 0; ch < signalBuffer.getNumChannels(); ++ch)
+                for (int i = 0; i < signalBuffer.getNumSamples(); ++i)
+                    signalBuffer.setSample (ch, i, 0.3f); // mid-level signal
+
+            MeterComponent meter (controller);
+            meter.setSize (40, 160);
+            meter.updateFromBuffer (signalBuffer);
+
+            const auto snap = meter.createComponentSnapshot (meter.getLocalBounds());
+
+            int greyPixelCount = 0;
+            for (int y = 0; y < 160; ++y)
+            {
+                const auto pixel = snap.getPixelAt (20, y); // mid-bar column (no outline/tick overlap)
+                const auto brightness = pixel.getBrightness();
+                if (brightness > 0.01f && brightness < 0.99f)
+                    ++greyPixelCount;
+            }
+
+            expect (greyPixelCount == 0,
+                    "Mid-bar column should contain only hard #FFF or #000 pixels, no alpha-blended greys");
+        }
+
+        void testMeterBarHasWhiteOutlineWithNotchedTicks()
+        {
+            beginTest ("MeterComponent bar has a 1px #FFF outline with notched reference ticks at -6/-12/-24 dB");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+
+            juce::AudioBuffer<float> signalBuffer (2, 64);
+            signalBuffer.clear();
+            for (int ch = 0; ch < signalBuffer.getNumChannels(); ++ch)
+                for (int i = 0; i < signalBuffer.getNumSamples(); ++i)
+                    signalBuffer.setSample (ch, i, 0.5f);
+
+            MeterComponent meter (controller);
+            meter.setSize (40, 160);
+            meter.updateFromBuffer (signalBuffer);
+
+            const auto snap = meter.createComponentSnapshot (meter.getLocalBounds());
+
+            // barX = 10, barW = 20 -> left outline at x = 10, right outline at x = 29.
+            expect (snap.getPixelAt (10, 80) == white,
+                    "Left outline pixel should be #FFF");
+            expect (snap.getPixelAt (29, 80) == white,
+                    "Right outline pixel should be #FFF");
+            expect (snap.getPixelAt (20, 0) == white,
+                    "Top outline pixel should be #FFF");
+            expect (snap.getPixelAt (20, 159) == white,
+                    "Bottom outline pixel should be #FFF");
+
+            // Notched ticks: tickY = roundToInt(160 - levelToHeight(db)).
+            // -6 dB  -> tickY = 29, -12 dB -> tickY = 44, -24 dB -> tickY = 73.
+            expect (snap.getPixelAt (10, 29) == black,
+                    "-6 dB notch should carve a 1px #000 gap in the left outline");
+            expect (snap.getPixelAt (29, 29) == black,
+                    "-6 dB notch should carve a 1px #000 gap in the right outline");
+            expect (snap.getPixelAt (10, 28) == white,
+                    "Left outline just above the -6 dB notch should remain #FFF");
+            expect (snap.getPixelAt (10, 30) == white,
+                    "Left outline just below the -6 dB notch should remain #FFF");
+
+            expect (snap.getPixelAt (10, 44) == black,
+                    "-12 dB notch should carve a 1px #000 gap in the left outline");
+            expect (snap.getPixelAt (29, 44) == black,
+                    "-12 dB notch should carve a 1px #000 gap in the right outline");
+
+            expect (snap.getPixelAt (10, 73) == black,
+                    "-24 dB notch should carve a 1px #000 gap in the left outline");
+            expect (snap.getPixelAt (29, 73) == black,
+                    "-24 dB notch should carve a 1px #000 gap in the right outline");
+
+            // No stray tick lines floating outside the bar.
+            expect (snap.getPixelAt (9, 29) == black,
+                    "Outside the left outline there should be no stray tick line (#000 substrate)");
+            expect (snap.getPixelAt (30, 29) == black,
+                    "Outside the right outline there should be no stray tick line (#000 substrate)");
+        }
+
+        void testMeterPeakHoldMovesInSixteenSteps()
+        {
+            beginTest ("MeterComponent peak hold maps dB to discrete 1/16 segment indices (no smooth slide)");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            MeterComponent meter (controller);
+            meter.setSize (40, 160);
+
+            expect (meter.dbToSegmentIndex (-60.0f) == 0,
+                    "kMinDb should map to segment index 0 (no marker, no lit segments)");
+            expect (meter.dbToSegmentIndex (6.0f) == MeterComponent::kSegmentCount,
+                    "kMaxDb should map to segment index 16 (all segments lit)");
+            // -6 dB  -> t = 54/66 -> scaled = 13.09 -> ceil = 14
+            expect (meter.dbToSegmentIndex (-6.0f) == 14,
+                    "-6 dB should map to segment index 14 (peak marker at the 14th step boundary)");
+            // -12 dB -> t = 48/66 -> scaled = 11.64 -> ceil = 12
+            expect (meter.dbToSegmentIndex (-12.0f) == 12,
+                    "-12 dB should map to segment index 12");
+            // -24 dB -> t = 36/66 -> scaled = 8.73 -> ceil = 9
+            expect (meter.dbToSegmentIndex (-24.0f) == 9,
+                    "-24 dB should map to segment index 9");
+
+            // The marker position in paint is barBottom - peakSeg * segmentHeight, i.e. a 1/16 step.
+            // For peakSeg = 14 and barH = 160, markerY = 160 - 14*10 = 20 (a 1/16 step boundary).
+            juce::AudioBuffer<float> buffer (2, 32);
+            buffer.clear();
+            buffer.setSample (0, 4, 0.5f);
+            buffer.setSample (1, 20, -0.5f);
+            meter.updateFromBuffer (buffer);
+
+            const auto snap = meter.createComponentSnapshot (meter.getLocalBounds());
+            const auto white = juce::Colour (0xFFFFFFFF);
+            // peakSeg = 14 -> markerY = 20; the marker is a 1px #FFF line at y = 20 across the bar.
+            expect (snap.getPixelAt (20, 20) == white,
+                    "Peak hold marker should render as a 1px #FFF line at the quantised 1/16 step boundary");
+        }
+
+        void testMeterPeakDecayUsesStepEasing()
+        {
+            beginTest ("MeterComponent peak decay uses a quantised Step easing with N=16 (no smooth slide)");
+
+            expect (std::abs (MeterComponent::quantizeStepProgress (0.0f, 16) - 0.0f) < 1.0e-6f,
+                    "progress 0 should quantise to step 0/16");
+            expect (std::abs (MeterComponent::quantizeStepProgress (1.0f, 16) - 1.0f) < 1.0e-6f,
+                    "progress 1 should quantise to step 16/16");
+            expect (std::abs (MeterComponent::quantizeStepProgress (0.5f, 16) - 0.5f) < 1.0e-6f,
+                    "progress 0.5 should quantise to step 8/16 = 0.5");
+            expect (std::abs (MeterComponent::quantizeStepProgress (0.55f, 16) - 0.5625f) < 1.0e-6f,
+                    "progress 0.55 should quantise up to step 9/16 = 0.5625");
+            expect (std::abs (MeterComponent::quantizeStepProgress (0.03f, 16) - 0.0f) < 1.0e-6f,
+                    "progress 0.03 should quantise down to step 0/16 = 0");
+            expect (std::abs (MeterComponent::quantizeStepProgress (0.04f, 16) - 0.0625f) < 1.0e-6f,
+                    "progress 0.04 should quantise up to step 1/16 = 0.0625");
+            expect (std::abs (MeterComponent::quantizeStepProgress (0.3f, 16) - 0.3125f) < 1.0e-6f,
+                    "progress 0.3 should quantise to step 5/16 = 0.3125");
+        }
+
+        void testMeterBypassShowsAllSegmentsOff()
+        {
+            beginTest ("MeterComponent bypass renders all segments off (#000) with the 1px #FFF outline preserved");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
 
             juce::AudioBuffer<float> buffer (2, 64);
             buffer.clear();
             for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
                 for (int i = 0; i < buffer.getNumSamples(); ++i)
-                    buffer.setSample (ch, i, 0.5f);
+                    buffer.setSample (ch, i, 0.5f); // rms ~= -6 dB
 
             juce::Component dummy;
-            AnimationController activeController (&dummy);
-            MeterComponent activeMeter (activeController);
-            activeMeter.setSize (40, 200);
+            AnimationController controller (&dummy);
+
+            MeterComponent activeMeter (controller);
+            activeMeter.setSize (40, 160);
             activeMeter.updateFromBuffer (buffer);
 
-            const auto activeSnapshot = activeMeter.createComponentSnapshot (activeMeter.getLocalBounds());
-            const auto activePixel = activeSnapshot.getPixelAt (20, 50);
+            const auto activeSnap = activeMeter.createComponentSnapshot (activeMeter.getLocalBounds());
+            // Segment 8 (y in [70, 79]) is ON for -6 dB (14 lit segments).
+            expect (activeSnap.getPixelAt (20, 75) == white,
+                    "Active meter should light segments for a -6 dB signal");
 
-            AnimationController bypassedController (&dummy);
-            bypassedController.setBypassMix (1.0f);
-            MeterComponent bypassedMeter (bypassedController);
-            bypassedMeter.setSize (40, 200);
+            MeterComponent bypassedMeter (controller);
+            bypassedMeter.setBypassed (true);
+            bypassedMeter.setSize (40, 160);
             bypassedMeter.updateFromBuffer (buffer);
 
-            const auto bypassedSnapshot = bypassedMeter.createComponentSnapshot (bypassedMeter.getLocalBounds());
-            const auto bypassedPixel = bypassedSnapshot.getPixelAt (20, 50);
-
-            const juce::Colour barBackground (0xFFE5E0DA);
-            const float activeDiff = std::abs (activePixel.getBrightness() - barBackground.getBrightness());
-            const float bypassedDiff = std::abs (bypassedPixel.getBrightness() - barBackground.getBrightness());
-
-            expect (activeDiff > 0.05f,
-                    "Active meter bar should be visibly distinct from the bar background");
-            expect (bypassedDiff < 0.05f,
-                    "Bypassed meter bar should fade back to the bar background");
+            const auto bypassedSnap = bypassedMeter.createComponentSnapshot (bypassedMeter.getLocalBounds());
+            expect (bypassedSnap.getPixelAt (20, 75) == black,
+                    "Bypassed meter should render all segments OFF (#000 inside the bar)");
+            expect (bypassedSnap.getPixelAt (20, 5) == black,
+                    "Bypassed meter top segment should also be OFF (#000)");
+            // Outline preserved on both edges.
+            expect (bypassedSnap.getPixelAt (10, 80) == white,
+                    "Bypassed meter should preserve the 1px #FFF left outline");
+            expect (bypassedSnap.getPixelAt (29, 80) == white,
+                    "Bypassed meter should preserve the 1px #FFF right outline");
+            expect (bypassedSnap.getPixelAt (20, 0) == white,
+                    "Bypassed meter should preserve the 1px #FFF top outline");
+            expect (bypassedSnap.getPixelAt (20, 159) == white,
+                    "Bypassed meter should preserve the 1px #FFF bottom outline");
         }
 
         void testEditorBackgroundUnaffectedByBypass()
