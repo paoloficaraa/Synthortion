@@ -91,7 +91,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // not write code. (Structured output requires maxIterations: 1.)
     maxIterations: 1,
     // Planner: GLM-5.2 Max — forte ragionamento e analisi dipendenze
-    agent: sandcastle.opencode("opencode/claude-sonnet-5", { variant: "max" }),
+    agent: sandcastle.opencode("opencode-go/kimi-k3", { variant: "max" }),
     promptFile: "./.sandcastle/plan-prompt.md",
     // Extract and validate the <plan> JSON into a typed object. Throws
     // StructuredOutputError if the tag is missing, the JSON is malformed, or
