@@ -1,3 +1,10 @@
+# SKILLS
+
+**Task-specific skill.** After reading the diff, invoke `find-skills` to discover
+the best matching review skill for this task (e.g. `code-review` for general
+review, `impeccable` for UI polish, `systematic-debugging` for bug fixes).
+Load and follow that skill.
+
 # TASK
 
 Review the code changes on branch `{{BRANCH}}` and improve code clarity, consistency, and maintainability while preserving exact functionality.

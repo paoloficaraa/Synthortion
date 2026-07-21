@@ -43,7 +43,9 @@ ARG AGENT_GID=1000
 # Rename the base image's "node" user to "agent" and align UID/GID.
 RUN groupmod -o -g $AGENT_GID node && usermod -o -u $AGENT_UID -g $AGENT_GID -d /home/agent -m -l agent node
 
-# Install OpenCode CLI (run as root before USER agent)
+# Install OpenCode CLI (run as root before USER agent).
+# Agent skills (~150+ from host) are bind-mounted readonly at runtime via
+# main.mts skillMounts — no rebuild needed when skills change.
 RUN npm install -g opencode-ai@latest
 
 USER ${AGENT_UID}:${AGENT_GID}

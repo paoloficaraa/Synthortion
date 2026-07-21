@@ -1,3 +1,14 @@
+# SKILLS
+
+**Tone.** Load the `caveman` skill at `wenyan-ultra` intensity BEFORE any action.
+It stays active every response (code, tests, and error strings remain normal;
+the skill auto-drops for security warnings). This cuts output tokens by 65%+
+
+**Task-specific skill.** After reading the issue, invoke `find-skills` to
+discover the best matching skill for this task (e.g. `impeccable` for UI,
+`systematic-debugging` for bugs, `tdd` for test-first features). Load and follow
+that skill alongside `caveman`.
+
 # TASK
 
 Fix issue {{TASK_ID}}: {{ISSUE_TITLE}}

@@ -43,6 +43,14 @@ const planSchema = z.object({
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
 const MAX_ITERATIONS = 10;
 
+// Agent skills from host — mounted readonly into every sandbox so agents
+// can invoke `find-skills`, `caveman`, `impeccable`, and any other skill.
+// ~/.agents/skills/ and ~/.config/opencode/skills/ auto-load per OpenCode convention.
+const skillMounts = [
+  { hostPath: "~/.agents/skills", sandboxPath: "~/.agents/skills", readonly: true },
+  { hostPath: "~/.config/opencode/skills", sandboxPath: "~/.config/opencode/skills", readonly: true },
+];
+
 // Hooks run inside the sandbox before the agent starts each iteration.
 // npm install ensures the sandbox always has fresh dependencies.
 const hooks = {
@@ -77,7 +85,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // -------------------------------------------------------------------------
   const plan = await sandcastle.run({
     hooks,
-    sandbox: docker(),
+    sandbox: docker({ mounts: skillMounts }),
     name: "planner",
     // One iteration is enough: the planner just needs to read and reason,
     // not write code. (Structured output requires maxIterations: 1.)
@@ -120,7 +128,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     issues.map(async (issue) => {
       const sandbox = await sandcastle.createSandbox({
         branch: issue.branch,
-        sandbox: docker(),
+        sandbox: docker({ mounts: skillMounts }),
         hooks,
         copyToWorktree,
       });
@@ -216,7 +224,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // -------------------------------------------------------------------------
   await sandcastle.run({
     hooks,
-    sandbox: docker(),
+    sandbox: docker({ mounts: skillMounts }),
     name: "merger",
     maxIterations: 1,
     idleTimeoutSeconds: 1800,
