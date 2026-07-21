@@ -100,29 +100,22 @@ namespace synthortion
             return;
 
         const float clamped = juce::jlimit (0.0f, 1.0f, progress);
+        const float flashEnd = static_cast<float> (kBootBurstFlashTicks) / static_cast<float> (kBootBurstDurationTicks);
 
-        // Plotter #FFF flash: full-bounds #FFF for the first kBootBurstFlashTicks
-        // (~100 ms), then a linear fade back to transparent over the remaining
-        // ~300 ms so the rest of the burst composes over a dimming flash.
-        if (clamped < static_cast<float> (kBootBurstFlashTicks) / static_cast<float> (kBootBurstDurationTicks))
+        if (clamped < flashEnd)
         {
             g.setColour (juce::Colour (kWhiteArgb));
             g.fillRect (bounds);
         }
         else
         {
-            const float fadeStart = static_cast<float> (kBootBurstFlashTicks) / static_cast<float> (kBootBurstDurationTicks);
-            const float fadeProgress = (clamped - fadeStart) / (1.0f - fadeStart);
+            const float fadeProgress = (clamped - flashEnd) / (1.0f - flashEnd);
             const int alphaInt = juce::roundToInt ((1.0f - fadeProgress) * 255.0f);
-            const juce::uint8 alpha = static_cast<juce::uint8> (juce::jlimit (0, 255, alphaInt));
-            g.setColour (juce::Colour (static_cast<juce::uint8> (0xFF),
-                                       static_cast<juce::uint8> (0xFF),
-                                       static_cast<juce::uint8> (0xFF),
-                                       alpha));
+            const auto alpha = static_cast<juce::uint8> (juce::jlimit (0, 255, alphaInt));
+            g.setColour (juce::Colour (kWhiteArgb).withAlpha (alpha));
             g.fillRect (bounds);
         }
 
-        // 6 random horizontal Slice displacements sliding L/R over the burst.
         g.setColour (juce::Colour (kWhiteArgb));
         for (const auto& band : bootBurstBands)
         {
@@ -133,7 +126,6 @@ namespace synthortion
             g.fillRect (x, y, bounds.getWidth(), band.thickness);
         }
 
-        // Dense Dead pixel field: precomputed fractions scaled to the bounds.
         for (const auto& pixel : bootBurstDeadPixels)
         {
             const int x = bounds.getX() + juce::roundToInt (pixel.x * static_cast<float> (bounds.getWidth()));

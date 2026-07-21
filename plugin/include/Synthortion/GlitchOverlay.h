@@ -28,7 +28,7 @@ namespace synthortion
         // per second at a 60 Hz tick) centred on `bounds`; no-op when hidden.
         void drawFlickerBlock (juce::Graphics& g, juce::Rectangle<int> bounds);
 
-// RGB-split Triplet: invokes @p strokeAtOffset three times at horizontal
+        // RGB-split Triplet: invokes @p strokeAtOffset three times at horizontal
         // offsets -1, 0, +1 px so the caller's stroke renders as three parallel
         // lines (the strict palette forbids real RGB, so all three are #FFF).
         void drawTriplet (juce::Graphics& g, std::function<void (juce::Point<float>)> strokeAtOffset);
@@ -45,12 +45,8 @@ namespace synthortion
         void triggerBypassSlices();
         void drawBypassSlices (juce::Graphics& g, juce::Rectangle<int> bounds);
 
-        // One-time boot Burst fired on the first window show after process
-        // launch. Composes 6 random horizontal Slice displacements + a dense
-        // Dead pixel field + a Plotter #FFF flash that holds for 100 ms then
-        // fades over the remaining ~300 ms of the 400 ms burst. Once fired
-        // the Burst never fires again in the same process (guarded by
-        // bootBurstFired).
+        // One-time boot Burst fired on first window show: 100 ms #FFF flash
+        // fading over 300 ms, 6 Slice displacements, and dead pixel field.
         void triggerBootBurst();
         void drawBootBurst (juce::Graphics& g, juce::Rectangle<int> bounds, float progress);
 
@@ -85,15 +81,7 @@ namespace synthortion
         static constexpr int bootBurstDeadPixelCountForTests() noexcept { return kBootBurstDeadPixels; }
 
     private:
-        struct BypassSliceBand
-        {
-            float yFrac;
-            int thickness;
-            int shiftDir;
-            int shiftPx;
-        };
-
-        struct BootBurstBand
+        struct SliceBand
         {
             float yFrac;
             int thickness;
@@ -104,17 +92,16 @@ namespace synthortion
         static constexpr int kBypassSliceDurationTicks = 9;   // ~150 ms at the 60 Hz timer
         static constexpr int kBypassSliceSteps = 8;            // matched to the Block toggle's N=8 Step easing
         static constexpr int kBypassSliceBands = 3;
-        std::array<BypassSliceBand, static_cast<size_t> (kBypassSliceBands)> bypassSliceBands {};
+        std::array<SliceBand, static_cast<size_t> (kBypassSliceBands)> bypassSliceBands {};
         bool bypassSliceActive = false;
         int bypassSliceElapsedTicks = 0;
 
-        // Boot Burst constants (Slice I). 400 ms total / 100 ms flash at the
-        // 60 Hz editor timer => 24 ticks total, 6 ticks of full #FFF flash.
+        // Boot Burst: 400 ms total, 100 ms flash at 60 Hz (24 / 6 ticks).
         static constexpr int kBootBurstDurationTicks = 24;
         static constexpr int kBootBurstFlashTicks = 6;
         static constexpr int kBootBurstBands = 6;
         static constexpr int kBootBurstDeadPixels = 60;
-        std::array<BootBurstBand, static_cast<size_t> (kBootBurstBands)> bootBurstBands {};
+        std::array<SliceBand, static_cast<size_t> (kBootBurstBands)> bootBurstBands {};
         std::array<juce::Point<float>, static_cast<size_t> (kBootBurstDeadPixels)> bootBurstDeadPixels {};
         bool bootBurstActive = false;
         bool bootBurstFired = false;

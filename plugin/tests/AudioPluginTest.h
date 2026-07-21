@@ -23,14 +23,14 @@ public:
     {
     }
 
-        void runTest() override
-        {
-            const juce::MessageManagerLock mmLock;
+    void runTest() override
+    {
+        const juce::MessageManagerLock mmLock;
 
-            testBebasNeueFontRouting();
-            testMontserratFontRouting();
-            testTypographyScale();
-        }
+        testBebasNeueFontRouting();
+        testMontserratFontRouting();
+        testTypographyScale();
+    }
 
 private:
     void testBebasNeueFontRouting()
