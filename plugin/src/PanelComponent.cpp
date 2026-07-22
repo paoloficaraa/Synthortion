@@ -22,7 +22,8 @@ namespace synthortion
 
         if (auto* laf = dynamic_cast<SynthortionLookAndFeel*> (&getLookAndFeel()))
         {
-            laf->drawPanelBackground (g, getLocalBounds(), false, title, bgColour);
+            laf->drawPanelBackground (g, getLocalBounds(), false, title, bgColour,
+                                      headingFont.getHeight(), headingInset);
         }
         else
         {
@@ -52,6 +53,13 @@ namespace synthortion
     void PanelComponent::setPlaceholder (bool isPlaceholder) noexcept
     {
         isComingSoonPlaceholder = isPlaceholder;
+    }
+
+    void PanelComponent::setHeadingStyle (float fontHeight, float inset) noexcept
+    {
+        headingFont = juce::Font (juce::FontOptions().withName("BebasNeue").withHeight(fontHeight)
+                                  .withStyle("Regular").withKerningFactor(SynthortionLookAndFeel::kTightKerning));
+        headingInset = inset;
     }
 
     void PanelComponent::drawPlaceholderContent (juce::Graphics& g)

@@ -188,6 +188,9 @@ namespace synthortion
             testEditorDrawsDashedSectionSeparators();
             testKnobValueLabelsUseMontserrat();
             testKnobValueLabelsDoNotOverlapKnobs();
+            testSidebarsAreDarkCharcoalPanelsWithInputOutputHeaders();
+            testSidebarPanelsRenderCrispWhiteOutlineAndCharcoalFill();
+            testSidebarKnobsAndMetersSitBelowHeaderWithinPanelBounds();
             testAnimationControllerClearsBypassAnimatorOnTeardown();
             testEditorTeardownLifecycleIsCrashFree();
         }
@@ -1683,6 +1686,140 @@ namespace synthortion
             assertNoOverlap (editor.delayMixKnob, editor.delayMixTitleLabel, editor.delayMixLabel, "MIX");
             assertNoOverlap (editor.inputGainKnob, editor.inputGainTitleLabel, editor.inputGainLabel, "INPUT");
             assertNoOverlap (editor.outputGainKnob, editor.outputGainTitleLabel, editor.outputGainLabel, "OUTPUT");
+        }
+
+        void testSidebarsAreDarkCharcoalPanelsWithInputOutputHeaders()
+        {
+            beginTest ("Sidebars are dark charcoal PanelComponents with INPUT/OUTPUT BebasNeue headers per issue #32");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            const juce::Colour charcoal (0xFF0D0D0E);
+
+            expect (editor.inputPanel.getBackgroundColour() == charcoal,
+                    "Left sidebar panel fill (Surface) should be #0D0D0E per issue #32");
+            expect (editor.outputPanel.getBackgroundColour() == charcoal,
+                    "Right sidebar panel fill (Surface) should be #0D0D0E per issue #32");
+
+            expect (editor.inputPanel.getTitle() == "INPUT",
+                    "Left sidebar panel header should read INPUT per issue #32");
+            expect (editor.outputPanel.getTitle() == "OUTPUT",
+                    "Right sidebar panel header should read OUTPUT per issue #32");
+
+            expect (editor.inputPanel.getTitleFont().getTypefaceName().containsIgnoreCase ("Bebas"),
+                    "Left sidebar header should request the BebasNeue typeface per issue #32");
+            expect (editor.outputPanel.getTitleFont().getTypefaceName().containsIgnoreCase ("Bebas"),
+                    "Right sidebar header should request the BebasNeue typeface per issue #32");
+
+            expect (editor.inputPanel.getTitle().toUpperCase() == editor.inputPanel.getTitle(),
+                    "Left sidebar header text should be all-caps per issue #32");
+            expect (editor.outputPanel.getTitle().toUpperCase() == editor.outputPanel.getTitle(),
+                    "Right sidebar header text should be all-caps per issue #32");
+
+            const int sidebarY = editor.kTopBarHeight;
+            const int sidebarH = editor.kWindowHeight - editor.kTopBarHeight;
+
+            expect (editor.inputPanel.getBounds() == juce::Rectangle<int> (0, sidebarY, editor.kSideBarWidth, sidebarH),
+                    "Left sidebar panel should occupy the left bar column per issue #32");
+            expect (editor.outputPanel.getBounds() == juce::Rectangle<int> (editor.kWindowWidth - editor.kSideBarWidth, sidebarY, editor.kSideBarWidth, sidebarH),
+                    "Right sidebar panel should occupy the right bar column per issue #32");
+        }
+
+        void testSidebarPanelsRenderCrispWhiteOutlineAndCharcoalFill()
+        {
+            beginTest ("Sidebar panels render a crisp 1px #FFF outline + #0D0D0E fill + BebasNeue header per issue #32");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto charcoal = juce::Colour (0xFF0D0D0E);
+
+            auto assertPanelChrome = [&] (PanelComponent& panel)
+            {
+                const auto snapshot = panel.createComponentSnapshot (panel.getLocalBounds());
+                const int w = snapshot.getWidth();
+                const int h = snapshot.getHeight();
+
+                expect (snapshot.getPixelAt (w / 2, 0) == white,
+                        "Sidebar panel top edge outline should be #FFF per issue #32");
+                expect (snapshot.getPixelAt (w / 2, h - 1) == white,
+                        "Sidebar panel bottom edge outline should be #FFF per issue #32");
+                expect (snapshot.getPixelAt (0, h / 2) == white,
+                        "Sidebar panel left edge outline should be #FFF per issue #32");
+                expect (snapshot.getPixelAt (w - 1, h / 2) == white,
+                        "Sidebar panel right edge outline should be #FFF per issue #32");
+
+                expect (snapshot.getPixelAt (0, 0) == white && snapshot.getPixelAt (1, 1) == white,
+                        "Sidebar panel top-left 2x2 corner tick should be #FFF per issue #32");
+                expect (snapshot.getPixelAt (w - 1, h - 1) == white && snapshot.getPixelAt (w - 2, h - 2) == white,
+                        "Sidebar panel bottom-right 2x2 corner tick should be #FFF per issue #32");
+
+                expect (snapshot.getPixelAt (w / 2, h / 2) == charcoal,
+                        "Sidebar panel content interior should be flat #0D0D0E per issue #32");
+                expect (snapshot.getPixelAt (w / 2, h - 10) == charcoal,
+                        "Sidebar panel content interior near the bottom should be flat #0D0D0E per issue #32");
+
+                expect (snapshot.getPixelAt (w / 2, 22) == white,
+                        "Sidebar panel divider rule beneath the header row should be #FFF per issue #32");
+
+                bool headerHasWhite = false;
+                bool headerHasCharcoal = false;
+                for (int x = 0; x < w && ! (headerHasWhite && headerHasCharcoal); ++x)
+                {
+                    const auto c = snapshot.getPixelAt (x, 10);
+                    if (c == white)
+                        headerHasWhite = true;
+                    else if (c == charcoal)
+                        headerHasCharcoal = true;
+                }
+
+                expect (headerHasWhite,
+                        "Sidebar panel header band should contain BebasNeue #FFF text pixels per issue #32");
+                expect (headerHasCharcoal,
+                        "Sidebar panel header band should contain #0D0D0E gaps between glyphs per issue #32");
+            };
+
+            assertPanelChrome (editor.inputPanel);
+            assertPanelChrome (editor.outputPanel);
+        }
+
+        void testSidebarKnobsAndMetersSitBelowHeaderWithinPanelBounds()
+        {
+            beginTest ("Sidebar knob + meter + value label sit below the panel header and within the panel bounds per issue #32");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            const int headerBottom = editor.kTopBarHeight + 24;
+
+            auto assertSidebarLayout = [&] (PanelComponent& panel, MeterComponent& meter,
+                                             AnimatedKnob& knob, juce::Label& valueLabel,
+                                             const juce::String& name)
+            {
+                const auto panelBounds = panel.getBounds();
+
+                expect (panelBounds.contains (meter.getBounds()),
+                        "Sidebar " + name + " meter should sit within the panel bounds per issue #32");
+                expect (panelBounds.contains (knob.getBounds()),
+                        "Sidebar " + name + " knob should sit within the panel bounds per issue #32");
+                expect (panelBounds.contains (valueLabel.getBounds()),
+                        "Sidebar " + name + " value label should sit within the panel bounds per issue #32");
+
+                expect (meter.getBounds().getY() >= headerBottom,
+                        "Sidebar " + name + " meter should start below the panel header rule per issue #32");
+                expect (knob.getBounds().getY() >= headerBottom,
+                        "Sidebar " + name + " knob should sit below the panel header rule per issue #32");
+
+                expect (! knob.getBounds().intersects (meter.getBounds()),
+                        "Sidebar " + name + " knob must not overlap the meter per issue #32");
+                expect (! valueLabel.getBounds().intersects (knob.getBounds()),
+                        "Sidebar " + name + " value label must not overlap the knob per issue #32");
+            };
+
+            assertSidebarLayout (editor.inputPanel, editor.inputMeter, editor.inputGainKnob, editor.inputGainLabel, "INPUT");
+            assertSidebarLayout (editor.outputPanel, editor.outputMeter, editor.outputGainKnob, editor.outputGainLabel, "OUTPUT");
         }
 
         void countKnobsByStyleRecursive (juce::Component& parent, int& canonical, int& outline)

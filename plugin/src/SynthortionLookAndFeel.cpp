@@ -278,14 +278,22 @@ void SynthortionLookAndFeel::drawSwitchHandle(juce::Graphics& g, const juce::Rec
 }
 
 void SynthortionLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Rectangle<int>& bounds,
-                                              bool isRecessed, const juce::String& title)
+                                               bool isRecessed, const juce::String& title)
 {
     drawPanelBackground(g, bounds, isRecessed, title, findColour(panelFillColourId));
 }
 
 void SynthortionLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Rectangle<int>& bounds,
-                                              bool /*isRecessed*/, const juce::String& title,
-                                              const juce::Colour& bgColour)
+                                               bool isRecessed, const juce::String& title,
+                                               const juce::Colour& bgColour)
+{
+    drawPanelBackground(g, bounds, isRecessed, title, bgColour, kSectionTitleHeight, kSectionTitleInset);
+}
+
+void SynthortionLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Rectangle<int>& bounds,
+                                               bool /*isRecessed*/, const juce::String& title,
+                                               const juce::Colour& bgColour,
+                                               float titleFontHeight, float titleInset)
 {
     const auto r = bounds.toFloat();
 
@@ -296,7 +304,7 @@ void SynthortionLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::
     g.drawRect(r, 1.0f);
 
     auto titleRect = r;
-    drawSectionTitle(g, titleRect, title);
+    drawSectionTitle(g, titleRect, title, titleFontHeight, titleInset);
 
     if (title.isNotEmpty())
     {
@@ -313,14 +321,25 @@ void SynthortionLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::
 }
 
 void SynthortionLookAndFeel::drawSectionTitle(juce::Graphics& g, juce::Rectangle<float>& r,
-                                          const juce::String& title) const
+                                           const juce::String& title) const
+{
+    drawSectionTitle(g, r, title, kSectionTitleHeight, kSectionTitleInset);
+}
+
+void SynthortionLookAndFeel::drawSectionTitle(juce::Graphics& g, juce::Rectangle<float>& r,
+                                           const juce::String& title,
+                                           float titleFontHeight, float titleInset) const
 {
     if (title.isNotEmpty())
     {
-        auto labelArea = r.removeFromTop(kSectionTitleHeight).reduced(kSectionTitleInset, 0.0f);
+        auto labelArea = r.removeFromTop(kSectionTitleHeight).reduced(titleInset, 0.0f);
+
+        const juce::Font titleFont(juce::FontOptions().withName("BebasNeue")
+                                   .withHeight(titleFontHeight).withStyle("Regular")
+                                   .withKerningFactor(kTightKerning));
 
         g.setColour(WHITE);
-        g.setFont(sectionHeadingFont);
+        g.setFont(titleFont);
         g.drawFittedText(title, labelArea.toNearestInt(),
                          juce::Justification::centredLeft, 1);
     }

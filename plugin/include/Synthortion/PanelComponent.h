@@ -21,6 +21,7 @@ namespace synthortion
 
         void setPlaceholder (bool isPlaceholder) noexcept;
         void setGlitchOverlay (GlitchOverlay* overlay) noexcept { glitchOverlay = overlay; }
+        void setHeadingStyle (float fontHeight, float inset) noexcept;
 
     private:
         void drawPlaceholderContent (juce::Graphics& g);
@@ -28,6 +29,7 @@ namespace synthortion
         juce::String title;
         juce::Colour bgColour;
         juce::Font headingFont;
+        float headingInset = 8.0f;
         GlitchOverlay* glitchOverlay = nullptr;
         bool isComingSoonPlaceholder = false;
 

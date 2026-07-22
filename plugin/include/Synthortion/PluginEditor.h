@@ -70,6 +70,8 @@ namespace synthortion
         PanelComponent chorusPanel;
         PanelComponent delayPanel;
         PanelComponent comingSoonPanel;
+        PanelComponent inputPanel;
+        PanelComponent outputPanel;
         BypassComponent bypassComponent;
         OscilloscopeComponent oscilloscope;
         MeterComponent inputMeter;
