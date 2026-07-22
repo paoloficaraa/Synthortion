@@ -6,7 +6,7 @@ namespace synthortion
     {
         constexpr float kTitleHeight = 22.0f;
         constexpr float kContentTopPad = 6.0f;
-        constexpr float kPlaceholderMotionMargin = 16.0f;
+        constexpr float kPlaceholderBottomPad = 16.0f;
     }
     PanelComponent::PanelComponent (const juce::String& panelTitle, const juce::Colour& backgroundColour)
         : title (panelTitle),
@@ -97,9 +97,8 @@ namespace synthortion
                                   ? laf->findColour (SynthortionLookAndFeel::textColourId)
                                   : juce::Colour (0xFFFFFFFF);
 
-        const float bodyTop = ruleY;
-        const float bodyHeight = juce::jmax (1.0f, panelH - ruleY - kPlaceholderMotionMargin);
-        const float bodyCentreY = bodyTop + bodyHeight * 0.5f;
+        const float bodyHeight = juce::jmax (1.0f, panelH - ruleY - kPlaceholderBottomPad);
+        const float bodyCentreY = ruleY + bodyHeight * 0.5f;
 
         {
             juce::Rectangle<float> labelArea (panel.getX(),

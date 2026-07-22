@@ -22,10 +22,6 @@ namespace synthortion
 
         void setPlaceholder (bool isPlaceholder) noexcept;
 
-        // Cursor-underline blink state, driven by the internal 60 Hz timer while
-        // the panel is in placeholder mode. Alpha follows a 0->1->0 triangle fade
-        // over kCursorBlinkPeriodTicks (1000 ms at 60 Hz), so each fade half-cycle
-        // is ~500 ms per issue #34.
         float getCursorUnderlineAlpha() const noexcept;
         void advanceBlinkTick (int ticks) noexcept;
 
