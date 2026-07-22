@@ -163,6 +163,23 @@ namespace synthortion
         dashedV (delayRight + kGap / 2, bottomRowTop, centerBottom);
     }
 
+    void AudioPluginAudioProcessorEditor::layoutSidebar (juce::Rectangle<int> sidebarBounds,
+                                                         MeterComponent& meter, AnimatedKnob& knob,
+                                                         juce::Label& valueLabel, juce::Label& titleLabel)
+    {
+        const int knobSize = 45;
+        const int labelH = 12;
+
+        sidebarBounds.removeFromTop (kSidebarHeaderHeight);
+        const int meterH = sidebarBounds.getHeight() - knobSize - kGap - 2 - labelH;
+        meter.setBounds (sidebarBounds.removeFromTop (meterH).reduced (2, 0));
+        sidebarBounds.removeFromTop (kGap);
+        knob.setBounds (sidebarBounds.removeFromTop (knobSize));
+        sidebarBounds.removeFromTop (2);
+        valueLabel.setBounds (sidebarBounds.removeFromTop (labelH));
+        titleLabel.setBounds (0, 0, 0, 0);
+    }
+
     void AudioPluginAudioProcessorEditor::resized()
     {
         auto bounds = getLocalBounds();
@@ -181,28 +198,10 @@ namespace synthortion
         inputPanel.setBounds (leftBar);
         outputPanel.setBounds (rightBar);
 
-        const int headerH = 24;
-        const int knobSize = 45;
+        layoutSidebar (leftBar, inputMeter, inputGainKnob, inputGainLabel, inputGainTitleLabel);
+        layoutSidebar (rightBar, outputMeter, outputGainKnob, outputGainLabel, outputGainTitleLabel);
+
         const int labelH = 12;
-
-        auto leftContent = leftBar;
-        leftContent.removeFromTop (headerH);
-        const int meterH = leftContent.getHeight() - knobSize - kGap - 2 - labelH;
-        inputMeter.setBounds (leftContent.removeFromTop (meterH).reduced (2, 0));
-        leftContent.removeFromTop (kGap);
-        inputGainKnob.setBounds (leftContent.removeFromTop (knobSize));
-        leftContent.removeFromTop (2);
-        inputGainLabel.setBounds (leftContent.removeFromTop (labelH));
-        inputGainTitleLabel.setBounds (0, 0, 0, 0);
-
-        auto rightContent = rightBar;
-        rightContent.removeFromTop (headerH);
-        outputMeter.setBounds (rightContent.removeFromTop (meterH).reduced (2, 0));
-        rightContent.removeFromTop (kGap);
-        outputGainKnob.setBounds (rightContent.removeFromTop (knobSize));
-        rightContent.removeFromTop (2);
-        outputGainLabel.setBounds (rightContent.removeFromTop (labelH));
-        outputGainTitleLabel.setBounds (0, 0, 0, 0);
 
         // Center panels
         centerArea.removeFromTop (kGap);

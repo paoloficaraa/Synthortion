@@ -42,10 +42,11 @@ namespace synthortion
         static constexpr int kWindowWidth = 800;
         static constexpr int kWindowHeight = 480;
 
-        static constexpr int kSideBarWidth = 55;
-        static constexpr int kTopBarHeight = 90;
-        static constexpr int kBypassWidth = 130;
-        static constexpr int kGap = 10;
+    static constexpr int kSideBarWidth = 55;
+    static constexpr int kTopBarHeight = 90;
+    static constexpr int kBypassWidth = 130;
+    static constexpr int kSidebarHeaderHeight = 24;
+    static constexpr int kGap = 10;
 
         void setupKnobWithLabel (AnimatedKnob& knob, juce::Label& titleLabel, juce::Label& valueLabel,
                                  const juce::String& title, const juce::String& paramId,
@@ -58,8 +59,11 @@ namespace synthortion
 
         void updateMainControlLabels();
         void updateBypassState();
-        void drawGrainOverlay (juce::Graphics& g);
-        void drawSectionSeparators (juce::Graphics& g);
+    void layoutSidebar (juce::Rectangle<int> sidebarBounds,
+                       MeterComponent& meter, AnimatedKnob& knob,
+                       juce::Label& valueLabel, juce::Label& titleLabel);
+    void drawGrainOverlay (juce::Graphics& g);
+    void drawSectionSeparators (juce::Graphics& g);
 
         AudioPluginAudioProcessor& processorRef;
         SynthortionLookAndFeel lookAndFeel;

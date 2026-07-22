@@ -1792,30 +1792,30 @@ namespace synthortion
             AudioPluginAudioProcessor processor;
             AudioPluginAudioProcessorEditor editor (processor);
 
-            const int headerBottom = editor.kTopBarHeight + 24;
+            const int headerBottom = editor.kTopBarHeight + editor.kSidebarHeaderHeight;
 
             auto assertSidebarLayout = [&] (PanelComponent& panel, MeterComponent& meter,
                                              AnimatedKnob& knob, juce::Label& valueLabel,
-                                             const juce::String& name)
+                                             const juce::String& side)
             {
                 const auto panelBounds = panel.getBounds();
 
                 expect (panelBounds.contains (meter.getBounds()),
-                        "Sidebar " + name + " meter should sit within the panel bounds per issue #32");
+                        "Sidebar " + side + " meter should sit within the panel bounds per issue #32");
                 expect (panelBounds.contains (knob.getBounds()),
-                        "Sidebar " + name + " knob should sit within the panel bounds per issue #32");
+                        "Sidebar " + side + " knob should sit within the panel bounds per issue #32");
                 expect (panelBounds.contains (valueLabel.getBounds()),
-                        "Sidebar " + name + " value label should sit within the panel bounds per issue #32");
+                        "Sidebar " + side + " value label should sit within the panel bounds per issue #32");
 
                 expect (meter.getBounds().getY() >= headerBottom,
-                        "Sidebar " + name + " meter should start below the panel header rule per issue #32");
+                        "Sidebar " + side + " meter should start below the panel header rule per issue #32");
                 expect (knob.getBounds().getY() >= headerBottom,
-                        "Sidebar " + name + " knob should sit below the panel header rule per issue #32");
+                        "Sidebar " + side + " knob should sit below the panel header rule per issue #32");
 
                 expect (! knob.getBounds().intersects (meter.getBounds()),
-                        "Sidebar " + name + " knob must not overlap the meter per issue #32");
+                        "Sidebar " + side + " knob must not overlap the meter per issue #32");
                 expect (! valueLabel.getBounds().intersects (knob.getBounds()),
-                        "Sidebar " + name + " value label must not overlap the knob per issue #32");
+                        "Sidebar " + side + " value label must not overlap the knob per issue #32");
             };
 
             assertSidebarLayout (editor.inputPanel, editor.inputMeter, editor.inputGainKnob, editor.inputGainLabel, "INPUT");
