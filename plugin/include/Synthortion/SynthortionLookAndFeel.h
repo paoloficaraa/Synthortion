@@ -57,15 +57,11 @@ private:
 
     void drawElevationShadow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const;
 
-    void drawCanonicalKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                           float knobAngle, float sliderPos,
-                           float rotaryStartAngle, float rotaryEndAngle, int steps,
-                           bool isHovering, float dragGlowMix, float detentPulseProgress) const;
-
-    void drawOutlineKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                         float knobAngle, float sliderPos,
-                         float rotaryStartAngle, float rotaryEndAngle, int steps,
-                         bool isHovering, float dragGlowMix, float detentPulseProgress) const;
+    void drawKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                  float knobAngle, float sliderPos,
+                  float rotaryStartAngle, float rotaryEndAngle, int steps,
+                  bool isHovering, float dragGlowMix, float detentPulseProgress,
+                  bool withOutline) const;
 
     void drawKnobCap(juce::Graphics& g, const juce::Rectangle<float>& knobBounds,
                      bool withOutline) const;

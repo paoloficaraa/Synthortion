@@ -40,7 +40,7 @@ namespace synthortion
         void mouseDown (const juce::MouseEvent& e) override;
         void mouseUp (const juce::MouseEvent& e) override;
 
-        /** Set the brutalist rendering style (Canonical large / Outline small). */
+        /** Set the knob rendering style (Canonical large / Outline small). */
         void setKnobStyle (KnobStyle style) noexcept { knobStyle = style; }
         KnobStyle getKnobStyle() const noexcept { return knobStyle; }
 
@@ -72,7 +72,7 @@ namespace synthortion
             can be exercised deterministically without a host VBlank. */
         void applyDisplayProportion (float proportion);
 
-        /** True while the mouse is over the cap (and not dragging). Drives the
+        /** True while the mouse is over the cap. Drives the
             subtle outer ring glow on the cap rim. */
         bool isHovering() const noexcept { return hovering; }
 

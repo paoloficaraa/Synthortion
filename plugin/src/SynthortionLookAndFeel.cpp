@@ -96,11 +96,11 @@ void SynthortionLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, i
     drawElevationShadow(g, knobBounds);
 
     if (knobStyle == synthortion::AnimatedKnob::KnobStyle::Outline)
-        drawOutlineKnob(g, bounds, knobAngle, sliderPos, rotaryStartAngle, rotaryEndAngle, steps,
-                        isHovering, dragGlowMix, detentPulseProgress);
+        drawKnob(g, bounds, knobAngle, sliderPos, rotaryStartAngle, rotaryEndAngle, steps,
+                 isHovering, dragGlowMix, detentPulseProgress, true);
     else
-        drawCanonicalKnob(g, bounds, knobAngle, sliderPos, rotaryStartAngle, rotaryEndAngle, steps,
-                          isHovering, dragGlowMix, detentPulseProgress);
+        drawKnob(g, bounds, knobAngle, sliderPos, rotaryStartAngle, rotaryEndAngle, steps,
+                 isHovering, dragGlowMix, detentPulseProgress, false);
 }
 
 void SynthortionLookAndFeel::drawElevationShadow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const
@@ -216,10 +216,11 @@ void SynthortionLookAndFeel::drawHoverRingGlow(juce::Graphics& g, const juce::Re
     g.drawEllipse(knobBounds.expanded(1.5f), 1.5f);
 }
 
-void SynthortionLookAndFeel::drawCanonicalKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                                            float knobAngle, float sliderPos,
-                                            float rotaryStartAngle, float rotaryEndAngle, int steps,
-                                            bool isHovering, float dragGlowMix, float detentPulseProgress) const
+void SynthortionLookAndFeel::drawKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                                     float knobAngle, float sliderPos,
+                                     float rotaryStartAngle, float rotaryEndAngle, int steps,
+                                     bool isHovering, float dragGlowMix, float detentPulseProgress,
+                                     bool withOutline) const
 {
     const float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
     const float centreX = bounds.getCentreX();
@@ -227,27 +228,7 @@ void SynthortionLookAndFeel::drawCanonicalKnob(juce::Graphics& g, const juce::Re
     const float diameter = radius * 2.0f;
     const auto knobBounds = juce::Rectangle<float>(centreX - radius, centreY - radius, diameter, diameter);
 
-    drawKnobCap(g, knobBounds, false);
-
-    if (isHovering)
-        drawHoverRingGlow(g, knobBounds);
-
-    drawSegmentedArc(g, bounds, sliderPos, rotaryStartAngle, rotaryEndAngle, steps, dragGlowMix);
-    drawPointer(g, bounds, knobAngle, dragGlowMix, detentPulseProgress);
-}
-
-void SynthortionLookAndFeel::drawOutlineKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                                          float knobAngle, float sliderPos,
-                                          float rotaryStartAngle, float rotaryEndAngle, int steps,
-                                          bool isHovering, float dragGlowMix, float detentPulseProgress) const
-{
-    const float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
-    const float centreX = bounds.getCentreX();
-    const float centreY = bounds.getCentreY();
-    const float diameter = radius * 2.0f;
-    const auto knobBounds = juce::Rectangle<float>(centreX - radius, centreY - radius, diameter, diameter);
-
-    drawKnobCap(g, knobBounds, true);
+    drawKnobCap(g, knobBounds, withOutline);
 
     if (isHovering)
         drawHoverRingGlow(g, knobBounds);

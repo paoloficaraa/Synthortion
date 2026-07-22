@@ -134,10 +134,9 @@ namespace synthortion
 
     float AnimatedKnob::quantizeDragGlowProgress (float progress) noexcept
     {
-        constexpr int steps = kDragGlowFadeSteps;
         const float clamped = juce::jlimit (0.0f, 1.0f, progress);
-        const int stepIndex = juce::jlimit (0, steps, juce::roundToInt (clamped * static_cast<float> (steps)));
-        return static_cast<float> (stepIndex) / static_cast<float> (steps);
+        const int stepIndex = juce::jlimit (0, kDragGlowFadeSteps, juce::roundToInt (clamped * static_cast<float> (kDragGlowFadeSteps)));
+        return static_cast<float> (stepIndex) / static_cast<float> (kDragGlowFadeSteps);
     }
 
     void AnimatedKnob::startArcAnimation()

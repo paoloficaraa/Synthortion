@@ -2159,9 +2159,6 @@ namespace synthortion
                     "progress ~0.34 with N=8 should snap to the 3/8 step (0.375)");
         }
 
-        void testCanonicalKnobInvertsFaceOnMouseDown() {}
-        void testTwinShadowRendersOnDrag() {}
-
 
 
         void testEditorKnobsUseFourCanonicalAndFourOutline()
