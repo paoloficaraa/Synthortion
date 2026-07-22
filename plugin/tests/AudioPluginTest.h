@@ -183,6 +183,14 @@ namespace synthortion
             testGlitchOverlayDrawBypassSlicesRendersBandsWhenActive();
             testGlitchOverlayBootBurstFiresOnceAndRunsForFourHundredMs();
             testGlitchOverlayDrawBootBurstRendersFlashSlicesAndDeadPixels();
+            testGlitchOverlayFlickerBurstFiresAtRareIntervals();
+            testGlitchOverlayFlickerBurstResolvesAfterNormalDuration();
+            testGlitchOverlayBypassAmplifiesFlickerInterval();
+            testGlitchOverlayFlickerBurstBypassLastsLongerThanNormal();
+            testGlitchOverlayDrawFlickerBurstRendersBandsAndDeadPixels();
+            testGlitchOverlayBypassAmplifiesFlickerIntensity();
+            testGlitchOverlayFlickerBurstCoexistsWithBypassSlices();
+            testEditorBypassToggleAmplifiesGlitchOverlay();
             testPanelComponentRendersBrutalistShape();
             testPanelComponentTitleFontIsBebasNeueAllCaps();
             testEditorDrawsDashedSectionSeparators();
@@ -2079,6 +2087,341 @@ namespace synthortion
                 expect (whitePixelCount >= 400,
                         "Late boot Burst should still paint the 6 slice bands + dense dead pixel field in hard #FFF");
             }
+        }
+
+        void testGlitchOverlayFlickerBurstFiresAtRareIntervals()
+        {
+            beginTest ("GlitchOverlay rare Flicker burst fires at ~10-30s intervals (600-1800 ticks at 60 Hz) per issue #33");
+
+            GlitchOverlay overlay;
+
+            expect (! overlay.isFlickerBurstActive(),
+                    "Flicker burst should be inactive at rest");
+            expect (! overlay.isBypassAmplified(),
+                    "Flicker burst should start in normal (non-amplified) mode");
+
+            const int minTicks = GlitchOverlay::flickerNormalMinIntervalTicksForTests();
+            const int maxTicks = GlitchOverlay::flickerNormalMaxIntervalTicksForTests();
+            expect (minTicks == 600, "Normal min interval must be 600 ticks (~10s) per issue #33");
+            expect (maxTicks == 1800, "Normal max interval must be 1800 ticks (~30s) per issue #33");
+
+            const int scheduled = overlay.getTicksToNextFlicker();
+            expect (scheduled >= minTicks && scheduled <= maxTicks,
+                    "Initial scheduled flicker interval must fall in the ~10-30s normal range");
+
+            // Tick (scheduled - 1) times: the countdown has not yet reached
+            // zero, so the burst must remain inactive.
+            for (int i = 0; i < scheduled - 1; ++i)
+                overlay.tick();
+
+            expect (! overlay.isFlickerBurstActive(),
+                    "Flicker burst should not fire before the scheduled interval elapses");
+            expect (overlay.getFlickerBurstCount() == 0,
+                    "Flicker burst count should still be zero before the first fire");
+
+            // The scheduled-th tick decrements the countdown to <= 0 and
+            // triggers the burst.
+            overlay.tick();
+
+            expect (overlay.isFlickerBurstActive(),
+                    "Flicker burst should fire exactly when the scheduled interval elapses");
+            expect (overlay.getFlickerBurstCount() == 1,
+                    "Flicker burst count should increment to 1 on the first fire");
+            expect (overlay.getFlickerBurstElapsedTicks() == 0,
+                    "Flicker burst elapsed ticks should reset to 0 on fire");
+        }
+
+        void testGlitchOverlayFlickerBurstResolvesAfterNormalDuration()
+        {
+            beginTest ("GlitchOverlay Flicker burst resolves after ~300ms (18 ticks at 60 Hz) and reschedules per issue #33");
+
+            GlitchOverlay overlay;
+
+            const int scheduled = overlay.getTicksToNextFlicker();
+            for (int i = 0; i < scheduled; ++i)
+                overlay.tick();
+
+            expect (overlay.isFlickerBurstActive(),
+                    "Flicker burst should be active immediately after firing");
+
+            const int duration = GlitchOverlay::flickerNormalDurationTicksForTests();
+            expect (duration == 18, "Normal flicker burst duration must be 18 ticks (~300ms) per issue #33");
+
+            // (duration - 1) ticks keep the burst active; the duration-th
+            // tick snaps it back to inactive and reschedules the next interval.
+            for (int i = 0; i < duration - 1; ++i)
+                overlay.tick();
+
+            expect (overlay.isFlickerBurstActive(),
+                    "Flicker burst should stay active until the duration window elapses");
+
+            overlay.tick();
+
+            expect (! overlay.isFlickerBurstActive(),
+                    "Flicker burst should snap back to inactive after the ~300ms duration window");
+
+            const int nextScheduled = overlay.getTicksToNextFlicker();
+            const int minTicks = GlitchOverlay::flickerNormalMinIntervalTicksForTests();
+            const int maxTicks = GlitchOverlay::flickerNormalMaxIntervalTicksForTests();
+            expect (nextScheduled >= minTicks && nextScheduled <= maxTicks,
+                    "Flicker burst should reschedule a fresh ~10-30s interval after resolving");
+        }
+
+        void testGlitchOverlayBypassAmplifiesFlickerInterval()
+        {
+            beginTest ("GlitchOverlay::setBypassAmplified shortens the flicker interval to ~3-8s (180-480 ticks) per issue #33");
+
+            GlitchOverlay overlay;
+
+            const int normalMin = GlitchOverlay::flickerNormalMinIntervalTicksForTests();
+            const int normalMax = GlitchOverlay::flickerNormalMaxIntervalTicksForTests();
+            const int bypassMin = GlitchOverlay::flickerBypassMinIntervalTicksForTests();
+            const int bypassMax = GlitchOverlay::flickerBypassMaxIntervalTicksForTests();
+            expect (bypassMin == 180, "Bypass min interval must be 180 ticks (~3s) per issue #33");
+            expect (bypassMax == 480, "Bypass max interval must be 480 ticks (~8s) per issue #33");
+            expect (bypassMax < normalMin,
+                    "Bypass interval range must sit entirely below the normal range (frequency increases)");
+
+            expect (overlay.getTicksToNextFlicker() >= normalMin
+                        && overlay.getTicksToNextFlicker() <= normalMax,
+                    "Initial interval must be in the normal range before bypass is engaged");
+
+            overlay.setBypassAmplified (true);
+            expect (overlay.isBypassAmplified(),
+                    "setBypassAmplified(true) should flip the amplified flag");
+            const int bypassScheduled = overlay.getTicksToNextFlicker();
+            expect (bypassScheduled >= bypassMin && bypassScheduled <= bypassMax,
+                    "Engaging bypass should reschedule the flicker interval into the ~3-8s bypass range");
+
+            // Re-asserting the same state is a no-op (no reschedule churn).
+            const int beforeNoop = overlay.getTicksToNextFlicker();
+            overlay.setBypassAmplified (true);
+            expect (overlay.getTicksToNextFlicker() == beforeNoop,
+                    "setBypassAmplified with an unchanged state should not reschedule");
+
+            overlay.setBypassAmplified (false);
+            expect (! overlay.isBypassAmplified(),
+                    "setBypassAmplified(false) should clear the amplified flag");
+            const int normalScheduled = overlay.getTicksToNextFlicker();
+            expect (normalScheduled >= normalMin && normalScheduled <= normalMax,
+                    "Disengaging bypass should reschedule the flicker interval back into the ~10-30s normal range");
+        }
+
+        void testGlitchOverlayFlickerBurstBypassLastsLongerThanNormal()
+        {
+            beginTest ("GlitchOverlay bypass-amplified flicker burst lasts ~600ms (36 ticks) vs ~300ms (18 ticks) normal per issue #33");
+
+            GlitchOverlay overlay;
+
+            expect (GlitchOverlay::flickerNormalDurationTicksForTests() == 18,
+                    "Normal flicker duration must be 18 ticks");
+            expect (GlitchOverlay::flickerBypassDurationTicksForTests() == 36,
+                    "Bypass flicker duration must be 36 ticks (double the normal duration)");
+
+            overlay.setBypassAmplified (true);
+
+            const int scheduled = overlay.getTicksToNextFlicker();
+            for (int i = 0; i < scheduled; ++i)
+                overlay.tick();
+
+            expect (overlay.isFlickerBurstActive(),
+                    "Bypass-amplified flicker burst should fire after the bypass interval elapses");
+
+            // 18 ticks (the normal duration) must NOT resolve a bypass burst.
+            for (int i = 0; i < GlitchOverlay::flickerNormalDurationTicksForTests(); ++i)
+                overlay.tick();
+
+            expect (overlay.isFlickerBurstActive(),
+                    "Bypass-amplified burst should still be active after the normal 18-tick duration (it lasts 36 ticks)");
+
+            // The remaining (36 - 18 - 1) = 17 ticks keep it active; the
+            // 36th tick resolves it.
+            for (int i = 0; i < GlitchOverlay::flickerBypassDurationTicksForTests()
+                                - GlitchOverlay::flickerNormalDurationTicksForTests() - 1; ++i)
+                overlay.tick();
+
+            expect (overlay.isFlickerBurstActive(),
+                    "Bypass-amplified burst should stay active until the 36-tick window elapses");
+
+            overlay.tick();
+
+            expect (! overlay.isFlickerBurstActive(),
+                    "Bypass-amplified burst should snap back to inactive after the 36-tick duration window");
+        }
+
+        void testGlitchOverlayDrawFlickerBurstRendersBandsAndDeadPixels()
+        {
+            beginTest ("GlitchOverlay::drawFlickerBurst renders hard #FFF slice bands + dead pixel field during the burst and nothing at rest per issue #33");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto black = juce::Colour (0xFF000000);
+
+            GlitchOverlay overlay;
+
+            // At rest: drawFlickerBurst paints nothing.
+            {
+                juce::Image img (juce::Image::ARGB, 64, 64, true);
+                juce::Graphics g (img);
+                g.fillAll (juce::Colours::black);
+                overlay.drawFlickerBurst (g, img.getBounds());
+                expect (img.getPixelAt (32, 32) == black,
+                        "Inactive flicker burst should not paint over the substrate");
+            }
+
+            // Fire the burst by ticking through the scheduled interval.
+            const int scheduled = overlay.getTicksToNextFlicker();
+            for (int i = 0; i < scheduled; ++i)
+                overlay.tick();
+
+            expect (overlay.isFlickerBurstActive(),
+                    "Flicker burst should be active after the interval elapses");
+
+            juce::Image img (juce::Image::ARGB, 64, 64, true);
+            juce::Graphics g (img);
+            g.fillAll (juce::Colours::black);
+            overlay.drawFlickerBurst (g, img.getBounds());
+
+            // Normal burst: 3 bands of 1-3 px thickness across 64 px width
+            // => at least 3 * 1 * 64 = 192 band pixels, plus 20 dead
+            // pixels => at least 212 white pixels total.
+            int whitePixelCount = 0;
+            for (int y = 0; y < 64; ++y)
+                for (int x = 0; x < 64; ++x)
+                    if (img.getPixelAt (x, y) == white)
+                        ++whitePixelCount;
+
+            expect (whitePixelCount >= 200,
+                    "Active flicker burst should paint the 3 slice bands + 20 dead pixel field in hard #FFF");
+
+            bool onlyBinary = true;
+            for (int y = 0; y < 64 && onlyBinary; ++y)
+                for (int x = 0; x < 64; ++x)
+                    if (img.getPixelAt (x, y) != white && img.getPixelAt (x, y) != black)
+                        onlyBinary = false;
+
+            expect (onlyBinary,
+                    "Flicker burst pixels must be hard #000 or #FFF (strict DEADLOCK palette)");
+        }
+
+        void testGlitchOverlayBypassAmplifiesFlickerIntensity()
+        {
+            beginTest ("GlitchOverlay bypass-amplified flicker burst draws more bands + dead pixels (6 bands / 40 dead) per issue #33");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+
+            expect (GlitchOverlay::flickerNormalBandCountForTests() == 3,
+                    "Normal flicker burst must compose 3 slice bands");
+            expect (GlitchOverlay::flickerBypassBandCountForTests() == 6,
+                    "Bypass-amplified flicker burst must compose 6 slice bands (double)");
+            expect (GlitchOverlay::flickerNormalDeadPixelCountForTests() == 20,
+                    "Normal flicker burst must scatter 20 dead pixels");
+            expect (GlitchOverlay::flickerBypassDeadPixelCountForTests() == 40,
+                    "Bypass-amplified flicker burst must scatter 40 dead pixels (double)");
+            expect (GlitchOverlay::flickerBypassMaxShiftForTests() > GlitchOverlay::flickerNormalMaxShiftForTests(),
+                    "Bypass-amplified max displacement must exceed the normal max displacement");
+
+            GlitchOverlay overlay;
+            overlay.setBypassAmplified (true);
+
+            const int scheduled = overlay.getTicksToNextFlicker();
+            for (int i = 0; i < scheduled; ++i)
+                overlay.tick();
+
+            expect (overlay.isFlickerBurstActive(),
+                    "Bypass-amplified flicker burst should be active after the interval elapses");
+
+            juce::Image img (juce::Image::ARGB, 64, 64, true);
+            juce::Graphics g (img);
+            g.fillAll (juce::Colours::black);
+            overlay.drawFlickerBurst (g, img.getBounds());
+
+            // Bypass burst: 6 bands of 1-3 px thickness across 64 px width
+            // => at least 6 * 1 * 64 = 384 band pixels, plus 40 dead
+            // pixels => at least 424 white pixels total.
+            int whitePixelCount = 0;
+            for (int y = 0; y < 64; ++y)
+                for (int x = 0; x < 64; ++x)
+                    if (img.getPixelAt (x, y) == white)
+                        ++whitePixelCount;
+
+            expect (whitePixelCount >= 400,
+                    "Bypass-amplified flicker burst should paint the 6 slice bands + 40 dead pixel field in hard #FFF");
+        }
+
+        void testGlitchOverlayFlickerBurstCoexistsWithBypassSlices()
+        {
+            beginTest ("GlitchOverlay Flicker burst coexists with the existing bypass Slice burst (preserved) per issue #33");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+
+            GlitchOverlay overlay;
+
+            // Fire a flicker burst, then fire the bypass Slice burst on top
+            // of it: both systems must be simultaneously active and render
+            // without interfering with each other.
+            const int scheduled = overlay.getTicksToNextFlicker();
+            for (int i = 0; i < scheduled; ++i)
+                overlay.tick();
+
+            expect (overlay.isFlickerBurstActive(),
+                    "Flicker burst should be active after its interval elapses");
+
+            overlay.triggerBypassSlices();
+            expect (overlay.isBypassSliceActive(),
+                    "Bypass Slice burst should activate on triggerBypassSlices (preserved)");
+            expect (overlay.isFlickerBurstActive(),
+                    "Flicker burst should remain active while the bypass Slice burst is also active");
+
+            juce::Image img (juce::Image::ARGB, 64, 64, true);
+            juce::Graphics g (img);
+            g.fillAll (juce::Colours::black);
+            overlay.drawBypassSlices (g, img.getBounds());
+            overlay.drawFlickerBurst (g, img.getBounds());
+
+            int whitePixelCount = 0;
+            for (int y = 0; y < 64; ++y)
+                for (int x = 0; x < 64; ++x)
+                    if (img.getPixelAt (x, y) == white)
+                        ++whitePixelCount;
+
+            expect (whitePixelCount >= 200,
+                    "Both the bypass Slice bands and the flicker burst bands + dead pixels should render together");
+
+            // The bypass Slice burst must still resolve on its own ~150ms
+            // (9-tick) window, unaffected by the flicker system.
+            for (int i = 0; i < GlitchOverlay::bypassSliceDurationTicksForTests(); ++i)
+                overlay.tick();
+
+            expect (! overlay.isBypassSliceActive(),
+                    "Bypass Slice burst should still snap back after its 9-tick window with the flicker system present");
+        }
+
+        void testEditorBypassToggleAmplifiesGlitchOverlay()
+        {
+            beginTest ("Plugin editor bypass toggle amplifies the GlitchOverlay flicker system per issue #33");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            expect (! editor.glitchOverlay.isBypassAmplified(),
+                    "Editor GlitchOverlay should start in normal (non-amplified) flicker mode");
+
+            processor.getAPVTS().getParameter ("PLUGIN_BYPASS")->setValueNotifyingHost (1.0f);
+            editor.timerCallback();
+
+            expect (editor.glitchOverlay.isBypassAmplified(),
+                    "Engaging bypass should amplify the editor GlitchOverlay flicker system");
+            expect (editor.glitchOverlay.getTicksToNextFlicker()
+                        >= GlitchOverlay::flickerBypassMinIntervalTicksForTests()
+                    && editor.glitchOverlay.getTicksToNextFlicker()
+                        <= GlitchOverlay::flickerBypassMaxIntervalTicksForTests(),
+                    "Engaging bypass should reschedule the editor flicker interval into the ~3-8s bypass range");
+
+            processor.getAPVTS().getParameter ("PLUGIN_BYPASS")->setValueNotifyingHost (0.0f);
+            editor.timerCallback();
+
+            expect (! editor.glitchOverlay.isBypassAmplified(),
+                    "Disengaging bypass should return the editor GlitchOverlay flicker system to normal mode");
         }
 
         void testAnimationControllerClearsBypassAnimatorOnTeardown()

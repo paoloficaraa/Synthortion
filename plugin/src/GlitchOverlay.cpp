@@ -6,6 +6,7 @@ namespace synthortion
     {
         regenerateGrainFrames();
         rerollDeadPixels (lastDeadPixelBounds);
+        ticksToNextFlicker = scheduleNextFlickerInterval();
     }
 
     void GlitchOverlay::tick()
@@ -25,6 +26,20 @@ namespace synthortion
 
         if (bootBurstActive && ++bootBurstElapsedTicks >= kBootBurstDurationTicks)
             bootBurstActive = false;
+
+        if (flickerBurstActive)
+        {
+            const int duration = bypassAmplified ? kFlickerBypassDurationTicks : kFlickerNormalDurationTicks;
+            if (++flickerBurstElapsedTicks >= duration)
+            {
+                flickerBurstActive = false;
+                ticksToNextFlicker = scheduleNextFlickerInterval();
+            }
+        }
+        else if (--ticksToNextFlicker <= 0)
+        {
+            triggerFlickerBurst();
+        }
     }
 
     void GlitchOverlay::triggerBypassSlices()
@@ -128,6 +143,84 @@ namespace synthortion
 
         for (const auto& pixel : bootBurstDeadPixels)
         {
+            const int x = bounds.getX() + juce::roundToInt (pixel.x * static_cast<float> (bounds.getWidth()));
+            const int y = bounds.getY() + juce::roundToInt (pixel.y * static_cast<float> (bounds.getHeight()));
+            g.fillRect (x, y, 1, 1);
+        }
+    }
+
+    int GlitchOverlay::scheduleNextFlickerInterval()
+    {
+        const int minTicks = bypassAmplified ? kFlickerBypassMinIntervalTicks : kFlickerNormalMinIntervalTicks;
+        const int maxTicks = bypassAmplified ? kFlickerBypassMaxIntervalTicks : kFlickerNormalMaxIntervalTicks;
+        const int span = juce::jmax (1, maxTicks - minTicks + 1);
+        return minTicks + flickerRandom.nextInt (span);
+    }
+
+    void GlitchOverlay::triggerFlickerBurst()
+    {
+        const int bandCount = bypassAmplified ? kFlickerBypassBands : kFlickerNormalBands;
+        const int flickerDeadPixelCount = bypassAmplified ? kFlickerBypassDeadPixels : kFlickerNormalDeadPixels;
+        const int maxShift = bypassAmplified ? kFlickerBypassMaxShift : kFlickerNormalMaxShift;
+
+        for (int i = 0; i < bandCount; ++i)
+        {
+            auto& band = flickerBands[static_cast<size_t> (i)];
+            band.yFrac = flickerRandom.nextFloat();
+            band.thickness = 1 + flickerRandom.nextInt (3);
+            band.shiftDir = (flickerRandom.nextInt (2) == 0) ? -1 : +1;
+            band.shiftPx = 1 + flickerRandom.nextInt (juce::jmax (1, maxShift));
+        }
+
+        for (int i = 0; i < flickerDeadPixelCount; ++i)
+            flickerDeadPixels[static_cast<size_t> (i)] =
+                juce::Point<float> { flickerRandom.nextFloat(), flickerRandom.nextFloat() };
+
+        flickerBurstActive = true;
+        flickerBurstElapsedTicks = 0;
+        ++flickerBurstCount;
+    }
+
+    void GlitchOverlay::setBypassAmplified (bool amplified) noexcept
+    {
+        if (bypassAmplified == amplified)
+            return;
+
+        bypassAmplified = amplified;
+
+        if (! flickerBurstActive)
+            ticksToNextFlicker = scheduleNextFlickerInterval();
+    }
+
+    void GlitchOverlay::drawFlickerBurst (juce::Graphics& g, juce::Rectangle<int> bounds)
+    {
+        if (! flickerBurstActive || bounds.isEmpty())
+            return;
+
+        const int duration = bypassAmplified ? kFlickerBypassDurationTicks : kFlickerNormalDurationTicks;
+        const float progress = juce::jlimit (0.0f, 1.0f,
+                                             static_cast<float> (flickerBurstElapsedTicks)
+                                                 / static_cast<float> (duration));
+        const int bandCount = bypassAmplified ? kFlickerBypassBands : kFlickerNormalBands;
+        const int flickerDeadPixelCount = bypassAmplified ? kFlickerBypassDeadPixels : kFlickerNormalDeadPixels;
+
+        g.setColour (juce::Colour (kWhiteArgb));
+
+        for (int i = 0; i < bandCount; ++i)
+        {
+            const auto& band = flickerBands[static_cast<size_t> (i)];
+            const int y = bounds.getY()
+                        + juce::roundToInt (band.yFrac * static_cast<float> (bounds.getHeight()));
+            const int x = bounds.getX()
+                        + juce::roundToInt (static_cast<float> (band.shiftPx)
+                                            * static_cast<float> (band.shiftDir)
+                                            * progress);
+            g.fillRect (x, y, bounds.getWidth(), band.thickness);
+        }
+
+        for (int i = 0; i < flickerDeadPixelCount; ++i)
+        {
+            const auto& pixel = flickerDeadPixels[static_cast<size_t> (i)];
             const int x = bounds.getX() + juce::roundToInt (pixel.x * static_cast<float> (bounds.getWidth()));
             const int y = bounds.getY() + juce::roundToInt (pixel.y * static_cast<float> (bounds.getHeight()));
             g.fillRect (x, y, 1, 1);

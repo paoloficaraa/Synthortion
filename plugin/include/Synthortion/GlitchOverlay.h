@@ -50,6 +50,19 @@ namespace synthortion
         void triggerBootBurst();
         void drawBootBurst (juce::Graphics& g, juce::Rectangle<int> bounds, float progress);
 
+        // Rare random-event Flicker burst (issue #33): sporadic glitch
+        // bursts (horizontal slice drift + brief dead pixel field) fired
+        // at ~10-30s intervals normally. While bypass is engaged the
+        // interval shortens, the band count doubles, the burst duration
+        // lengthens and the displacement strengthens to visually
+        // reinforce the inactive state. Drawn over the editor children so
+        // the flicker visibly slides across the rendered UI. The existing
+        // bypass Slice burst (triggerBypassSlices) and the dead pixel
+        // scatter cadence are preserved unchanged.
+        void setBypassAmplified (bool amplified) noexcept;
+        bool isBypassAmplified() const noexcept { return bypassAmplified; }
+        void drawFlickerBurst (juce::Graphics& g, juce::Rectangle<int> bounds);
+
         // Test accessors.
         int getGrainFrameIndex() const noexcept { return grainFrameIndex; }
         int getDeadPixelRerollCount() const noexcept { return deadPixelRerollCount; }
@@ -79,6 +92,22 @@ namespace synthortion
         static constexpr int bootBurstFlashTicksForTests() noexcept { return kBootBurstFlashTicks; }
         static constexpr int bootBurstBandCountForTests() noexcept { return kBootBurstBands; }
         static constexpr int bootBurstDeadPixelCountForTests() noexcept { return kBootBurstDeadPixels; }
+        static constexpr int flickerNormalMinIntervalTicksForTests() noexcept { return kFlickerNormalMinIntervalTicks; }
+        static constexpr int flickerNormalMaxIntervalTicksForTests() noexcept { return kFlickerNormalMaxIntervalTicks; }
+        static constexpr int flickerBypassMinIntervalTicksForTests() noexcept { return kFlickerBypassMinIntervalTicks; }
+        static constexpr int flickerBypassMaxIntervalTicksForTests() noexcept { return kFlickerBypassMaxIntervalTicks; }
+        static constexpr int flickerNormalDurationTicksForTests() noexcept { return kFlickerNormalDurationTicks; }
+        static constexpr int flickerBypassDurationTicksForTests() noexcept { return kFlickerBypassDurationTicks; }
+        static constexpr int flickerNormalBandCountForTests() noexcept { return kFlickerNormalBands; }
+        static constexpr int flickerBypassBandCountForTests() noexcept { return kFlickerBypassBands; }
+        static constexpr int flickerNormalDeadPixelCountForTests() noexcept { return kFlickerNormalDeadPixels; }
+        static constexpr int flickerBypassDeadPixelCountForTests() noexcept { return kFlickerBypassDeadPixels; }
+        static constexpr int flickerNormalMaxShiftForTests() noexcept { return kFlickerNormalMaxShift; }
+        static constexpr int flickerBypassMaxShiftForTests() noexcept { return kFlickerBypassMaxShift; }
+        bool isFlickerBurstActive() const noexcept { return flickerBurstActive; }
+        int getFlickerBurstElapsedTicks() const noexcept { return flickerBurstElapsedTicks; }
+        int getTicksToNextFlicker() const noexcept { return ticksToNextFlicker; }
+        int getFlickerBurstCount() const noexcept { return flickerBurstCount; }
 
     private:
         struct SliceBand
@@ -106,6 +135,37 @@ namespace synthortion
         bool bootBurstActive = false;
         bool bootBurstFired = false;
         int bootBurstElapsedTicks = 0;
+
+        // Rare Flicker burst system (issue #33). Normal mode fires ~10-30s
+        // (600-1800 ticks at 60 Hz); bypass-amplified mode fires ~3-8s
+        // (180-480 ticks) with double the bands, double the duration and
+        // double the max displacement to reinforce the inactive state.
+        static constexpr int kFlickerNormalMinIntervalTicks = 600;    // ~10s at 60 Hz
+        static constexpr int kFlickerNormalMaxIntervalTicks = 1800;   // ~30s at 60 Hz
+        static constexpr int kFlickerBypassMinIntervalTicks = 180;    // ~3s at 60 Hz
+        static constexpr int kFlickerBypassMaxIntervalTicks = 480;    // ~8s at 60 Hz
+        static constexpr int kFlickerNormalDurationTicks = 18;        // ~300ms at 60 Hz
+        static constexpr int kFlickerBypassDurationTicks = 36;        // ~600ms at 60 Hz
+        static constexpr int kFlickerNormalBands = 3;
+        static constexpr int kFlickerBypassBands = 6;
+        static constexpr int kFlickerNormalDeadPixels = 20;
+        static constexpr int kFlickerBypassDeadPixels = 40;
+        static constexpr int kFlickerNormalMaxShift = 3;
+        static constexpr int kFlickerBypassMaxShift = 6;
+        static constexpr int kFlickerMaxBands = kFlickerBypassBands;
+        static constexpr int kFlickerMaxDeadPixels = kFlickerBypassDeadPixels;
+
+        std::array<SliceBand, static_cast<size_t> (kFlickerMaxBands)> flickerBands {};
+        std::array<juce::Point<float>, static_cast<size_t> (kFlickerMaxDeadPixels)> flickerDeadPixels {};
+        bool flickerBurstActive = false;
+        int flickerBurstElapsedTicks = 0;
+        int ticksToNextFlicker = 0;
+        bool bypassAmplified = false;
+        int flickerBurstCount = 0;
+        juce::Random flickerRandom { 0xF11C4E };
+
+        int scheduleNextFlickerInterval();
+        void triggerFlickerBurst();
 
         static constexpr int kGrainTextureSize = 64;
         static constexpr int kGrainFrames = 8;
