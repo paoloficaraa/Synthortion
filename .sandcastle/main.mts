@@ -137,7 +137,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         // Run the implementer
         const implement = await sandbox.run({
           name: "implementer",
-          maxIterations: 100,
+          maxIterations: 60,
           idleTimeoutSeconds: 1800,
           // Implementer: Kimi K2.7 Code — specializzato per coding
           agent: sandcastle.opencode("opencode-go/glm-5.2", { variant: "max" }),

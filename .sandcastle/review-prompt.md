@@ -1,13 +1,13 @@
 # SKILLS
 
 **Task-specific skill.** After reading the diff, invoke `find-skills` to discover
-the best matching review skill for this task (e.g. `code-review` for general
-review, `impeccable` for UI polish, `systematic-debugging` for bug fixes).
-Load and follow that skill.
+the best matching review skill (e.g. `code-review` for general review,
+`impeccable` for UI polish, `systematic-debugging` for bugs). Load and follow.
 
 # TASK
 
-Review the code changes on branch `{{BRANCH}}` and improve code clarity, consistency, and maintainability while preserving exact functionality.
+Review code changes on branch `{{BRANCH}}` and improve clarity, consistency,
+and maintainability while preserving exact functionality.
 
 # CONTEXT
 
@@ -19,53 +19,47 @@ Review the code changes on branch `{{BRANCH}}` and improve code clarity, consist
 
 !`git log {{TARGET_BRANCH}}..{{BRANCH}} --oneline`
 
+# PROJECT
+
+@.sandcastle/project-context.md
+
+# CODING STANDARDS
+
+@.sandcastle/CODING_STANDARDS.md
+
 # REVIEW PROCESS
 
-1. **Understand the change**: Read the diff and commits above to understand the intent.
+1. **Understand the change**: Read the diff and commits to understand intent.
 
-2. **Analyze for improvements**: Look for opportunities to:
+2. **Analyze for improvements**:
    - Reduce unnecessary complexity and nesting
    - Eliminate redundant code and abstractions
-   - Improve readability through clear variable and function names
-   - Consolidate related logic
-   - Remove unnecessary comments that describe obvious code
-   - Avoid nested ternary operators - prefer switch statements or if/else chains
-   - Choose clarity over brevity - explicit code is often better than overly compact code
+   - Improve readability through clear names
+   - Consolidate related logic; remove obvious comments
+   - Avoid nested ternaries — prefer `switch`/`if-else`
+   - Choose clarity over brevity
 
 3. **Check correctness**:
-   - Does the implementation match the intent? Are edge cases handled?
+   - Does implementation match intent? Edge cases handled?
    - Are new/changed behaviours covered by tests?
-   - Are there unsafe casts, `any` types, or unchecked assumptions?
-   - Does the change introduce injection vulnerabilities, credential leaks, or other security issues?
+   - Unsafe casts, `any` types, unchecked assumptions?
+   - Injection vulnerabilities, credential leaks, security issues?
 
-4. **Check audio thread safety** (C++/JUCE specific):
-   - No heap allocation (`new`, `delete`, container resizing) inside `processBlock`
-   - No mutex or `CriticalSection` locks on the audio thread
-   - No I/O, string formatting, or `DBG` macros in audio callbacks
-   - Parameter access via cached `std::atomic<float>*`, not string-based APVTS lookups
-   - All buffers/tables pre-allocated in `prepareToPlay`
-   - `juce::SmoothedValue` or `juce::LinearSmoothedValue` for parameter smoothing
+4. **Check coding standards**: Verify compliance with @.sandcastle/CODING_STANDARDS.md
 
-5. **Maintain balance**: Avoid over-simplification that could:
-   - Reduce code clarity or maintainability
-   - Create overly clever solutions that are hard to understand
-   - Combine too many concerns into single functions or components
-   - Remove helpful abstractions that improve code organization
-   - Make the code harder to debug or extend
+5. **Maintain balance**: Avoid over-simplification that reduces clarity,
+   maintainability, or debuggability. Preserve helpful abstractions.
 
-6. **Apply project standards**: Follow the coding standards defined in @.sandcastle/CODING_STANDARDS.md
-
-7. **Preserve functionality**: Never change what the code does - only how it does it. All original features, outputs, and behaviors must remain intact.
+6. **Preserve functionality**: Never change what the code does — only how.
 
 # EXECUTION
 
-If you find improvements to make:
-
-1. Make the changes directly on this branch
-2. If you modified `plugin/CMakeLists.txt`, run `npm run configure` first
-3. Run `npm run typecheck` and `npm run test` to ensure nothing is broken (first build ~8 min with ccache, subsequent ~30s)
+If improvements to make:
+1. Apply changes directly on this branch
+2. If `plugin/CMakeLists.txt` changed: `npm run configure` first
+3. Run `npm run typecheck` and `npm run test` (ccache makes subsequent builds ~30s). **Never `rm -rf build`.**
 4. Commit describing the refinements
 
-If the code is already clean and well-structured, do nothing.
+If code is already clean: do nothing.
 
 Once complete, output <promise>COMPLETE</promise>.
