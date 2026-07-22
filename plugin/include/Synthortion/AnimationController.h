@@ -43,7 +43,7 @@ namespace synthortion
         void clearAllAnimators() noexcept;
 
         /** True while a bypass transition animator is registered and not yet
-            cleared. Intended for teardown-lifecycle unit tests. */
+            cleared. */
         bool hasActiveBypassAnimator() const noexcept;
 
         /** Begin the global bypass fade transition.
