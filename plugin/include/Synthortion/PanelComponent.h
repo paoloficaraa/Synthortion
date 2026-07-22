@@ -5,6 +5,8 @@
 
 namespace synthortion
 {
+    class GlitchOverlay;
+
     /** Shared opaque wrapper for the DISTORTION, MODULATION and GAIN sections. */
     class PanelComponent final : public juce::Component,
                                  private juce::Timer

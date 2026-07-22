@@ -45,10 +45,14 @@ namespace synthortion
         void triggerBypassSlices();
         void drawBypassSlices (juce::Graphics& g, juce::Rectangle<int> bounds);
 
-        // One-time boot Burst fired on first window show: 100 ms #FFF flash
-        // fading over 300 ms, 6 Slice displacements, and dead pixel field.
-        void triggerBootBurst();
-        void drawBootBurst (juce::Graphics& g, juce::Rectangle<int> bounds, float progress);
+        // One-time 300 ms boot Wipe fired on first window show (issue #35):
+        // the canvas starts opaque black, a ~100 ms horizontal-glitch stutter
+        // (6 displaced slice bands) fires over that black veil, then the full
+        // UI fades in over the remaining ~200 ms as the veil alpha decreases
+        // linearly to transparent. Drawn over the editor children so it wipes
+        // across the rendered UI. Fires only once per editor instance.
+        void triggerBootWipe();
+        void drawBootWipe (juce::Graphics& g, juce::Rectangle<int> bounds, float progress);
 
         // Rare random-event Flicker burst (issue #33): sporadic glitch
         // bursts (horizontal slice drift + brief dead pixel field) fired
@@ -72,10 +76,10 @@ namespace synthortion
         int getSweepStep() const noexcept;
         float getSweepPosition() const noexcept;
         bool isBypassSliceActive() const noexcept { return bypassSliceActive; }
-        bool isBootBurstActive() const noexcept { return bootBurstActive; }
-        bool isBootBurstFired() const noexcept { return bootBurstFired; }
-        int getBootBurstElapsedTicks() const noexcept { return bootBurstElapsedTicks; }
-        float getBootBurstProgress() const noexcept;
+        bool isBootWipeActive() const noexcept { return bootWipeActive; }
+        bool isBootWipeFired() const noexcept { return bootWipeFired; }
+        int getBootWipeElapsedTicks() const noexcept { return bootWipeElapsedTicks; }
+        float getBootWipeProgress() const noexcept;
         static constexpr int tileSizeForTests() noexcept { return kGrainTextureSize; }
         static constexpr int driftBandHeight() noexcept { return kDriftBandHeight; }
         static constexpr int flickerBlockSize() noexcept { return kFlickerBlockSize; }
@@ -88,10 +92,9 @@ namespace synthortion
         static constexpr int bypassSliceDurationTicksForTests() noexcept { return kBypassSliceDurationTicks; }
         static constexpr int bypassSliceStepsForTests() noexcept { return kBypassSliceSteps; }
         static constexpr int bypassSliceBandCountForTests() noexcept { return kBypassSliceBands; }
-        static constexpr int bootBurstDurationTicksForTests() noexcept { return kBootBurstDurationTicks; }
-        static constexpr int bootBurstFlashTicksForTests() noexcept { return kBootBurstFlashTicks; }
-        static constexpr int bootBurstBandCountForTests() noexcept { return kBootBurstBands; }
-        static constexpr int bootBurstDeadPixelCountForTests() noexcept { return kBootBurstDeadPixels; }
+        static constexpr int bootWipeDurationTicksForTests() noexcept { return kBootWipeDurationTicks; }
+        static constexpr int bootWipeStutterTicksForTests() noexcept { return kBootWipeStutterTicks; }
+        static constexpr int bootWipeStutterBandCountForTests() noexcept { return kBootWipeStutterBands; }
         static constexpr int flickerNormalMinIntervalTicksForTests() noexcept { return kFlickerNormalMinIntervalTicks; }
         static constexpr int flickerNormalMaxIntervalTicksForTests() noexcept { return kFlickerNormalMaxIntervalTicks; }
         static constexpr int flickerBypassMinIntervalTicksForTests() noexcept { return kFlickerBypassMinIntervalTicks; }
@@ -125,16 +128,15 @@ namespace synthortion
         bool bypassSliceActive = false;
         int bypassSliceElapsedTicks = 0;
 
-        // Boot Burst: 400 ms total, 100 ms flash at 60 Hz (24 / 6 ticks).
-        static constexpr int kBootBurstDurationTicks = 24;
-        static constexpr int kBootBurstFlashTicks = 6;
-        static constexpr int kBootBurstBands = 6;
-        static constexpr int kBootBurstDeadPixels = 60;
-        std::array<SliceBand, static_cast<size_t> (kBootBurstBands)> bootBurstBands {};
-        std::array<juce::Point<float>, static_cast<size_t> (kBootBurstDeadPixels)> bootBurstDeadPixels {};
-        bool bootBurstActive = false;
-        bool bootBurstFired = false;
-        int bootBurstElapsedTicks = 0;
+        // Boot Wipe (issue #35): 300 ms total = 100 ms stutter + 200 ms fade
+        // (6 + 12 ticks at a 60 Hz timer), 6 displaced slice bands.
+        static constexpr int kBootWipeDurationTicks = 18;
+        static constexpr int kBootWipeStutterTicks = 6;
+        static constexpr int kBootWipeStutterBands = 6;
+        std::array<SliceBand, static_cast<size_t> (kBootWipeStutterBands)> bootWipeBands {};
+        bool bootWipeActive = false;
+        bool bootWipeFired = false;
+        int bootWipeElapsedTicks = 0;
 
         // Rare Flicker burst (issue #33): ~300 ms normal / ~600 ms bypass
         // at 60 Hz; interval and intensity amplified during bypass.

@@ -24,8 +24,8 @@ namespace synthortion
         if (bypassSliceActive && ++bypassSliceElapsedTicks >= kBypassSliceDurationTicks)
             bypassSliceActive = false;
 
-        if (bootBurstActive && ++bootBurstElapsedTicks >= kBootBurstDurationTicks)
-            bootBurstActive = false;
+        if (bootWipeActive && ++bootWipeElapsedTicks >= kBootWipeDurationTicks)
+            bootWipeActive = false;
 
         if (flickerBurstActive)
         {
@@ -75,14 +75,14 @@ namespace synthortion
         }
     }
 
-    void GlitchOverlay::triggerBootBurst()
+    void GlitchOverlay::triggerBootWipe()
     {
-        if (bootBurstFired)
+        if (bootWipeFired)
             return;
 
-        bootBurstFired = true;
+        bootWipeFired = true;
 
-        for (auto& band : bootBurstBands)
+        for (auto& band : bootWipeBands)
         {
             band.yFrac = random.nextFloat();
             band.thickness = 1 + random.nextInt (3);
@@ -90,62 +90,56 @@ namespace synthortion
             band.shiftPx = 1 + random.nextInt (4);
         }
 
-        for (auto& pixel : bootBurstDeadPixels)
-        {
-            pixel = juce::Point<float> { random.nextFloat(), random.nextFloat() };
-        }
-
-        bootBurstActive = true;
-        bootBurstElapsedTicks = 0;
+        bootWipeActive = true;
+        bootWipeElapsedTicks = 0;
     }
 
-    float GlitchOverlay::getBootBurstProgress() const noexcept
+    float GlitchOverlay::getBootWipeProgress() const noexcept
     {
-        if (! bootBurstActive)
+        if (! bootWipeActive)
             return 0.0f;
 
         return juce::jlimit (0.0f, 1.0f,
-                             static_cast<float> (bootBurstElapsedTicks)
-                                 / static_cast<float> (kBootBurstDurationTicks));
+                             static_cast<float> (bootWipeElapsedTicks)
+                                 / static_cast<float> (kBootWipeDurationTicks));
     }
 
-    void GlitchOverlay::drawBootBurst (juce::Graphics& g, juce::Rectangle<int> bounds, float progress)
+    void GlitchOverlay::drawBootWipe (juce::Graphics& g, juce::Rectangle<int> bounds, float progress)
     {
-        if (! bootBurstActive || bounds.isEmpty())
+        if (! bootWipeActive || bounds.isEmpty())
             return;
 
         const float clamped = juce::jlimit (0.0f, 1.0f, progress);
-        const float flashEnd = static_cast<float> (kBootBurstFlashTicks) / static_cast<float> (kBootBurstDurationTicks);
+        const float stutterEnd = static_cast<float> (kBootWipeStutterTicks)
+                                 / static_cast<float> (kBootWipeDurationTicks);
 
-        if (clamped < flashEnd)
+        if (clamped < stutterEnd)
         {
-            g.setColour (juce::Colour (kWhiteArgb));
+            // Phase A — stutter (~100 ms): the canvas stays opaque black with
+            // 6 displaced #FFF horizontal slice bands shunted across it.
+            g.setColour (juce::Colour (kBlackArgb));
             g.fillRect (bounds);
+
+            g.setColour (juce::Colour (kWhiteArgb));
+            for (const auto& band : bootWipeBands)
+            {
+                const int y = bounds.getY() + juce::roundToInt (band.yFrac * static_cast<float> (bounds.getHeight()));
+                const int x = bounds.getX() + juce::roundToInt (static_cast<float> (band.shiftPx)
+                                                                  * static_cast<float> (band.shiftDir)
+                                                                  * clamped);
+                g.fillRect (x, y, bounds.getWidth(), band.thickness);
+            }
         }
         else
         {
-            const float fadeProgress = (clamped - flashEnd) / (1.0f - flashEnd);
+            // Phase B — fade (~200 ms): the black veil alpha decreases
+            // linearly from opaque to transparent, revealing the underlying
+            // UI. No slice bands are drawn in this phase.
+            const float fadeProgress = (clamped - stutterEnd) / (1.0f - stutterEnd);
             const int alphaInt = juce::roundToInt ((1.0f - fadeProgress) * 255.0f);
             const auto alpha = static_cast<juce::uint8> (juce::jlimit (0, 255, alphaInt));
-            g.setColour (juce::Colour (kWhiteArgb).withAlpha (alpha));
+            g.setColour (juce::Colour (kBlackArgb).withAlpha (alpha));
             g.fillRect (bounds);
-        }
-
-        g.setColour (juce::Colour (kWhiteArgb));
-        for (const auto& band : bootBurstBands)
-        {
-            const int y = bounds.getY() + juce::roundToInt (band.yFrac * static_cast<float> (bounds.getHeight()));
-            const int x = bounds.getX() + juce::roundToInt (static_cast<float> (band.shiftPx)
-                                                              * static_cast<float> (band.shiftDir)
-                                                              * clamped);
-            g.fillRect (x, y, bounds.getWidth(), band.thickness);
-        }
-
-        for (const auto& pixel : bootBurstDeadPixels)
-        {
-            const int x = bounds.getX() + juce::roundToInt (pixel.x * static_cast<float> (bounds.getWidth()));
-            const int y = bounds.getY() + juce::roundToInt (pixel.y * static_cast<float> (bounds.getHeight()));
-            g.fillRect (x, y, 1, 1);
         }
     }
 

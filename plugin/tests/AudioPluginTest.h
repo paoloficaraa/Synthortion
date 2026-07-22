@@ -195,8 +195,10 @@ namespace synthortion
             testGlitchOverlaySweepAdvancesLeftToRight();
             testGlitchOverlayBypassSliceBurstWindow();
             testGlitchOverlayDrawBypassSlicesRendersBandsWhenActive();
-            testGlitchOverlayBootBurstFiresOnceAndRunsForFourHundredMs();
-            testGlitchOverlayDrawBootBurstRendersFlashSlicesAndDeadPixels();
+            testGlitchOverlayBootWipeFiresOnceAndRunsForThreeHundredMs();
+            testGlitchOverlayDrawBootWipeStartsOpaqueBlackThenStuttersThenFades();
+            testGlitchOverlayBootWipeStutterPhaseRendersDisplacedSlices();
+            testGlitchOverlayBootWipeFadePhaseVeilAlphaDecreasesLinearly();
             testGlitchOverlayFlickerBurstFiresAtRareIntervals();
             testGlitchOverlayFlickerBurstResolvesAfterNormalDuration();
             testGlitchOverlayBypassAmplifiesFlickerInterval();
@@ -2646,114 +2648,201 @@ namespace synthortion
                     "Slice band 3 (yFrac=0.75, thickness=2) should render at y=48");
         }
 
-        void testGlitchOverlayBootBurstFiresOnceAndRunsForFourHundredMs()
+        void testGlitchOverlayBootWipeFiresOnceAndRunsForThreeHundredMs()
         {
-            beginTest ("GlitchOverlay::triggerBootBurst fires once and runs for ~400 ms (24 ticks at 60 Hz)");
+            beginTest ("GlitchOverlay::triggerBootWipe fires once and runs for ~300 ms (18 ticks at 60 Hz) per issue #35");
 
             GlitchOverlay overlay;
 
-            expect (! overlay.isBootBurstActive(),
-                    "Boot Burst should be inactive at rest");
-            expect (! overlay.isBootBurstFired(),
-                    "Boot Burst should not be marked fired before the first trigger");
+            expect (! overlay.isBootWipeActive(),
+                    "Boot Wipe should be inactive at rest");
+            expect (! overlay.isBootWipeFired(),
+                    "Boot Wipe should not be marked fired before the first trigger");
 
-            overlay.triggerBootBurst();
-            expect (overlay.isBootBurstActive(),
-                    "Boot Burst should be active immediately after triggerBootBurst");
-            expect (overlay.isBootBurstFired(),
-                    "Boot Burst should be marked fired after the first trigger");
-            expect (overlay.getBootBurstElapsedTicks() == 0,
-                    "Boot Burst elapsed ticks should start at 0");
-            expect (std::abs (overlay.getBootBurstProgress() - 0.0f) < 1.0e-6f,
-                    "Boot Burst progress should start at 0");
+            overlay.triggerBootWipe();
+            expect (overlay.isBootWipeActive(),
+                    "Boot Wipe should be active immediately after triggerBootWipe");
+            expect (overlay.isBootWipeFired(),
+                    "Boot Wipe should be marked fired after the first trigger");
+            expect (overlay.getBootWipeElapsedTicks() == 0,
+                    "Boot Wipe elapsed ticks should start at 0");
+            expect (std::abs (overlay.getBootWipeProgress() - 0.0f) < 1.0e-6f,
+                    "Boot Wipe progress should start at 0");
 
-            const int durationTicks = GlitchOverlay::bootBurstDurationTicksForTests();
-            expect (durationTicks == 24,
-                    "Boot Burst duration must be 24 ticks (~400 ms at 60 Hz) per DEADLOCK Slice I issue #26");
-            const int flashTicks = GlitchOverlay::bootBurstFlashTicksForTests();
-            expect (flashTicks == 6,
-                    "Boot Burst flash window must be 6 ticks (~100 ms at 60 Hz)");
-            expect (GlitchOverlay::bootBurstBandCountForTests() == 6,
-                    "Boot Burst must compose 6 random horizontal Slice displacements");
-            expect (GlitchOverlay::bootBurstDeadPixelCountForTests() == 60,
-                    "Boot Burst must paint a dense Dead pixel field of 60 pixels");
+            const int durationTicks = GlitchOverlay::bootWipeDurationTicksForTests();
+            expect (durationTicks == 18,
+                    "Boot Wipe duration must be 18 ticks (~300 ms at 60 Hz) per issue #35");
+            const int stutterTicks = GlitchOverlay::bootWipeStutterTicksForTests();
+            expect (stutterTicks == 6,
+                    "Boot Wipe stutter phase must be 6 ticks (~100 ms at 60 Hz) per issue #35");
+            expect (durationTicks - stutterTicks == 12,
+                    "Boot Wipe fade phase must be 12 ticks (~200 ms at 60 Hz) per issue #35");
+            expect (GlitchOverlay::bootWipeStutterBandCountForTests() == 6,
+                    "Boot Wipe stutter must compose 6 horizontal slice displacements");
 
             for (int i = 0; i < durationTicks; ++i)
             {
                 overlay.tick();
                 if (i + 1 < durationTicks)
-                    expect (overlay.isBootBurstActive(),
-                            "Boot Burst should stay active until the 24-tick window elapses");
+                    expect (overlay.isBootWipeActive(),
+                            "Boot Wipe should stay active until the 18-tick window elapses");
             }
 
-            expect (! overlay.isBootBurstActive(),
-                    "Boot Burst should snap back to inactive after the 24-tick window");
+            expect (! overlay.isBootWipeActive(),
+                    "Boot Wipe should snap back to inactive after the 18-tick window");
 
             // Re-triggering after the first fire is a no-op: the per-process
-            // bootBurstFired guard prevents the Burst from ever firing again.
-            overlay.triggerBootBurst();
-            expect (! overlay.isBootBurstActive(),
-                    "triggerBootBurst must be a no-op once bootBurstFired is set");
+            // bootWipeFired guard prevents the Wipe from ever firing again.
+            overlay.triggerBootWipe();
+            expect (! overlay.isBootWipeActive(),
+                    "triggerBootWipe must be a no-op once bootWipeFired is set");
         }
 
-        void testGlitchOverlayDrawBootBurstRendersFlashSlicesAndDeadPixels()
+        void testGlitchOverlayDrawBootWipeStartsOpaqueBlackThenStuttersThenFades()
         {
-            beginTest ("GlitchOverlay::drawBootBurst renders a #FFF flash, 6 slice bands and a dense dead pixel field");
+            beginTest ("GlitchOverlay::drawBootWipe starts opaque black, fires a ~100ms stutter, then fades the UI in over ~200ms");
 
             const auto white = juce::Colour (0xFFFFFFFF);
             const auto black = juce::Colour (0xFF000000);
 
             GlitchOverlay overlay;
 
-            // At rest: drawBootBurst paints nothing.
+            // At rest: drawBootWipe paints nothing (no wipe to perform).
             {
                 juce::Image img (juce::Image::ARGB, 64, 64, true);
                 juce::Graphics g (img);
-                g.fillAll (juce::Colours::black);
-                overlay.drawBootBurst (g, img.getBounds(), 0.0f);
+                g.fillAll (juce::Colours::transparentBlack);
+                overlay.drawBootWipe (g, img.getBounds(), 0.0f);
+                expect (img.getPixelAt (32, 32).getAlpha() == 0,
+                        "Inactive boot Wipe should not paint over the substrate");
+            }
+
+            overlay.triggerBootWipe();
+
+            // Phase A — stutter window (progress 0..kStutterEnd): the canvas
+            // stays opaque black (the wipe veil), with hard #FFF slice bands
+            // displaced across the bounds. A clear area between bands must read
+            // as fully opaque #000 (substrate hidden, UI not yet faded in).
+            {
+                juce::Image img (juce::Image::ARGB, 64, 64, true);
+                juce::Graphics g (img);
+                g.fillAll (white); // pretend the UI is fully rendered underneath
+                overlay.drawBootWipe (g, img.getBounds(), 0.05f);
+
+                // The veil is fully opaque in the stutter phase: a band-free
+                // pixel near the centre reads as hard #000 (UI hidden).
                 expect (img.getPixelAt (32, 32) == black,
-                        "Inactive boot Burst should not paint over the substrate");
-            }
+                        "Boot Wipe stutter phase must keep the canvas opaque black between slice bands");
 
-            overlay.triggerBootBurst();
-
-            // First ~100 ms (progress < 6/24 = 0.25): full-bounds #FFF flash.
-            {
-                juce::Image img (juce::Image::ARGB, 64, 64, true);
-                juce::Graphics g (img);
-                g.fillAll (juce::Colours::black);
-                overlay.drawBootBurst (g, img.getBounds(), 0.1f);
-                expect (img.getPixelAt (0, 0) == white,
-                        "Boot Burst flash should fill the whole bounds with #FFF for the first 100 ms");
-                expect (img.getPixelAt (63, 63) == white,
-                        "Boot Burst flash should reach every corner of the bounds");
-            }
-
-            // Late in the burst (progress = 1.0): flash has faded, but the 6
-            // slice bands + dense dead pixel field still render hard #FFF.
-            {
-                juce::Image img (juce::Image::ARGB, 64, 64, true);
-                juce::Graphics g (img);
-                g.fillAll (juce::Colours::black);
-                overlay.drawBootBurst (g, img.getBounds(), 1.0f);
-
-                // The flash has fully faded at progress = 1.0, so the substrate
-                // shows through where no band/dead pixel paints.
-                expect (img.getPixelAt (32, 32) == black || img.getPixelAt (32, 32) == white,
-                        "Late boot Burst pixels should be hard #000 or #FFF (flash faded, bands/dead pixels remain)");
-
-                int whitePixelCount = 0;
+                // At least one #FFF slice band is displaced across the bounds,
+                // so the bright-pixel count rises above the white substrate
+                // noise floor of zero once the veil has hidden everything else.
+                int brightPixels = 0;
                 for (int y = 0; y < 64; ++y)
                     for (int x = 0; x < 64; ++x)
                         if (img.getPixelAt (x, y) == white)
-                            ++whitePixelCount;
-
-                // 6 slice bands of 1-3 px thickness across a 64 px wide bounds
-                // => at least 6 * 1 * 64 = 384 white pixels, plus 60 dead
-                // pixels => at least 444 white pixels total.
-                expect (whitePixelCount >= 400,
-                        "Late boot Burst should still paint the 6 slice bands + dense dead pixel field in hard #FFF");
+                            ++brightPixels;
+                expect (brightPixels > 0,
+                        "Boot Wipe stutter phase must paint at least one displaced #FFF slice band over the black veil");
             }
+
+            // Phase B — fade window (progress > kStutterEnd): the black veil
+            // alpha decreases linearly from opaque to transparent across the
+            // remaining ~200ms, revealing the underlying UI. At the very end
+            // (progress = 1.0) the veil is fully transparent, so a white
+            // substrate pixel reads back as white.
+            {
+                juce::Image img (juce::Image::ARGB, 64, 64, true);
+                juce::Graphics g (img);
+                g.fillAll (white);
+                overlay.drawBootWipe (g, img.getBounds(), 1.0f);
+                expect (img.getPixelAt (32, 32) == white,
+                        "Boot Wipe fade phase must be fully transparent at progress 1.0 so the underlying UI shows through");
+            }
+        }
+
+        void testGlitchOverlayBootWipeStutterPhaseRendersDisplacedSlices()
+        {
+            beginTest ("GlitchOverlay::drawBootWipe displaces the 6 stutter slice bands by a non-zero amount during the stutter phase");
+
+            GlitchOverlay overlay;
+            overlay.triggerBootWipe();
+
+            // Render the stutter phase at progress near the end of the window
+            // (kStutterEnd) so the bands have visibly shifted from rest.
+            const float stutterEnd =
+                static_cast<float> (GlitchOverlay::bootWipeStutterTicksForTests())
+                / static_cast<float> (GlitchOverlay::bootWipeDurationTicksForTests());
+
+            juce::Image imgA (juce::Image::ARGB, 64, 64, true);
+            juce::Graphics gA (imgA);
+            gA.fillAll (juce::Colours::black);
+            overlay.drawBootWipe (gA, imgA.getBounds(), 0.0f);
+
+            juce::Image imgB (juce::Image::ARGB, 64, 64, true);
+            juce::Graphics gB (imgB);
+            gB.fillAll (juce::Colours::black);
+            overlay.drawBootWipe (gB, imgB.getBounds(), stutterEnd - 0.001f);
+
+            // At progress 0 the displaced-band x-shift is zero, so the
+            // pattern sits at its rest column. At progress near stutterEnd
+            // the bands have shifted by their full shiftPx, so at least one
+            // band row differs between the two renders.
+            int differingRows = 0;
+            for (int y = 0; y < 64; ++y)
+            {
+                bool rowDiffers = false;
+                for (int x = 0; x < 64 && ! rowDiffers; ++x)
+                    if (imgA.getPixelAt (x, y) != imgB.getPixelAt (x, y))
+                        rowDiffers = true;
+                if (rowDiffers)
+                    ++differingRows;
+            }
+            expect (differingRows > 0,
+                    "Boot Wipe stutter slices must visibly displace between progress 0 and the end of the stutter window");
+        }
+
+        void testGlitchOverlayBootWipeFadePhaseVeilAlphaDecreasesLinearly()
+        {
+            beginTest ("GlitchOverlay::drawBootWipe veil alpha decreases linearly across the ~200ms fade phase");
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+
+            GlitchOverlay overlay;
+            overlay.triggerBootWipe();
+
+            const float stutterEnd =
+                static_cast<float> (GlitchOverlay::bootWipeStutterTicksForTests())
+                / static_cast<float> (GlitchOverlay::bootWipeDurationTicksForTests());
+
+            // Sample three points evenly across the fade window and confirm
+            // the veil alpha (and therefore the brightness of a white substrate
+            // pixel under it) decreases monotonically toward fully transparent.
+            auto sampleBrightness = [&] (float progress)
+            {
+                juce::Image img (juce::Image::ARGB, 8, 8, true);
+                juce::Graphics g (img);
+                g.fillAll (white);
+                overlay.drawBootWipe (g, img.getBounds(), progress);
+                const auto px = img.getPixelAt (4, 4);
+                return static_cast<float> (px.getRed() + px.getGreen() + px.getBlue()) / (3.0f * 255.0f);
+            };
+
+            const float t0 = sampleBrightness (stutterEnd);
+            const float tMid = sampleBrightness (stutterEnd + (1.0f - stutterEnd) * 0.5f);
+            const float tEnd = sampleBrightness (1.0f);
+
+            expect (tMid > t0,
+                    "Boot Wipe fade phase veil must lift (brighter) as fade advances");
+            expect (tEnd > tMid,
+                    "Boot Wipe fade phase veil must continue lifting toward fully transparent");
+            expect (std::abs (tEnd - 1.0f) < 1.0e-3f,
+                    "Boot Wipe fade phase veil must be fully transparent at progress 1.0");
+            // Linear: the mid-sample should sit close to the midpoint between
+            // the start- and end-of-fade brightness (allow a small tolerance).
+            const float expectedMid = (t0 + 1.0f) * 0.5f;
+            expect (std::abs (tMid - expectedMid) < 0.15f,
+                    "Boot Wipe veil alpha should decrease roughly linearly across the fade phase");
         }
 
         void testGlitchOverlayFlickerBurstFiresAtRareIntervals()
