@@ -14,6 +14,8 @@ namespace synthortion
           chorusPanel ("CHORUS", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
           delayPanel ("DELAY", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
           comingSoonPanel ("COMING SOON", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
+          inputPanel ("INPUT", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
+          outputPanel ("OUTPUT", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
           bypassComponent (processorRef.apvts, "PLUGIN_BYPASS", &animationController),
           oscilloscope (processorRef.getScopeBuffer(), &animationController),
           inputMeter (animationController),
@@ -37,6 +39,10 @@ namespace synthortion
         addAndMakeVisible (comingSoonPanel);
         comingSoonPanel.setPlaceholder (true);
         comingSoonPanel.setGlitchOverlay (&glitchOverlay);
+        addAndMakeVisible (inputPanel);
+        addAndMakeVisible (outputPanel);
+        inputPanel.setHeadingStyle (12.0f, 2.0f);
+        outputPanel.setHeadingStyle (12.0f, 2.0f);
         addAndMakeVisible (bypassComponent);
         bypassComponent.setGlitchOverlay (&glitchOverlay);
         addAndMakeVisible (oscilloscope);
@@ -63,9 +69,9 @@ namespace synthortion
         delayMixKnob.setKnobStyle (AnimatedKnob::KnobStyle::Outline);
 
         // SIDE BARS
-        setupKnobWithLabel (inputGainKnob, inputGainTitleLabel, inputGainLabel, "INPUT", "INPUT_GAIN", inputGainAttachment, *this);
+        setupKnobWithLabel (inputGainKnob, inputGainTitleLabel, inputGainLabel, "", "INPUT_GAIN", inputGainAttachment, *this);
         inputGainKnob.setKnobStyle (AnimatedKnob::KnobStyle::Canonical);
-        setupKnobWithLabel (outputGainKnob, outputGainTitleLabel, outputGainLabel, "OUTPUT", "OUTPUT_GAIN", outputGainAttachment, *this);
+        setupKnobWithLabel (outputGainKnob, outputGainTitleLabel, outputGainLabel, "", "OUTPUT_GAIN", outputGainAttachment, *this);
         outputGainKnob.setKnobStyle (AnimatedKnob::KnobStyle::Canonical);
 
         setResizable (false, false);
@@ -157,6 +163,23 @@ namespace synthortion
         dashedV (delayRight + kGap / 2, bottomRowTop, centerBottom);
     }
 
+    void AudioPluginAudioProcessorEditor::layoutSidebar (juce::Rectangle<int> sidebarBounds,
+                                                         MeterComponent& meter, AnimatedKnob& knob,
+                                                         juce::Label& valueLabel, juce::Label& titleLabel)
+    {
+        const int knobSize = 45;
+        const int labelH = 12;
+
+        sidebarBounds.removeFromTop (kSidebarHeaderHeight);
+        const int meterH = sidebarBounds.getHeight() - knobSize - kGap - 2 - labelH;
+        meter.setBounds (sidebarBounds.removeFromTop (meterH).reduced (2, 0));
+        sidebarBounds.removeFromTop (kGap);
+        knob.setBounds (sidebarBounds.removeFromTop (knobSize));
+        sidebarBounds.removeFromTop (2);
+        valueLabel.setBounds (sidebarBounds.removeFromTop (labelH));
+        titleLabel.setBounds (0, 0, 0, 0);
+    }
+
     void AudioPluginAudioProcessorEditor::resized()
     {
         auto bounds = getLocalBounds();
@@ -172,21 +195,13 @@ namespace synthortion
         auto leftBar = centerArea.removeFromLeft (kSideBarWidth);
         auto rightBar = centerArea.removeFromRight (kSideBarWidth);
 
-        const int knobSize = 45;
+        inputPanel.setBounds (leftBar);
+        outputPanel.setBounds (rightBar);
+
+        layoutSidebar (leftBar, inputMeter, inputGainKnob, inputGainLabel, inputGainTitleLabel);
+        layoutSidebar (rightBar, outputMeter, outputGainKnob, outputGainLabel, outputGainTitleLabel);
+
         const int labelH = 12;
-        const int meterH = leftBar.getHeight() - knobSize - labelH * 2 - kGap * 2;
-
-        inputMeter.setBounds (leftBar.removeFromTop (meterH).reduced (2, 0));
-        leftBar.removeFromTop (kGap);
-        inputGainKnob.setBounds (leftBar.removeFromTop (knobSize));
-        inputGainTitleLabel.setBounds (leftBar.removeFromTop (labelH));
-        inputGainLabel.setBounds (leftBar.removeFromTop (labelH));
-
-        outputMeter.setBounds (rightBar.removeFromTop (meterH).reduced (2, 0));
-        rightBar.removeFromTop (kGap);
-        outputGainKnob.setBounds (rightBar.removeFromTop (knobSize));
-        outputGainTitleLabel.setBounds (rightBar.removeFromTop (labelH));
-        outputGainLabel.setBounds (rightBar.removeFromTop (labelH));
 
         // Center panels
         centerArea.removeFromTop (kGap);

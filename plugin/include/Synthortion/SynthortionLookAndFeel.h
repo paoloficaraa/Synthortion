@@ -36,6 +36,11 @@ public:
                              bool isRecessed, const juce::String& title,
                              const juce::Colour& bgColour);
 
+    void drawPanelBackground(juce::Graphics&, const juce::Rectangle<int>&,
+                             bool isRecessed, const juce::String& title,
+                             const juce::Colour& bgColour,
+                             float titleFontHeight, float titleInset);
+
     juce::Font getSectionHeadingFont() const noexcept { return sectionHeadingFont; }
     juce::Font getParameterLabelFont() const noexcept { return parameterLabelFont; }
     juce::Font getParameterValueFont() const noexcept { return parameterValueFont; }
@@ -56,6 +61,12 @@ private:
                           const juce::String& title) const;
 
     void drawElevationShadow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const;
+
+    void drawSectionTitle(juce::Graphics& g, juce::Rectangle<float>& r,
+                          const juce::String& title,
+                          float titleFontHeight, float titleInset) const;
+
+    void drawTwinShadow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const;
 
     void drawKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
                   float knobAngle, float sliderPos,
