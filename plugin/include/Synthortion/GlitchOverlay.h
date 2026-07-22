@@ -136,10 +136,8 @@ namespace synthortion
         bool bootBurstFired = false;
         int bootBurstElapsedTicks = 0;
 
-        // Rare Flicker burst system (issue #33). Normal mode fires ~10-30s
-        // (600-1800 ticks at 60 Hz); bypass-amplified mode fires ~3-8s
-        // (180-480 ticks) with double the bands, double the duration and
-        // double the max displacement to reinforce the inactive state.
+        // Rare Flicker burst (issue #33): ~300 ms normal / ~600 ms bypass
+        // at 60 Hz; interval and intensity amplified during bypass.
         static constexpr int kFlickerNormalMinIntervalTicks = 600;    // ~10s at 60 Hz
         static constexpr int kFlickerNormalMaxIntervalTicks = 1800;   // ~30s at 60 Hz
         static constexpr int kFlickerBypassMinIntervalTicks = 180;    // ~3s at 60 Hz
