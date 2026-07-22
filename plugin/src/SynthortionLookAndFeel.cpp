@@ -11,7 +11,7 @@ namespace
 SynthortionLookAndFeel::SynthortionLookAndFeel()
     : sectionHeadingFont (juce::FontOptions().withName("BebasNeue").withHeight(kSectionTitleHeight).withStyle("Regular").withKerningFactor(kTightKerning)),
       parameterLabelFont (juce::FontOptions().withName("BebasNeue").withHeight(14.0f).withStyle("Regular").withKerningFactor(kTightKerning)),
-      parameterValueFont (juce::FontOptions().withName("BebasNeue").withHeight(14.0f).withStyle("Regular").withKerningFactor(kTightKerning)),
+      parameterValueFont (juce::FontOptions().withName("Montserrat").withHeight(12.0f).withStyle("Regular")),
       bypassLabelFont (juce::FontOptions().withName("BebasNeue").withHeight(16.0f).withStyle("Regular").withKerningFactor(kTightKerning))
 {
     setColour(juce::ResizableWindow::backgroundColourId, BLACK);
@@ -37,12 +37,14 @@ SynthortionLookAndFeel::SynthortionLookAndFeel()
     setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
 
     setColour(backgroundColourId, BLACK);
-    setColour(panelFillColourId, BLACK);
+    setColour(panelFillColourId, juce::Colour (0xFF0D0D0E));
     setColour(panelOutlineColourId, WHITE);
     setColour(accentColourId, WHITE);
     setColour(accentBrightColourId, WHITE);
     setColour(textColourId, WHITE);
     setColour(knobFillColourId, WHITE);
+    setColour(surfaceAltColourId, juce::Colour (0xFF121214));
+    setColour(dimmedColourId, juce::Colour (0x66FFFFFF));
 
     bebasNeueTypeface = juce::Typeface::createSystemTypefaceFor(BinaryData::BebasNeueRegular_ttf,
                                                                  BinaryData::BebasNeueRegular_ttfSize);
@@ -276,18 +278,18 @@ void SynthortionLookAndFeel::drawSwitchHandle(juce::Graphics& g, const juce::Rec
 }
 
 void SynthortionLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Rectangle<int>& bounds,
-                                             bool isRecessed, const juce::String& title)
+                                              bool isRecessed, const juce::String& title)
 {
-    drawPanelBackground(g, bounds, isRecessed, title, BLACK);
+    drawPanelBackground(g, bounds, isRecessed, title, findColour(panelFillColourId));
 }
 
 void SynthortionLookAndFeel::drawPanelBackground(juce::Graphics& g, const juce::Rectangle<int>& bounds,
-                                             bool /*isRecessed*/, const juce::String& title,
-                                             const juce::Colour& /*bgColour*/)
+                                              bool /*isRecessed*/, const juce::String& title,
+                                              const juce::Colour& bgColour)
 {
     const auto r = bounds.toFloat();
 
-    g.setColour(BLACK);
+    g.setColour(bgColour);
     g.fillRect(r);
 
     g.setColour(WHITE);

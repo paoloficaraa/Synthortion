@@ -58,10 +58,11 @@ private:
 
     void testTypographyScale()
     {
-        beginTest("Typography scale collapses to BebasNeue 22/14/14/16 pt with -0.5 tight kerning");
+        beginTest("Typography scale: BebasNeue 22/14/16 headings+labels, Montserrat 12 numeric values per issue #28");
 
         SynthortionLookAndFeel lookAndFeel;
         const auto bebas = lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("BebasNeue"));
+        const auto montserrat = lookAndFeel.getTypefaceForFont(juce::FontOptions().withName("Montserrat"));
 
         auto heading = lookAndFeel.getSectionHeadingFont();
         expect (juce::roundToInt(heading.getHeight()) == 22,
@@ -75,7 +76,7 @@ private:
 
         auto paramLabel = lookAndFeel.getParameterLabelFont();
         expect (juce::roundToInt(paramLabel.getHeight()) == 14,
-                "Parameter label should be 14pt BebasNeue (knob labels) per issue #25");
+                "Parameter label should be 14pt BebasNeue (knob titles) per issue #25");
         expect (paramLabel.getTypefaceName().containsIgnoreCase("Bebas"),
                 "Parameter label should request the BebasNeue typeface");
         expect (lookAndFeel.getTypefaceForFont(paramLabel) == bebas,
@@ -84,14 +85,14 @@ private:
                 "Parameter label should apply -0.5 tight kerning per issue #25");
 
         auto paramValue = lookAndFeel.getParameterValueFont();
-        expect (juce::roundToInt(paramValue.getHeight()) == 14,
-                "Parameter value should be 14pt BebasNeue (knob value readouts) per issue #25");
-        expect (paramValue.getTypefaceName().containsIgnoreCase("Bebas"),
-                "Parameter value should request the BebasNeue typeface");
-        expect (lookAndFeel.getTypefaceForFont(paramValue) == bebas,
-                "Parameter value should resolve to the BebasNeue typeface");
-        expect (std::abs (paramValue.getExtraKerningFactor() - SynthortionLookAndFeel::kTightKerning) < 1.0e-6f,
-                "Parameter value should apply -0.5 tight kerning per issue #25");
+        expect (juce::roundToInt(paramValue.getHeight()) == 12,
+                "Parameter value should be 12pt Montserrat (numeric knob readouts) per issue #28");
+        expect (paramValue.getTypefaceName().containsIgnoreCase("Montserrat"),
+                "Parameter value should request the Montserrat typeface per issue #28");
+        expect (lookAndFeel.getTypefaceForFont(paramValue) == montserrat,
+                "Parameter value should resolve to the Montserrat typeface per issue #28");
+        expect (std::abs (paramValue.getExtraKerningFactor()) < 1.0e-6f,
+                "Parameter value (Montserrat) should not apply tight kerning per issue #28");
 
         auto bypass = lookAndFeel.getBypassLabelFont();
         expect (juce::roundToInt(bypass.getHeight()) == 16,
@@ -127,6 +128,7 @@ namespace synthortion
             testEditorIsOpaque();
             testPanelComponentIsOpaque();
             testDeadlockPalette();
+            testCanvasBackgroundIsPitchBlackWithPermanentTexture();
             testEditorSizeIs800x480();
             testEditorContainsOscilloscope();
             testEditorContainsMeters();
@@ -182,6 +184,10 @@ namespace synthortion
             testGlitchOverlayBootBurstFiresOnceAndRunsForFourHundredMs();
             testGlitchOverlayDrawBootBurstRendersFlashSlicesAndDeadPixels();
             testPanelComponentRendersBrutalistShape();
+            testPanelComponentTitleFontIsBebasNeueAllCaps();
+            testEditorDrawsDashedSectionSeparators();
+            testKnobValueLabelsUseMontserrat();
+            testKnobValueLabelsDoNotOverlapKnobs();
             testAnimationControllerClearsBypassAnimatorOnTeardown();
             testEditorTeardownLifecycleIsCrashFree();
         }
@@ -247,7 +253,7 @@ namespace synthortion
 
         void testDeadlockPalette()
         {
-            beginTest ("DEADLOCK palette binds binary black/white colour slots");
+            beginTest ("DEADLOCK palette binds Canvas/Surface/Ink/Dimmed colour slots per issue #28");
 
             SynthortionLookAndFeel lookAndFeel;
 
@@ -258,17 +264,55 @@ namespace synthortion
             const auto accentBright = lookAndFeel.findColour (SynthortionLookAndFeel::accentBrightColourId);
             const auto text = lookAndFeel.findColour (SynthortionLookAndFeel::textColourId);
             const auto knobFill = lookAndFeel.findColour (SynthortionLookAndFeel::knobFillColourId);
+            const auto surfaceAlt = lookAndFeel.findColour (SynthortionLookAndFeel::surfaceAltColourId);
+            const auto dimmed = lookAndFeel.findColour (SynthortionLookAndFeel::dimmedColourId);
 
             const juce::Colour black (0xFF000000);
             const juce::Colour white (0xFFFFFFFF);
+            const juce::Colour charcoal (0xFF0D0D0E);
+            const juce::Colour surfaceAltCol (0xFF121214);
+            const juce::Colour dimmedCol (0x66FFFFFF);
 
-            expect (background == black, "backgroundColourId should be pure #000");
-            expect (panelFill == black, "panelFillColourId should be pure #000");
-            expect (panelOutline == white, "panelOutlineColourId should be pure #FFF");
-            expect (accent == white, "accentColourId should be pure #FFF");
-            expect (accentBright == white, "accentBrightColourId should be pure #FFF");
-            expect (text == white, "textColourId should be pure #FFF");
-            expect (knobFill == white, "knobFillColourId should be pure #FFF");
+            expect (background == black, "backgroundColourId (Canvas) should be pure #000");
+            expect (panelFill == charcoal, "panelFillColourId (Surface) should be #0D0D0E per issue #28");
+            expect (panelOutline == white, "panelOutlineColourId (Ink) should be pure #FFF");
+            expect (accent == white, "accentColourId (Ink) should be pure #FFF");
+            expect (accentBright == white, "accentBrightColourId (Ink) should be pure #FFF");
+            expect (text == white, "textColourId (Ink) should be pure #FFF");
+            expect (knobFill == white, "knobFillColourId (Ink) should be pure #FFF");
+            expect (surfaceAlt == surfaceAltCol, "surfaceAltColourId (Surface alt) should be #121214 per issue #28");
+            expect (dimmed == dimmedCol, "dimmedColourId (Dimmed) should be #FFF at 0.4 alpha (0x66FFFFFF) per issue #28");
+        }
+
+        void testCanvasBackgroundIsPitchBlackWithPermanentTexture()
+        {
+            beginTest ("Canvas background is solid pitch black #000 with permanent dither/scanline texture per issue #28");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            expect (editor.lookAndFeel.findColour (SynthortionLookAndFeel::backgroundColourId) == juce::Colour (0xFF000000),
+                    "Editor LookAndFeel backgroundColourId (Canvas) should be pure #000");
+
+            editor.repaint();
+            const auto snapshot = editor.createComponentSnapshot (editor.getLocalBounds());
+
+            bool hasBlack = false;
+            bool hasWhite = false;
+            for (int y = 95; y < 100 && ! (hasBlack && hasWhite); ++y)
+            {
+                for (int x = 200; x < 600; ++x)
+                {
+                    const auto c = snapshot.getPixelAt (x, y);
+                    if (c == juce::Colour (0xFF000000))
+                        hasBlack = true;
+                    else if (c == juce::Colour (0xFFFFFFFF))
+                        hasWhite = true;
+                }
+            }
+
+            expect (hasBlack, "Canvas substrate must contain pure #000 base pixels");
+            expect (hasWhite, "Canvas substrate must contain permanent dither/scanline #FFF texture pixels");
         }
 
         void testEditorSizeIs800x480()
@@ -1453,21 +1497,21 @@ namespace synthortion
 
         void testPanelComponentRendersBrutalistShape()
         {
-            beginTest ("PanelComponent renders brutalist shape: #FFF outline + #000 fill + rule + corner ticks");
+            beginTest ("PanelComponent renders brutalist shape: #FFF outline + #0D0D0E fill + rule + corner ticks");
 
             SynthortionLookAndFeel lookAndFeel;
-            PanelComponent panel ("DISTORTION", juce::Colour (0xFF000000));
+            PanelComponent panel ("DISTORTION", juce::Colour (0xFF0D0D0E));
             panel.setSize (100, 100);
             panel.setLookAndFeel (&lookAndFeel);
 
             const auto snapshot = panel.createComponentSnapshot (panel.getLocalBounds());
 
             const auto white = juce::Colour (0xFFFFFFFF);
-            const auto black = juce::Colour (0xFF000000);
+            const auto charcoal = juce::Colour (0xFF0D0D0E);
 
-            // Flat #000 fill on the panel interior.
-            expect (snapshot.getPixelAt (50, 50) == black, "Brutalist panel interior should be flat #000");
-            expect (snapshot.getPixelAt (50, 80) == black, "Brutalist panel interior below the rule should be flat #000");
+            // Flat #0D0D0E fill on the panel interior (Surface per issue #28).
+            expect (snapshot.getPixelAt (50, 50) == charcoal, "Brutalist panel interior should be flat #0D0D0E");
+            expect (snapshot.getPixelAt (50, 80) == charcoal, "Brutalist panel interior below the rule should be flat #0D0D0E");
 
             // 1 px #FFF hard-square outline on every edge.
             expect (snapshot.getPixelAt (50, 0) == white, "Top edge outline should be #FFF");
@@ -1487,6 +1531,158 @@ namespace synthortion
 
             // 1 px #FFF horizontal rule directly beneath the 22 pt title row.
             expect (snapshot.getPixelAt (50, 22) == white, "Rule beneath the title row should be #FFF");
+        }
+
+        void testPanelComponentTitleFontIsBebasNeueAllCaps()
+        {
+            beginTest ("PanelComponent section header is BebasNeue all-caps white with -0.5 kerning per issue #28");
+
+            SynthortionLookAndFeel lookAndFeel;
+            PanelComponent panel ("DISTORTION", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId));
+            panel.setLookAndFeel (&lookAndFeel);
+
+            const auto titleFont = panel.getTitleFont();
+            expect (juce::roundToInt (titleFont.getHeight()) == 22,
+                    "Panel title font should be 22pt BebasNeue per issue #25");
+            expect (titleFont.getTypefaceName().containsIgnoreCase ("Bebas"),
+                    "Panel title font should request the BebasNeue typeface");
+            expect (lookAndFeel.getTypefaceForFont (titleFont)
+                        == lookAndFeel.getTypefaceForFont (juce::FontOptions().withName ("BebasNeue")),
+                    "Panel title font should resolve to the BebasNeue typeface");
+            expect (std::abs (titleFont.getExtraKerningFactor() - SynthortionLookAndFeel::kTightKerning) < 1.0e-6f,
+                    "Panel title font should apply -0.5 tight kerning per issue #25");
+
+            expect (panel.getTitle().toUpperCase() == panel.getTitle(),
+                    "Panel title text should be all-caps (DISTORTION) per issue #28");
+
+            const auto textColour = lookAndFeel.findColour (SynthortionLookAndFeel::textColourId);
+            expect (textColour == juce::Colour (0xFFFFFFFF),
+                    "Panel section header text colour (Ink) should be pure #FFF per issue #28");
+        }
+
+        void testEditorDrawsDashedSectionSeparators()
+        {
+            beginTest ("Editor draws dashed low-alpha grid lines between panel sections per issue #28");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            editor.repaint();
+            const auto snapshot = editor.createComponentSnapshot (editor.getLocalBounds());
+
+            const juce::Colour dimmed (0xFF666666);
+
+            auto scanHLine = [&] (int y, int x1, int x2)
+            {
+                int dimmedPixels = 0;
+                int nonDimmedPixels = 0;
+                for (int x = x1; x < x2; ++x)
+                {
+                    const auto c = snapshot.getPixelAt (x, y);
+                    if (c == dimmed)
+                        ++dimmedPixels;
+                    else
+                        ++nonDimmedPixels;
+                }
+                return dimmedPixels > 0 && nonDimmedPixels > 0;
+            };
+
+            auto scanVLine = [&] (int x, int y1, int y2)
+            {
+                int dimmedPixels = 0;
+                int nonDimmedPixels = 0;
+                for (int y = y1; y < y2; ++y)
+                {
+                    const auto c = snapshot.getPixelAt (x, y);
+                    if (c == dimmed)
+                        ++dimmedPixels;
+                    else
+                        ++nonDimmedPixels;
+                }
+                return dimmedPixels > 0 && nonDimmedPixels > 0;
+            };
+
+            expect (scanHLine (95, 200, 600),
+                    "Dashed dimmed separator should span the top-bar/center gap at y=95");
+            expect (scanHLine (475, 200, 600),
+                    "Dashed dimmed separator should span the center/bottom gap at y=475");
+            expect (scanVLine (60, 200, 400),
+                    "Dashed dimmed separator should span the left-bar/center gap at x=60");
+            expect (scanVLine (740, 200, 400),
+                    "Dashed dimmed separator should span the center/right-bar gap at x=740");
+            expect (scanHLine (308, 200, 600),
+                    "Dashed dimmed separator should span the distortion/bottom-row gap at y=308");
+            expect (scanVLine (308, 350, 450),
+                    "Dashed dimmed separator should span the chorus/delay gap at x=308");
+            expect (scanVLine (620, 350, 450),
+                    "Dashed dimmed separator should span the delay/coming-soon gap at x=620");
+        }
+
+        void testKnobValueLabelsUseMontserrat()
+        {
+            beginTest ("Numeric knob value labels use Montserrat font while titles stay BebasNeue per issue #28");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            auto assertValueIsMontserrat = [&] (juce::Label& valueLabel, const juce::String& labelName)
+            {
+                const auto f = valueLabel.getFont();
+                expect (f.getTypefaceName().containsIgnoreCase ("Montserrat"),
+                        "Knob value label " + labelName + " should request the Montserrat typeface per issue #28");
+            };
+
+            auto assertTitleIsBebas = [&] (juce::Label& titleLabel, const juce::String& labelName)
+            {
+                const auto f = titleLabel.getFont();
+                expect (f.getTypefaceName().containsIgnoreCase ("Bebas"),
+                        "Knob title label " + labelName + " should stay BebasNeue per issue #28");
+            };
+
+            assertValueIsMontserrat (editor.driveLabel, "COLOR");
+            assertValueIsMontserrat (editor.bitCrushLabel, "BITCRUSH");
+            assertValueIsMontserrat (editor.chorusMixLabel, "CHORUS_MIX");
+            assertValueIsMontserrat (editor.delayTimeLabel, "DELAY_TIME");
+            assertValueIsMontserrat (editor.delayFeedbackLabel, "DELAY_FEEDBACK");
+            assertValueIsMontserrat (editor.delayMixLabel, "DELAY_MIX");
+            assertValueIsMontserrat (editor.inputGainLabel, "INPUT_GAIN");
+            assertValueIsMontserrat (editor.outputGainLabel, "OUTPUT_GAIN");
+
+            assertTitleIsBebas (editor.driveTitleLabel, "COLOR");
+            assertTitleIsBebas (editor.delayTimeTitleLabel, "TIME");
+            assertTitleIsBebas (editor.inputGainTitleLabel, "INPUT");
+        }
+
+        void testKnobValueLabelsDoNotOverlapKnobs()
+        {
+            beginTest ("Montserrat knob value labels have spacing and do not overlap knobs per issue #28");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            auto assertNoOverlap = [&] (AnimatedKnob& knob, juce::Label& titleLabel, juce::Label& valueLabel,
+                                         const juce::String& labelName)
+            {
+                const auto knobBounds = knob.getBounds();
+                const auto titleBounds = titleLabel.getBounds();
+                const auto valueBounds = valueLabel.getBounds();
+
+                expect (! titleBounds.intersects (knobBounds),
+                        "Title label " + labelName + " must not overlap its knob");
+                expect (! valueBounds.intersects (knobBounds),
+                        "Value label " + labelName + " must not overlap its knob");
+                expect (valueBounds.getY() >= knobBounds.getBottom() - 1,
+                        "Montserrat value label " + labelName + " should sit below its knob with spacing per issue #28");
+            };
+
+            assertNoOverlap (editor.driveKnob, editor.driveTitleLabel, editor.driveLabel, "COLOR");
+            assertNoOverlap (editor.bitCrushKnob, editor.bitCrushTitleLabel, editor.bitCrushLabel, "BITCRUSH");
+            assertNoOverlap (editor.chorusMixKnob, editor.chorusMixTitleLabel, editor.chorusMixLabel, "CHORUS_MIX");
+            assertNoOverlap (editor.delayTimeKnob, editor.delayTimeTitleLabel, editor.delayTimeLabel, "TIME");
+            assertNoOverlap (editor.delayFeedbackKnob, editor.delayFeedbackTitleLabel, editor.delayFeedbackLabel, "FB");
+            assertNoOverlap (editor.delayMixKnob, editor.delayMixTitleLabel, editor.delayMixLabel, "MIX");
+            assertNoOverlap (editor.inputGainKnob, editor.inputGainTitleLabel, editor.inputGainLabel, "INPUT");
+            assertNoOverlap (editor.outputGainKnob, editor.outputGainTitleLabel, editor.outputGainLabel, "OUTPUT");
         }
 
         void countKnobsByStyleRecursive (juce::Component& parent, int& canonical, int& outline)

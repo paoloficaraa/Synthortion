@@ -11,9 +11,9 @@ namespace synthortion
           lookAndFeel (),
           animationController (this),
           distortionPanel ("DISTORTION", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
-          chorusPanel ("CHORUS", lookAndFeel.findColour (SynthortionLookAndFeel::panelOutlineColourId)),
+          chorusPanel ("CHORUS", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
           delayPanel ("DELAY", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
-          comingSoonPanel ("COMING SOON", lookAndFeel.findColour (SynthortionLookAndFeel::panelOutlineColourId)),
+          comingSoonPanel ("COMING SOON", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
           bypassComponent (processorRef.apvts, "PLUGIN_BYPASS", &animationController),
           oscilloscope (processorRef.getScopeBuffer(), &animationController),
           inputMeter (animationController),
@@ -86,6 +86,7 @@ namespace synthortion
         const auto bounds = getLocalBounds();
         drawGrainOverlay (g);
         glitchOverlay.drawScanlines (g, bounds);
+        drawSectionSeparators (g);
     }
 
     void AudioPluginAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
@@ -98,6 +99,62 @@ namespace synthortion
     void AudioPluginAudioProcessorEditor::drawGrainOverlay (juce::Graphics& g)
     {
         glitchOverlay.drawDitherNoise (g, getLocalBounds());
+    }
+
+    void AudioPluginAudioProcessorEditor::drawSectionSeparators (juce::Graphics& g)
+    {
+        const auto dimmed = lookAndFeel.findColour (SynthortionLookAndFeel::dimmedColourId);
+        const float dashLen = 4.0f;
+        const float gapLen = 4.0f;
+
+        auto dashedH = [&g, dimmed, dashLen, gapLen] (int y, int x1, int x2)
+        {
+            g.setColour (dimmed);
+            for (float x = static_cast<float> (x1); x < static_cast<float> (x2); x += dashLen + gapLen)
+            {
+                const float xe = juce::jmin (x + dashLen, static_cast<float> (x2));
+                g.drawHorizontalLine (y, x, xe);
+            }
+        };
+
+        auto dashedV = [&g, dimmed, dashLen, gapLen] (int x, int y1, int y2)
+        {
+            g.setColour (dimmed);
+            for (float y = static_cast<float> (y1); y < static_cast<float> (y2); y += dashLen + gapLen)
+            {
+                const float ye = juce::jmin (y + dashLen, static_cast<float> (y2));
+                g.drawVerticalLine (x, y, ye);
+            }
+        };
+
+        const int leftBarRight = kSideBarWidth;
+        const int rightBarLeft = kWindowWidth - kSideBarWidth;
+        const int topBarBottom = kTopBarHeight;
+        const int centerTop = topBarBottom + kGap;
+        const int centerLeft = leftBarRight + kGap;
+        const int centerRight = rightBarLeft - kGap;
+        const int centerBottom = kWindowHeight - kGap;
+
+        dashedH (topBarBottom + kGap / 2, 0, kWindowWidth);
+        dashedH (centerBottom + kGap / 2, 0, kWindowWidth);
+
+        dashedV (leftBarRight + kGap / 2, topBarBottom, kWindowHeight);
+        dashedV (rightBarLeft - kGap / 2, topBarBottom, kWindowHeight);
+
+        const int distortionBottom = centerTop + (centerBottom - centerTop) * 55 / 100;
+        const int bottomRowTop = distortionBottom + kGap;
+        dashedH (distortionBottom + kGap / 2, centerLeft, centerRight);
+
+        const int bottomRowWidth = centerRight - centerLeft;
+        const int comingSoonWidth = 110;
+        const int comingSoonLeft = centerRight - comingSoonWidth;
+        const int delayRight = comingSoonLeft - kGap;
+        const int delayWidth = (bottomRowWidth - comingSoonWidth - kGap) * 55 / 100;
+        const int delayLeft = delayRight - delayWidth;
+        const int chorusRight = delayLeft - kGap;
+
+        dashedV (chorusRight + kGap / 2, bottomRowTop, centerBottom);
+        dashedV (delayRight + kGap / 2, bottomRowTop, centerBottom);
     }
 
     void AudioPluginAudioProcessorEditor::resized()

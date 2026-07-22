@@ -59,6 +59,7 @@ namespace synthortion
         void updateMainControlLabels();
         void updateBypassState();
         void drawGrainOverlay (juce::Graphics& g);
+        void drawSectionSeparators (juce::Graphics& g);
 
         AudioPluginAudioProcessor& processorRef;
         SynthortionLookAndFeel lookAndFeel;
@@ -122,6 +123,8 @@ namespace synthortion
         std::unique_ptr<SliderAttachment> outputGainAttachment;
 
         bool lastBypassState = false;
+
+        friend class AudioPluginTests;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessorEditor)
     };

@@ -18,6 +18,8 @@ public:
         accentBrightColourId   = 0x1501005,
         textColourId           = 0x1501006,
         knobFillColourId       = 0x1501007,
+        surfaceAltColourId     = 0x1501008,
+        dimmedColourId         = 0x1501009,
     };
 
     void drawRotarySlider(juce::Graphics&, int x, int y, int width, int height,
