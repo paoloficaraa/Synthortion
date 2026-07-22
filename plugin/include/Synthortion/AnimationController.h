@@ -29,6 +29,23 @@ namespace synthortion
         /** Remove an Animator from the VBlank updater. */
         void removeAnimator (const juce::Animator& animator);
 
+        /** Stop and clear every Animator owned by this controller.
+
+            Called from the editor destructor (before any child components or
+            parameter attachments are destroyed) so that no VBlank-driven
+            callback can fire into a half-destroyed UI. The per-component
+            Animators registered via addAnimator/runAnimator are held by their
+            owning components as strong references; the VBlank updater stores
+            only weak references and auto-removes them once those components
+            are destroyed, so only the controller-owned bypass animator needs
+            explicit clearing here.
+        */
+        void clearAllAnimators() noexcept;
+
+        /** True while a bypass transition animator is registered and not yet
+            cleared. Intended for teardown-lifecycle unit tests. */
+        bool hasActiveBypassAnimator() const noexcept;
+
         /** Begin the global bypass fade transition.
             @param bypassed true fades everything to the dimmed bypassed state,
                             false restores the active state.

@@ -182,6 +182,8 @@ namespace synthortion
             testGlitchOverlayBootBurstFiresOnceAndRunsForFourHundredMs();
             testGlitchOverlayDrawBootBurstRendersFlashSlicesAndDeadPixels();
             testPanelComponentRendersBrutalistShape();
+            testAnimationControllerClearsBypassAnimatorOnTeardown();
+            testEditorTeardownLifecycleIsCrashFree();
         }
 
     private:
@@ -1881,6 +1883,53 @@ namespace synthortion
                 expect (whitePixelCount >= 400,
                         "Late boot Burst should still paint the 6 slice bands + dense dead pixel field in hard #FFF");
             }
+        }
+
+        void testAnimationControllerClearsBypassAnimatorOnTeardown()
+        {
+            beginTest ("AnimationController clears the active bypass animator on editor teardown");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+
+            expect (! controller.hasActiveBypassAnimator(),
+                    "AnimationController should report no active bypass animator before a transition is started");
+
+            controller.startBypassTransition (true);
+            expect (controller.hasActiveBypassAnimator(),
+                    "startBypassTransition should register an active bypass animator");
+
+            const float mixBeforeClear = controller.getBypassMix();
+            controller.clearAllAnimators();
+            expect (! controller.hasActiveBypassAnimator(),
+                    "clearAllAnimators should stop and clear the active bypass animator");
+            expect (std::abs (controller.getBypassMix() - mixBeforeClear) < 1.0e-6f,
+                    "clearAllAnimators should freeze the bypass mix at its last value rather than snapping it");
+        }
+
+        void testEditorTeardownLifecycleIsCrashFree()
+        {
+            beginTest ("Plugin editor teardown lifecycle does not crash on repeated close/reopen");
+
+            for (int i = 0; i < 5; ++i)
+            {
+                AudioPluginAudioProcessor processor;
+                AudioPluginAudioProcessorEditor editor (processor);
+
+                // Start a bypass transition so an animator is mid-flight when
+                // the editor is destructed, exercising the stopTimer ->
+                // clearAllAnimators -> member destruct ordering fix for
+                // issue #27.
+                editor.getAnimationController().startBypassTransition (true);
+            }
+
+            // A fresh editor after the close/reopen loop must still construct
+            // with its 60 Hz timer running, proving no lifecycle state was
+            // corrupted by the teardown path.
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+            expect (editor.isTimerRunning(),
+                    "Editor 60 Hz timer should be running after a close/reopen lifecycle loop");
         }
     };
 

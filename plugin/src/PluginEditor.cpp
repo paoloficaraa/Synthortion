@@ -74,6 +74,8 @@ namespace synthortion
 
     AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
     {
+        stopTimer();
+        animationController.clearAllAnimators();
         setLookAndFeel (nullptr);
     }
 

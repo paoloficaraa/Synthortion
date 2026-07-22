@@ -63,6 +63,7 @@ namespace synthortion
         AudioPluginAudioProcessor& processorRef;
         SynthortionLookAndFeel lookAndFeel;
         AnimationController animationController;
+        GlitchOverlay glitchOverlay;
 
         PanelComponent distortionPanel;
         PanelComponent chorusPanel;
@@ -119,8 +120,6 @@ namespace synthortion
         std::unique_ptr<SliderAttachment> delayMixAttachment;
         std::unique_ptr<SliderAttachment> inputGainAttachment;
         std::unique_ptr<SliderAttachment> outputGainAttachment;
-
-        GlitchOverlay glitchOverlay;
 
         bool lastBypassState = false;
 

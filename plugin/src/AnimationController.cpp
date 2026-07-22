@@ -9,8 +9,7 @@ namespace synthortion
 
     AnimationController::~AnimationController()
     {
-        if (bypassAnimator.has_value() && ! bypassAnimator->isComplete())
-            updater.removeAnimator (*bypassAnimator);
+        clearAllAnimators();
     }
 
     juce::Animator AnimationController::runAnimator (juce::ValueAnimatorBuilder builder)
@@ -29,6 +28,22 @@ namespace synthortion
     void AnimationController::removeAnimator (const juce::Animator& animator)
     {
         updater.removeAnimator (animator);
+    }
+
+    void AnimationController::clearAllAnimators() noexcept
+    {
+        if (bypassAnimator.has_value())
+        {
+            if (! bypassAnimator->isComplete())
+                updater.removeAnimator (*bypassAnimator);
+
+            bypassAnimator.reset();
+        }
+    }
+
+    bool AnimationController::hasActiveBypassAnimator() const noexcept
+    {
+        return bypassAnimator.has_value();
     }
 
     void AnimationController::startBypassTransition (bool bypassed)
