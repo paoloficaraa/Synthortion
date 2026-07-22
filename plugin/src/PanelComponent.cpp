@@ -16,6 +16,11 @@ namespace synthortion
         setOpaque (true);
     }
 
+    PanelComponent::~PanelComponent()
+    {
+        stopTimer();
+    }
+
     void PanelComponent::paint (juce::Graphics& g)
     {
         g.fillAll (bgColour);
@@ -52,6 +57,32 @@ namespace synthortion
     void PanelComponent::setPlaceholder (bool isPlaceholder) noexcept
     {
         isComingSoonPlaceholder = isPlaceholder;
+
+        if (isComingSoonPlaceholder)
+            startTimer (1000 / kCursorBlinkTimerHz);
+        else
+            stopTimer();
+    }
+
+    void PanelComponent::timerCallback()
+    {
+        advanceBlinkTick (1);
+        repaint();
+    }
+
+    void PanelComponent::advanceBlinkTick (int ticks) noexcept
+    {
+        if (ticks <= 0)
+            return;
+
+        cursorBlinkTick = (cursorBlinkTick + ticks) % kCursorBlinkPeriodTicks;
+    }
+
+    float PanelComponent::getCursorUnderlineAlpha() const noexcept
+    {
+        const float phase = static_cast<float> (cursorBlinkTick)
+                            / static_cast<float> (kCursorBlinkPeriodTicks);
+        return phase < 0.5f ? phase * 2.0f : 2.0f - phase * 2.0f;
     }
 
     void PanelComponent::drawPlaceholderContent (juce::Graphics& g)
@@ -66,30 +97,28 @@ namespace synthortion
                                   ? laf->findColour (SynthortionLookAndFeel::textColourId)
                                   : juce::Colour (0xFFFFFFFF);
 
+        const float bodyTop = ruleY;
+        const float bodyHeight = juce::jmax (1.0f, panelH - ruleY - kPlaceholderMotionMargin);
+        const float bodyCentreY = bodyTop + bodyHeight * 0.5f;
+
         {
-            juce::Rectangle<float> labelArea (panel.getX(), ruleY,
-                                              panelW, juce::jmax (1.0f, panelH - ruleY - kPlaceholderMotionMargin));
+            juce::Rectangle<float> labelArea (panel.getX(),
+                                               bodyCentreY - kTitleHeight * 0.5f,
+                                               panelW,
+                                               kTitleHeight);
             g.setColour (textColour);
             g.setFont (headingFont);
             g.drawFittedText ("COMING SOON", labelArea.toNearestInt(),
                               juce::Justification::centred, 1);
         }
 
-        if (glitchOverlay != nullptr)
+        const float alpha = getCursorUnderlineAlpha();
+        if (alpha > 0.0f)
         {
-            const float motionY = panelH - kPlaceholderMotionMargin;
-            const juce::Rectangle<int> bandArea (panel.getX(),
-                                                 static_cast<int> (motionY),
-                                                 panel.getWidth(),
-                                                 GlitchOverlay::driftBandHeight());
-            glitchOverlay->drawHorizontalBand (g, bandArea);
-
-            const int halfBlock = GlitchOverlay::flickerBlockSize() / 2;
-            const int blockSize = GlitchOverlay::flickerBlockSize();
-            const juce::Rectangle<int> flickerArea (panel.getCentreX() - halfBlock,
-                                                    static_cast<int> (motionY) + blockSize,
-                                                    blockSize, blockSize);
-            glitchOverlay->drawFlickerBlock (g, flickerArea);
+            const int cursorX = juce::roundToInt ((panelW - kCursorWidth) * 0.5f);
+            const int cursorY = juce::roundToInt (bodyCentreY + kTitleHeight * 0.5f + kCursorGap);
+            g.setColour (textColour.withAlpha (alpha));
+            g.fillRect (cursorX, cursorY, juce::roundToInt (kCursorWidth), juce::roundToInt (kCursorHeight));
         }
     }
 }

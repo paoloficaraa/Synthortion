@@ -190,6 +190,11 @@ namespace synthortion
             testKnobValueLabelsDoNotOverlapKnobs();
             testAnimationControllerClearsBypassAnimatorOnTeardown();
             testEditorTeardownLifecycleIsCrashFree();
+            testComingSoonPanelRendersDarkFillAndWhiteOutline();
+            testComingSoonPanelHeaderIsComingSoonAllCapsBebasNeue();
+            testComingSoonPanelCursorUnderlineFadesEvery500ms();
+            testComingSoonPanelDrawsCursorUnderlineBeneathText();
+            testComingSoonPanelPlaceholderHasNoDriftBandOrFlickerBlock();
         }
 
     private:
@@ -2126,6 +2131,211 @@ namespace synthortion
             AudioPluginAudioProcessorEditor editor (processor);
             expect (editor.isTimerRunning(),
                     "Editor 60 Hz timer should be running after a close/reopen lifecycle loop");
+        }
+
+        void testComingSoonPanelRendersDarkFillAndWhiteOutline()
+        {
+            beginTest ("Coming Soon panel renders the same dark fill + 1px white outline + rule as other panels per issue #34");
+
+            SynthortionLookAndFeel lookAndFeel;
+            PanelComponent panel ("COMING SOON", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId));
+            panel.setSize (110, 160);
+            panel.setLookAndFeel (&lookAndFeel);
+            panel.setPlaceholder (true);
+
+            const auto snapshot = panel.createComponentSnapshot (panel.getLocalBounds());
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+            const auto charcoal = juce::Colour (0xFF0D0D0E);
+
+            // Flat #0D0D0E fill on the interior (Surface per issue #28 / #34).
+            // Sample points sit between the title rule (y=22) and the body text
+            // (y~75) and below the cursor-underline (y~104), so they read the
+            // bare Surface fill rather than text glyphs or the cursor.
+            expect (snapshot.getPixelAt (55, 60) == charcoal,
+                    "Coming Soon interior should be flat #0D0D0E like every other panel per issue #34");
+            expect (snapshot.getPixelAt (55, 130) == charcoal,
+                    "Coming Soon interior below the cursor should be flat #0D0D0E per issue #34");
+
+            // 1 px #FFF hard-square outline on every edge.
+            expect (snapshot.getPixelAt (55, 0) == white, "Top edge outline should be #FFF per issue #34");
+            expect (snapshot.getPixelAt (55, 159) == white, "Bottom edge outline should be #FFF per issue #34");
+            expect (snapshot.getPixelAt (0, 80) == white, "Left edge outline should be #FFF per issue #34");
+            expect (snapshot.getPixelAt (109, 80) == white, "Right edge outline should be #FFF per issue #34");
+
+            // 1 px #FFF horizontal rule directly beneath the 22 pt title row.
+            expect (snapshot.getPixelAt (55, 22) == white,
+                    "Rule beneath the COMING SOON header should be #FFF per issue #34");
+        }
+
+        void testComingSoonPanelHeaderIsComingSoonAllCapsBebasNeue()
+        {
+            beginTest ("Coming Soon panel header is 'COMING SOON' all-caps BebasNeue white per issue #34");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            const auto& title = editor.comingSoonPanel.getTitle();
+            expect (title == "COMING SOON", "Coming Soon panel title should be 'COMING SOON'");
+            expect (title.toUpperCase() == title,
+                    "Coming Soon panel title should be all-caps per issue #34");
+
+            const auto titleFont = editor.comingSoonPanel.getTitleFont();
+            expect (juce::roundToInt (titleFont.getHeight()) == 22,
+                    "Coming Soon title font should be 22pt BebasNeue per issue #25");
+            expect (titleFont.getTypefaceName().containsIgnoreCase ("Bebas"),
+                    "Coming Soon title font should request the BebasNeue typeface per issue #34");
+            expect (std::abs (titleFont.getExtraKerningFactor() - SynthortionLookAndFeel::kTightKerning) < 1.0e-6f,
+                    "Coming Soon title font should apply -0.5 tight kerning per issue #25");
+
+            expect (editor.lookAndFeel.findColour (SynthortionLookAndFeel::textColourId) == juce::Colour (0xFFFFFFFF),
+                    "Coming Soon header text colour (Ink) should be pure #FFF per issue #34");
+        }
+
+        void testComingSoonPanelCursorUnderlineFadesEvery500ms()
+        {
+            beginTest ("Coming Soon cursor-underline alpha fades 0->1->0 over 60 ticks (500ms per half-cycle) per issue #34");
+
+            SynthortionLookAndFeel lookAndFeel;
+            PanelComponent panel ("COMING SOON", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId));
+            panel.setLookAndFeel (&lookAndFeel);
+            panel.setPlaceholder (true);
+
+            expect (PanelComponent::cursorBlinkPeriodTicksForTests() == 60,
+                    "Blink period should be 60 ticks (1000ms at 60Hz) per issue #34");
+            expect (PanelComponent::cursorBlinkHalfPeriodTicksForTests() == 30,
+                    "Blink half-period should be 30 ticks (500ms fade in / fade out) per issue #34");
+
+            auto approx = [] (float a, float b) { return std::abs (a - b) < 1.0e-6f; };
+
+            expect (approx (panel.getCursorUnderlineAlpha(), 0.0f),
+                    "Cursor alpha should be 0 at tick 0 (fully off, start of fade-in)");
+            panel.advanceBlinkTick (15);
+            expect (approx (panel.getCursorUnderlineAlpha(), 0.5f),
+                    "Cursor alpha should be 0.5 at tick 15 (quarter cycle, mid fade-in)");
+            panel.advanceBlinkTick (15);
+            expect (approx (panel.getCursorUnderlineAlpha(), 1.0f),
+                    "Cursor alpha should be 1.0 at tick 30 (peak, end of the 500ms fade-in)");
+            panel.advanceBlinkTick (15);
+            expect (approx (panel.getCursorUnderlineAlpha(), 0.5f),
+                    "Cursor alpha should be 0.5 at tick 45 (three-quarter cycle, mid fade-out)");
+            panel.advanceBlinkTick (15);
+            expect (approx (panel.getCursorUnderlineAlpha(), 0.0f),
+                    "Cursor alpha should be 0 at tick 60 (full cycle, end of the 500ms fade-out)");
+
+            // Monotonic fade-in 0->30 then monotonic fade-out 30->60.
+            float prev = panel.getCursorUnderlineAlpha();
+            for (int t = 0; t < 30; ++t)
+            {
+                panel.advanceBlinkTick (1);
+                const float a = panel.getCursorUnderlineAlpha();
+                expect (a >= prev,
+                        "Cursor alpha should monotonically increase during the 0->30 fade-in per issue #34");
+                prev = a;
+            }
+            expect (approx (prev, 1.0f), "Cursor alpha should reach 1.0 at the end of the fade-in");
+            for (int t = 0; t < 30; ++t)
+            {
+                panel.advanceBlinkTick (1);
+                const float a = panel.getCursorUnderlineAlpha();
+                expect (a <= prev,
+                        "Cursor alpha should monotonically decrease during the 30->60 fade-out per issue #34");
+                prev = a;
+            }
+            expect (approx (prev, 0.0f), "Cursor alpha should reach 0.0 at the end of the fade-out");
+        }
+
+        void testComingSoonPanelDrawsCursorUnderlineBeneathText()
+        {
+            beginTest ("Coming Soon panel draws a blinking white cursor-underline beneath the 'COMING SOON' text per issue #34");
+
+            SynthortionLookAndFeel lookAndFeel;
+            PanelComponent panel ("COMING SOON", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId));
+            panel.setSize (110, 160);
+            panel.setLookAndFeel (&lookAndFeel);
+            panel.setPlaceholder (true);
+
+            const auto white = juce::Colour (0xFFFFFFFF);
+
+            // Scan the body (below the 22 pt title rule at y=22) for a solid
+            // contiguous #FFF horizontal run >= 30 px. BebasNeue glyph stems
+            // never span 30 px (letters are ~10-15 px wide with dark gaps
+            // between them), so only the cursor-underline forms a long
+            // contiguous #FFF run in the lower body.
+            auto findCursorRow = [&] (const juce::Image& snap, int yMin, int yMax)
+            {
+                for (int y = yMin; y < yMax; ++y)
+                {
+                    int runStart = -1;
+                    int bestRun = 0;
+                    for (int x = 2; x < 108; ++x)
+                    {
+                        if (snap.getPixelAt (x, y) == white)
+                        {
+                            if (runStart < 0)
+                                runStart = x;
+                            bestRun = juce::jmax (bestRun, x - runStart + 1);
+                        }
+                        else
+                        {
+                            runStart = -1;
+                        }
+                    }
+                    if (bestRun >= 30)
+                        return y;
+                }
+                return -1;
+            };
+
+            // Peak alpha (tick 30): the cursor renders a long contiguous #FFF run.
+            panel.advanceBlinkTick (30);
+            const auto peakSnap = panel.createComponentSnapshot (panel.getLocalBounds());
+            const int peakCursorY = findCursorRow (peakSnap, 30, 158);
+            expect (peakCursorY >= 0,
+                    "A blinking cursor-underline should render a contiguous #FFF span at peak alpha per issue #34");
+            expect (peakCursorY >= 100,
+                    "Cursor-underline should sit beneath the 'COMING SOON' body text (lower body) per issue #34");
+
+            // The 'COMING SOON' body text should render white above the cursor.
+            int textWhitePixels = 0;
+            for (int y = 70; y < 100; ++y)
+                for (int x = 2; x < 108; ++x)
+                    if (peakSnap.getPixelAt (x, y) == white)
+                        ++textWhitePixels;
+            expect (textWhitePixels > 0,
+                    "The 'COMING SOON' body text should render white above the cursor-underline per issue #34");
+
+            // Trough alpha (tick 0): the cursor is fully transparent; no long
+            // #FFF run in the lower body (only the text glyphs + rule remain).
+            panel.advanceBlinkTick (30); // -> 60 -> 0
+            const auto troughSnap = panel.createComponentSnapshot (panel.getLocalBounds());
+            const int troughCursorY = findCursorRow (troughSnap, 30, 158);
+            expect (troughCursorY < 0,
+                    "Cursor-underline should be invisible (no contiguous #FFF span) at trough alpha per issue #34");
+        }
+
+        void testComingSoonPanelPlaceholderHasNoDriftBandOrFlickerBlock()
+        {
+            beginTest ("Coming Soon placeholder no longer renders the drift band or flicker block per issue #34");
+
+            SynthortionLookAndFeel lookAndFeel;
+            PanelComponent panel ("COMING SOON", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId));
+            panel.setSize (110, 160);
+            panel.setLookAndFeel (&lookAndFeel);
+            panel.setPlaceholder (true);
+
+            // cursorBlinkTick starts at 0 (alpha 0) so the cursor is invisible;
+            // the lower body must be flat #0D0D0E with no drift band / flicker
+            // block remnants. The old drift band lived at y = panelH - 16 = 144
+            // (2 px tall, left edge) and the old flicker block at y = 148..152
+            // (4x4 centred) - both inside the scanned region.
+            const auto snapshot = panel.createComponentSnapshot (panel.getLocalBounds());
+            const auto charcoal = juce::Colour (0xFF0D0D0E);
+
+            for (int y = 105; y < 155; ++y)
+                for (int x = 5; x < 105; ++x)
+                    expect (snapshot.getPixelAt (x, y) == charcoal,
+                            "Lower Coming Soon body should be flat #0D0D0E with no drift band / flicker block remnants per issue #34");
         }
     };
 
