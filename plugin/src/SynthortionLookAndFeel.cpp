@@ -71,15 +71,20 @@ void SynthortionLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, i
 {
     auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(kKnobReduction);
     const float knobAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
-    const bool isHoverOrDrag = slider.isMouseOverOrDragging() || slider.isMouseButtonDown() || slider.getThumbBeingDragged() != -1;
 
     auto knobStyle = synthortion::AnimatedKnob::KnobStyle::Canonical;
     int steps = synthortion::AnimatedKnob::kCanonicalSteps;
+    bool isHovering = false;
+    float dragGlowMix = 0.0f;
+    float detentPulseProgress = 0.0f;
 
     if (auto* animatedKnob = dynamic_cast<synthortion::AnimatedKnob*>(&slider))
     {
         knobStyle = animatedKnob->getKnobStyle();
         steps = animatedKnob->getStepCount();
+        isHovering = animatedKnob->isHovering();
+        dragGlowMix = animatedKnob->getDragGlowMix();
+        detentPulseProgress = animatedKnob->getDetentPulseProgress();
     }
 
     const float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
@@ -88,50 +93,71 @@ void SynthortionLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, i
     const float diameter = radius * 2.0f;
     const auto knobBounds = juce::Rectangle<float>(centreX - radius, centreY - radius, diameter, diameter);
 
-    if (isHoverOrDrag)
-        drawTwinShadow(g, knobBounds);
+    drawElevationShadow(g, knobBounds);
 
     if (knobStyle == synthortion::AnimatedKnob::KnobStyle::Outline)
-        drawOutlineKnob(g, bounds, knobAngle, sliderPos, isHoverOrDrag, rotaryStartAngle, rotaryEndAngle, steps);
+        drawOutlineKnob(g, bounds, knobAngle, sliderPos, rotaryStartAngle, rotaryEndAngle, steps,
+                        isHovering, dragGlowMix, detentPulseProgress);
     else
-        drawCanonicalKnob(g, bounds, knobAngle, sliderPos, isHoverOrDrag, rotaryStartAngle, rotaryEndAngle, steps);
+        drawCanonicalKnob(g, bounds, knobAngle, sliderPos, rotaryStartAngle, rotaryEndAngle, steps,
+                          isHovering, dragGlowMix, detentPulseProgress);
 }
 
-void SynthortionLookAndFeel::drawTwinShadow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const
+void SynthortionLookAndFeel::drawElevationShadow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const
 {
-    const juce::Rectangle<float> offset = knobBounds.translated(1.0f, 1.0f);
-
-    g.setColour(WHITE);
-    g.fillEllipse(offset);
+    const juce::Rectangle<float> shadow = knobBounds.translated(0.0f, kKnobShadowOffset);
 
     g.setColour(BLACK);
-    g.fillEllipse(offset.reduced(1.0f));
+    g.fillEllipse(shadow);
 }
 
-void SynthortionLookAndFeel::drawCanonicalKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                                           float knobAngle, float sliderPos, bool isInverted,
-                                           float rotaryStartAngle, float rotaryEndAngle, int steps) const
+void SynthortionLookAndFeel::drawKnobCap(juce::Graphics& g, const juce::Rectangle<float>& knobBounds,
+                                         bool withOutline) const
+{
+    const float centreX = knobBounds.getCentreX();
+    const float centreY = knobBounds.getCentreY();
+    const float radius = knobBounds.getWidth() * 0.5f;
+
+    const juce::Colour capEdge = findColour(surfaceAltColourId);
+    const juce::Colour capHighlight = capEdge.brighter(kKnobCapHighlight);
+
+    juce::ColourGradient dome(
+        capHighlight,
+        centreX,
+        centreY,
+        capEdge,
+        centreX,
+        centreY + radius,
+        true);
+
+    g.setGradientFill(dome);
+    g.fillEllipse(knobBounds);
+
+    if (withOutline)
+    {
+        g.setColour(WHITE);
+        g.drawEllipse(knobBounds, 1.0f);
+    }
+}
+
+void SynthortionLookAndFeel::drawSegmentedArc(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                                              float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
+                                              int steps, float dragGlowMix) const
 {
     const float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
     const float centreX = bounds.getCentreX();
     const float centreY = bounds.getCentreY();
-    const float diameter = radius * 2.0f;
-    const auto knobBounds = juce::Rectangle<float>(centreX - radius, centreY - radius, diameter, diameter);
-
-    const juce::Colour faceColour = isInverted ? BLACK : WHITE;
-    const juce::Colour pointerColour = isInverted ? WHITE : BLACK;
-
-    g.setColour(faceColour);
-    g.fillEllipse(knobBounds);
-
     const float arcRadius = radius - kKnobArcInset;
     const int litCount = juce::jlimit(0, steps, juce::roundToInt(sliderPos * static_cast<float>(steps)));
     const float angularSpan = rotaryEndAngle - rotaryStartAngle;
     const float litAlpha = juce::jlimit(0.0f, 1.0f, 1.0f - bypassMix);
 
-    if (litAlpha > 0.0f)
+    if (litAlpha <= 0.0f)
+        return;
+
+    if (dragGlowMix > 0.0f)
     {
-        g.setColour(pointerColour.withAlpha(litAlpha));
+        g.setColour(WHITE.withAlpha(kKnobArcHaloAlpha * dragGlowMix * litAlpha));
 
         for (int i = 0; i < litCount; ++i)
         {
@@ -140,60 +166,94 @@ void SynthortionLookAndFeel::drawCanonicalKnob(juce::Graphics& g, const juce::Re
 
             juce::Path segment;
             segment.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f, segStart, segEnd, true);
-            g.strokePath(segment, juce::PathStrokeType(kKnobArcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::butt));
+            g.strokePath(segment, juce::PathStrokeType(kKnobArcHaloThickness, juce::PathStrokeType::curved, juce::PathStrokeType::butt));
         }
     }
+
+    g.setColour(WHITE.withAlpha(litAlpha));
+
+    for (int i = 0; i < litCount; ++i)
+    {
+        const float segStart = rotaryStartAngle + (static_cast<float>(i) / static_cast<float>(steps)) * angularSpan;
+        const float segEnd = rotaryStartAngle + (static_cast<float>(i + 1) / static_cast<float>(steps)) * angularSpan;
+
+        juce::Path segment;
+        segment.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f, segStart, segEnd, true);
+        g.strokePath(segment, juce::PathStrokeType(kKnobArcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::butt));
+    }
+}
+
+void SynthortionLookAndFeel::drawPointer(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                                         float knobAngle, float dragGlowMix, float detentPulseProgress) const
+{
+    const float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
+    const float centreX = bounds.getCentreX();
+    const float centreY = bounds.getCentreY();
+    const float pointerAlpha = juce::jlimit(0.0f, 1.0f, 1.0f - bypassMix);
 
     const float pointerLength = radius * kKnobPointerLength;
     const float pointerX = centreX + pointerLength * std::cos(knobAngle - juce::MathConstants<float>::halfPi);
     const float pointerY = centreY + pointerLength * std::sin(knobAngle - juce::MathConstants<float>::halfPi);
+    const float thickness = kKnobPointerThickness + synthortion::AnimatedKnob::kDragPointerThicknessBoost * dragGlowMix;
 
-    g.setColour(pointerColour);
-    g.drawLine(centreX, centreY, pointerX, pointerY, kKnobPointerThickness);
+    if (pointerAlpha > 0.0f)
+    {
+        g.setColour(WHITE.withAlpha(pointerAlpha));
+        g.drawLine(centreX, centreY, pointerX, pointerY, thickness);
+
+        if (detentPulseProgress > 0.0f)
+        {
+            g.setColour(WHITE.withAlpha(kKnobDetentHaloAlpha * detentPulseProgress * pointerAlpha));
+            g.fillEllipse(juce::Rectangle<float>(kKnobDetentHaloRadius * 2.0f, kKnobDetentHaloRadius * 2.0f)
+                              .withCentre(juce::Point<float>(pointerX, pointerY)));
+        }
+    }
 }
 
-void SynthortionLookAndFeel::drawOutlineKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                                         float knobAngle, float sliderPos, bool isInverted,
-                                         float rotaryStartAngle, float rotaryEndAngle, int steps) const
+void SynthortionLookAndFeel::drawHoverRingGlow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const
 {
-    juce::ignoreUnused (sliderPos);
+    g.setColour(WHITE.withAlpha(kKnobHoverRingAlpha));
+    g.drawEllipse(knobBounds.expanded(1.5f), 1.5f);
+}
+
+void SynthortionLookAndFeel::drawCanonicalKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                                            float knobAngle, float sliderPos,
+                                            float rotaryStartAngle, float rotaryEndAngle, int steps,
+                                            bool isHovering, float dragGlowMix, float detentPulseProgress) const
+{
     const float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
     const float centreX = bounds.getCentreX();
     const float centreY = bounds.getCentreY();
     const float diameter = radius * 2.0f;
     const auto knobBounds = juce::Rectangle<float>(centreX - radius, centreY - radius, diameter, diameter);
 
-    const juce::Colour faceColour = isInverted ? WHITE : BLACK;
-    const juce::Colour outlineColour = isInverted ? BLACK : WHITE;
-    const juce::Colour pointerColour = isInverted ? BLACK : WHITE;
+    drawKnobCap(g, knobBounds, false);
 
-    g.setColour(faceColour);
-    g.fillEllipse(knobBounds);
+    if (isHovering)
+        drawHoverRingGlow(g, knobBounds);
 
-    g.setColour(outlineColour);
-    g.drawEllipse(knobBounds, 1.0f);
+    drawSegmentedArc(g, bounds, sliderPos, rotaryStartAngle, rotaryEndAngle, steps, dragGlowMix);
+    drawPointer(g, bounds, knobAngle, dragGlowMix, detentPulseProgress);
+}
 
-    const float rimRadius = radius - kKnobTickStartOffset;
-    const float tickInner = rimRadius - kKnobTickLength;
-    const float angularSpan = rotaryEndAngle - rotaryStartAngle;
+void SynthortionLookAndFeel::drawOutlineKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                                          float knobAngle, float sliderPos,
+                                          float rotaryStartAngle, float rotaryEndAngle, int steps,
+                                          bool isHovering, float dragGlowMix, float detentPulseProgress) const
+{
+    const float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
+    const float centreX = bounds.getCentreX();
+    const float centreY = bounds.getCentreY();
+    const float diameter = radius * 2.0f;
+    const auto knobBounds = juce::Rectangle<float>(centreX - radius, centreY - radius, diameter, diameter);
 
-    for (int i = 0; i < steps; ++i)
-    {
-        const float tickAngle = rotaryStartAngle + (static_cast<float>(i) / static_cast<float>(steps)) * angularSpan;
+    drawKnobCap(g, knobBounds, true);
 
-        const juce::Point<float> start(centreX + rimRadius * std::cos(tickAngle),
-                                        centreY + rimRadius * std::sin(tickAngle));
-        const juce::Point<float> end(centreX + tickInner * std::cos(tickAngle),
-                                      centreY + tickInner * std::sin(tickAngle));
-        g.drawLine(start.x, start.y, end.x, end.y, 1.0f);
-    }
+    if (isHovering)
+        drawHoverRingGlow(g, knobBounds);
 
-    const float pointerLength = radius * kKnobPointerLength;
-    const float pointerX = centreX + pointerLength * std::cos(knobAngle - juce::MathConstants<float>::halfPi);
-    const float pointerY = centreY + pointerLength * std::sin(knobAngle - juce::MathConstants<float>::halfPi);
-
-    g.setColour(pointerColour);
-    g.drawLine(centreX, centreY, pointerX, pointerY, kKnobPointerThickness);
+    drawSegmentedArc(g, bounds, sliderPos, rotaryStartAngle, rotaryEndAngle, steps, dragGlowMix);
+    drawPointer(g, bounds, knobAngle, dragGlowMix, detentPulseProgress);
 }
 
 void SynthortionLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,

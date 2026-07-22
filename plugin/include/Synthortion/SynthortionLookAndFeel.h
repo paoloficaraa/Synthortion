@@ -55,15 +55,26 @@ private:
     void drawSectionTitle(juce::Graphics& g, juce::Rectangle<float>& r,
                           const juce::String& title) const;
 
-    void drawTwinShadow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const;
+    void drawElevationShadow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const;
 
     void drawCanonicalKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                           float knobAngle, float sliderPos, bool isInverted,
-                           float rotaryStartAngle, float rotaryEndAngle, int steps) const;
+                           float knobAngle, float sliderPos,
+                           float rotaryStartAngle, float rotaryEndAngle, int steps,
+                           bool isHovering, float dragGlowMix, float detentPulseProgress) const;
 
     void drawOutlineKnob(juce::Graphics& g, const juce::Rectangle<float>& bounds,
-                         float knobAngle, float sliderPos, bool isInverted,
-                         float rotaryStartAngle, float rotaryEndAngle, int steps) const;
+                         float knobAngle, float sliderPos,
+                         float rotaryStartAngle, float rotaryEndAngle, int steps,
+                         bool isHovering, float dragGlowMix, float detentPulseProgress) const;
+
+    void drawKnobCap(juce::Graphics& g, const juce::Rectangle<float>& knobBounds,
+                     bool withOutline) const;
+    void drawSegmentedArc(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                          float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
+                          int steps, float dragGlowMix) const;
+    void drawPointer(juce::Graphics& g, const juce::Rectangle<float>& bounds,
+                     float knobAngle, float dragGlowMix, float detentPulseProgress) const;
+    void drawHoverRingGlow(juce::Graphics& g, const juce::Rectangle<float>& knobBounds) const;
 
     juce::Typeface::Ptr bebasNeueTypeface;
     juce::Typeface::Ptr montserratTypeface;
@@ -74,13 +85,18 @@ private:
     juce::Font bypassLabelFont;
     float bypassMix = 0.0f;
 
-    static constexpr float kKnobReduction = 2.0f;
-    static constexpr float kKnobPointerThickness = 4.0f;
+    static constexpr float kKnobReduction = 4.0f;
+    static constexpr float kKnobShadowOffset = 2.0f;
+    static constexpr float kKnobPointerThickness = 3.0f;
     static constexpr float kKnobPointerLength = 0.78f;
-    static constexpr float kKnobArcInset = 5.0f;
-    static constexpr float kKnobArcThickness = 3.0f;
-    static constexpr float kKnobTickLength = 3.0f;
-    static constexpr float kKnobTickStartOffset = 1.0f;
+    static constexpr float kKnobArcInset = 3.0f;
+    static constexpr float kKnobArcThickness = 2.5f;
+    static constexpr float kKnobArcHaloThickness = 5.5f;
+    static constexpr float kKnobArcHaloAlpha = 0.35f;
+    static constexpr float kKnobHoverRingAlpha = 0.4f;
+    static constexpr float kKnobDetentHaloRadius = 4.0f;
+    static constexpr float kKnobDetentHaloAlpha = 0.6f;
+    static constexpr float kKnobCapHighlight = 0.22f;
 
     static constexpr float kSwitchWidth = 36.0f;
     static constexpr float kSwitchHeight = 18.0f;

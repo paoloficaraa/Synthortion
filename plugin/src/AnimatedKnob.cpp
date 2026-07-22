@@ -17,6 +17,12 @@ namespace synthortion
     {
         if (currentAnimator.has_value() && ! currentAnimator->isComplete())
             animationController.removeAnimator (*currentAnimator);
+
+        if (dragGlowAnimator.has_value() && ! dragGlowAnimator->isComplete())
+            animationController.removeAnimator (*dragGlowAnimator);
+
+        if (detentPulseAnimator.has_value() && ! detentPulseAnimator->isComplete())
+            animationController.removeAnimator (*detentPulseAnimator);
     }
 
     void AnimatedKnob::paint (juce::Graphics& g)
@@ -51,13 +57,49 @@ namespace synthortion
                 currentAnimator.reset();
             }
 
-            displayProportion = juce::jlimit (0.0f, 1.0f, static_cast<float> (valueToProportionOfLength (getValue())));
-            repaint();
+            applyDisplayProportion (juce::jlimit (0.0f, 1.0f, static_cast<float> (valueToProportionOfLength (getValue()))));
         }
         else
         {
             startArcAnimation();
         }
+    }
+
+    void AnimatedKnob::mouseEnter (const juce::MouseEvent& e)
+    {
+        Slider::mouseEnter (e);
+        hovering = true;
+        repaint();
+    }
+
+    void AnimatedKnob::mouseExit (const juce::MouseEvent& e)
+    {
+        Slider::mouseExit (e);
+        hovering = false;
+        repaint();
+    }
+
+    void AnimatedKnob::mouseDown (const juce::MouseEvent& e)
+    {
+        Slider::mouseDown (e);
+        dragging = true;
+
+        if (dragGlowAnimator.has_value())
+        {
+            if (! dragGlowAnimator->isComplete())
+                animationController.removeAnimator (*dragGlowAnimator);
+            dragGlowAnimator.reset();
+        }
+
+        dragGlowMix = 1.0f;
+        repaint();
+    }
+
+    void AnimatedKnob::mouseUp (const juce::MouseEvent& e)
+    {
+        Slider::mouseUp (e);
+        dragging = false;
+        startDragGlowFade();
     }
 
     void AnimatedKnob::snapToCurrentValue()
@@ -69,6 +111,14 @@ namespace synthortion
         }
 
         displayProportion = juce::jlimit (0.0f, 1.0f, static_cast<float> (valueToProportionOfLength (getValue())));
+        lastStepIndex = juce::jlimit (0, getStepCount(), juce::roundToInt (displayProportion * static_cast<float> (getStepCount())));
+        repaint();
+    }
+
+    void AnimatedKnob::applyDisplayProportion (float proportion)
+    {
+        displayProportion = juce::jlimit (0.0f, 1.0f, proportion);
+        checkDetentStep();
         repaint();
     }
 
@@ -77,6 +127,14 @@ namespace synthortion
         if (steps <= 0)
             return progress;
 
+        const float clamped = juce::jlimit (0.0f, 1.0f, progress);
+        const int stepIndex = juce::jlimit (0, steps, juce::roundToInt (clamped * static_cast<float> (steps)));
+        return static_cast<float> (stepIndex) / static_cast<float> (steps);
+    }
+
+    float AnimatedKnob::quantizeDragGlowProgress (float progress) noexcept
+    {
+        constexpr int steps = kDragGlowFadeSteps;
         const float clamped = juce::jlimit (0.0f, 1.0f, progress);
         const int stepIndex = juce::jlimit (0, steps, juce::roundToInt (clamped * static_cast<float> (steps)));
         return static_cast<float> (stepIndex) / static_cast<float> (steps);
@@ -110,9 +168,82 @@ namespace synthortion
                     {
                         return [this, start, target](float progress)
                         {
-                            displayProportion = start + (target - start) * progress;
-                            repaint();
+                            applyDisplayProportion (start + (target - start) * progress);
                         };
                     }));
+    }
+
+    void AnimatedKnob::startDragGlowFade()
+    {
+        if (dragGlowAnimator.has_value())
+        {
+            if (! dragGlowAnimator->isComplete())
+                animationController.removeAnimator (*dragGlowAnimator);
+            dragGlowAnimator.reset();
+        }
+
+        const float start = dragGlowMix;
+
+        if (start <= 0.001f)
+        {
+            dragGlowMix = 0.0f;
+            repaint();
+            return;
+        }
+
+        dragGlowAnimator = animationController.runAnimator (
+            juce::ValueAnimatorBuilder()
+                .withDurationMs (static_cast<double> (kDragGlowFadeMs))
+                .withEasing ([] (float progress)
+                             {
+                                 return quantizeDragGlowProgress (progress);
+                             })
+                .withValueChangedCallback ([this, start] (float progress)
+                                           {
+                                               dragGlowMix = juce::jlimit (0.0f, 1.0f, start * (1.0f - progress));
+                                               repaint();
+                                           }));
+    }
+
+    void AnimatedKnob::triggerDetentPulse()
+    {
+        if (detentPulseAnimator.has_value())
+        {
+            if (! detentPulseAnimator->isComplete())
+                animationController.removeAnimator (*detentPulseAnimator);
+            detentPulseAnimator.reset();
+        }
+
+        detentPulseProgress = 1.0f;
+
+        detentPulseAnimator = animationController.runAnimator (
+            juce::ValueAnimatorBuilder()
+                .withDurationMs (static_cast<double> (kDetentPulseMs))
+                .withValueChangedCallback ([this] (float progress)
+                                           {
+                                               detentPulseProgress = juce::jlimit (0.0f, 1.0f, 1.0f - progress);
+                                               repaint();
+                                           }));
+    }
+
+    void AnimatedKnob::checkDetentStep()
+    {
+        const int newStep = juce::jlimit (0, getStepCount(), juce::roundToInt (displayProportion * static_cast<float> (getStepCount())));
+
+        if (newStep != lastStepIndex)
+        {
+            lastStepIndex = newStep;
+            triggerDetentPulse();
+        }
+    }
+
+    bool AnimatedKnob::isDragGlowFading() const noexcept
+    {
+        return dragGlowAnimator.has_value() && ! dragGlowAnimator->isComplete();
+    }
+
+    bool AnimatedKnob::isDetentPulseActive() const noexcept
+    {
+        return detentPulseAnimator.has_value() && ! detentPulseAnimator->isComplete();
     }
 }

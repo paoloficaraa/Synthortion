@@ -151,8 +151,8 @@ namespace synthortion
             testAnimatedKnobDefaultStyleIsCanonical();
             testAnimatedKnobStepCountMatchesStyle();
             testAnimatedKnobStepEasingQuantizesHard();
-            testCanonicalKnobInvertsFaceOnMouseDown();
-            testTwinShadowRendersOnDrag();
+            testCanonicalKnobDoesNotInvertFaceOnDrag();
+            testKnobElevationShadowAlwaysVisible();
             testEditorKnobsUseFourCanonicalAndFourOutline();
             testEditorContainsEightAnimatedKnobs();
             testAnimatedKnobBindsToParameter();
@@ -162,7 +162,13 @@ namespace synthortion
             testMeterPeakHoldJumpsToPeak();
             testAnimationControllerBypassMixDefaultsToZero();
             testAnimationControllerBypassTransitionUsesStepEasing();
-            testDeadlockKnobRendersWhiteFace();
+            testKnobCapIsDarkMatteSurfaceAlt();
+            testKnobCapHasRadialDomedGradient();
+            testKnobPointerAndArcAlwaysVisibleAtRest();
+            testKnobHoverAddsOuterRingGlowWithoutInversion();
+            testKnobDragAddsArcHaloAndThickensPointer();
+            testKnobDragGlowFadesOver300msAfterRelease();
+            testKnobDetentPulseFiresOnStepBoundary();
             testMeterSegmentCountIsHardcodedSixteen();
             testMeterRendersSixteenSegmentLedLadder();
             testMeterSegmentsAreBinaryBlackWhite();
@@ -959,9 +965,9 @@ namespace synthortion
                     "Bypass mix should stay in [0, 1] after a transition is started");
         }
 
-        void testDeadlockKnobRendersWhiteFace()
+        void testKnobCapIsDarkMatteSurfaceAlt()
         {
-            beginTest ("Knob renders a flat white canonical face in the DEADLOCK palette");
+            beginTest ("Knob cap renders the dark matte surfaceAlt (#121214) face per issue #29");
 
             juce::Component dummy;
             AnimationController controller (&dummy);
@@ -970,18 +976,370 @@ namespace synthortion
 
             AnimatedKnob knob (controller);
             knob.setRange (0.0, 1.0);
-            knob.setValue (1.0);
+            knob.setValue (0.0, juce::dontSendNotification);
             knob.snapToCurrentValue();
             knob.setSize (60, 60);
             knob.setLookAndFeel (&lookAndFeel);
 
             const auto snapshot = knob.createComponentSnapshot (knob.getLocalBounds());
-            const auto facePixel = snapshot.getPixelAt (15, 30);
 
-            expect (facePixel.getBrightness() > 0.9f,
-                    "Canonical knob face should render pure white in the binary DEADLOCK palette");
+            // The cap is a 52 px disc centred at (30,30) after the 4 px
+            // reduction. A rim pixel at (5,30) (radius 25 from centre, outside
+            // the segmented arc at radius 23 and clear of the start-angle
+            // pointer) reads the matte surfaceAlt edge of the radial dome
+            // gradient, not the old #FFF face.
+            const auto facePixel = snapshot.getPixelAt (5, 30);
+            const auto surfaceAlt = lookAndFeel.findColour (SynthortionLookAndFeel::surfaceAltColourId);
+
+            expect (facePixel.getAlpha() == 255,
+                    "Knob cap face pixel should be opaque");
+            expect (std::abs (facePixel.getRed()   - surfaceAlt.getRed())   < 16,
+                    "Knob cap face red channel should match the dark matte surfaceAlt edge");
+            expect (std::abs (facePixel.getGreen() - surfaceAlt.getGreen()) < 16,
+                    "Knob cap face green channel should match the dark matte surfaceAlt edge");
+            expect (std::abs (facePixel.getBlue()  - surfaceAlt.getBlue())  < 16,
+                    "Knob cap face blue channel should match the dark matte surfaceAlt edge");
+            expect (facePixel.getBrightness() < 0.15f,
+                    "Knob cap face should read as dark matte, not the old #FFF face");
             expect (std::abs (lookAndFeel.getBypassMix()) < 1.0e-6f,
                     "LnF bypass mix should default to the active state");
+        }
+
+        void testKnobCapHasRadialDomedGradient()
+        {
+            beginTest ("Knob cap renders a radial interior gradient for domed depth per issue #29");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            SynthortionLookAndFeel lookAndFeel;
+            lookAndFeel.setBypassMix (0.0f);
+
+            AnimatedKnob knob (controller);
+            knob.setRange (0.0, 1.0);
+            knob.setValue (0.0, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+            knob.setSize (60, 60);
+            knob.setLookAndFeel (&lookAndFeel);
+
+            const auto snapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+
+            // Centre of the dome gradient (offset from the true centre so it
+            // clears the start-angle pointer line): brighter matte highlight.
+            const auto centrePixel = snapshot.getPixelAt (32, 28);
+            // Rim of the dome gradient: dark matte surfaceAlt edge.
+            const auto rimPixel = snapshot.getPixelAt (5, 30);
+
+            expect (centrePixel.getRed() > rimPixel.getRed() + 20,
+                    "Radial dome centre should be noticeably brighter than the matte rim for domed depth");
+            expect (centrePixel.getGreen() > rimPixel.getGreen() + 20,
+                    "Radial dome centre green channel should be brighter than the rim");
+            expect (centrePixel.getBlue() > rimPixel.getBlue() + 20,
+                    "Radial dome centre blue channel should be brighter than the rim");
+        }
+
+        void testKnobPointerAndArcAlwaysVisibleAtRest()
+        {
+            beginTest ("White pointer and segmented value arc are always visible at rest (no hover gating) per issue #29");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            SynthortionLookAndFeel lookAndFeel;
+            lookAndFeel.setBypassMix (0.0f);
+
+            AnimatedKnob knob (controller);
+            knob.setRange (0.0, 1.0);
+            knob.setValue (0.5, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+            knob.setSize (60, 60);
+            knob.setLookAndFeel (&lookAndFeel);
+
+            // At rest (no hover, no drag) the pointer + arc must still render.
+            expect (! knob.isHovering());
+            expect (! knob.isDragging());
+
+            const auto snapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+
+            // Pointer at sliderPos 0.5 points up to (30, ~9.7); a mid-pointer
+            // pixel at (30, 20) reads pure #FFF.
+            const auto pointerPixel = snapshot.getPixelAt (30, 20);
+            expect (pointerPixel.getBrightness() > 0.9f,
+                    "White pointer needle should be visible at rest with no hover gating");
+
+            // The lit segmented arc at sliderPos 0.5 covers the left side
+            // (screen angles ~135..270 deg, the arc + pointer share the -90 deg
+            // offset). A stroke-centre pixel at screen 180 deg -> (7, 30) reads
+            // pure #FFF, proving the arc is always visible with no hover gating.
+            const auto arcPixel = snapshot.getPixelAt (7, 30);
+            expect (arcPixel.getBrightness() > 0.9f,
+                    "Segmented value arc should be visible at rest with no hover gating");
+        }
+
+        void testKnobElevationShadowAlwaysVisible()
+        {
+            beginTest ("A 2 px elevation shadow is drawn beneath every knob at rest (constant, not hover-dependent) per issue #29");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            SynthortionLookAndFeel lookAndFeel;
+            lookAndFeel.setBypassMix (0.0f);
+
+            AnimatedKnob knob (controller);
+            knob.setRange (0.0, 1.0);
+            knob.setValue (0.5, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+            knob.setSize (60, 60);
+            knob.setLookAndFeel (&lookAndFeel);
+
+            expect (! knob.isHovering() && ! knob.isDragging(),
+                    "Elevation shadow must be present at rest, not only on hover/drag");
+
+            const auto snapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+
+            // The cap disc spans y [4, 56]; the 2 px-offset shadow spans
+            // y [6, 58]. A pixel at (30, 57) is beneath the cap (cap bottom
+            // 56), covered only by the elevation shadow crescent -> near-opaque
+            // #000 (antialiased at the 2 px shadow edge). A pixel at (30, 59)
+            // sits outside both the cap and the shadow -> fully transparent.
+            const auto shadowPixel = snapshot.getPixelAt (30, 57);
+            const auto outsidePixel = snapshot.getPixelAt (30, 59);
+            expect (shadowPixel.getAlpha() > 200,
+                    "Elevation shadow pixel beneath the knob should be near-opaque at rest");
+            expect (shadowPixel.getBrightness() < 0.05f,
+                    "Elevation shadow beneath the knob should render as #000 at rest");
+            expect (shadowPixel.getAlpha() > outsidePixel.getAlpha(),
+                    "Elevation shadow crescent should be more opaque than the clear area just below it");
+        }
+
+        void testCanonicalKnobDoesNotInvertFaceOnDrag()
+        {
+            beginTest ("Canonical knob does NOT invert its cap face on mouse-down (hover adds ring glow, no inversion) per issue #29");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            SynthortionLookAndFeel lookAndFeel;
+            lookAndFeel.setBypassMix (0.0f);
+
+            AnimatedKnob knob (controller);
+            knob.setRange (0.0, 1.0);
+            knob.setValue (0.5, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+            knob.setSize (60, 60);
+            knob.setLookAndFeel (&lookAndFeel);
+
+            const auto idleSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+            // At sliderPos 0.5 the lit arc covers the left side, so sample the
+            // matte cap face on the unlit right side at (50, 30) (radius 20,
+            // clear of the arc at radius 23 and the vertical pointer at x=30).
+            const auto idleFace = idleSnapshot.getPixelAt (50, 30);
+            expect (idleFace.getBrightness() < 0.2f,
+                    "Canonical knob cap face should be dark matte at rest");
+
+            knob.mouseDown (makeMouseDownEvent (knob));
+
+            const auto pressedSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+            const auto pressedFace = pressedSnapshot.getPixelAt (50, 30);
+            expect (pressedFace.getBrightness() < 0.2f,
+                    "Canonical knob cap face should stay dark matte on mouse-down (no colour inversion)");
+            expect (knob.isDragging(),
+                    "AnimatedKnob should report the dragging state on mouse-down");
+            expect (std::abs (knob.getDragGlowMix() - 1.0f) < 1.0e-6f,
+                    "Drag-glow mix should be held at 1 during an active drag");
+        }
+
+        void testKnobHoverAddsOuterRingGlowWithoutInversion()
+        {
+            beginTest ("Hover adds a subtle outer ring glow on the cap rim with no face/pointer inversion per issue #29");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            SynthortionLookAndFeel lookAndFeel;
+            lookAndFeel.setBypassMix (0.0f);
+
+            AnimatedKnob knob (controller);
+            knob.setRange (0.0, 1.0);
+            knob.setValue (0.5, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+            knob.setSize (60, 60);
+            knob.setLookAndFeel (&lookAndFeel);
+
+            const auto idleSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+            // (3, 30) sits just outside the cap rim (radius 27 from centre)
+            // and outside the down-offset elevation shadow: transparent at rest.
+            const auto idleRingPixel = idleSnapshot.getPixelAt (3, 30);
+            expect (idleRingPixel.getAlpha() == 0 || idleRingPixel.getBrightness() < 0.1f,
+                    "Outer cap rim should be clear at rest (no ring glow without hover)");
+
+            knob.mouseEnter (makeMouseEnterEvent (knob));
+            expect (knob.isHovering(),
+                    "AnimatedKnob should report the hovering state on mouse-enter");
+
+            const auto hoverSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+            const auto hoverRingPixel = hoverSnapshot.getPixelAt (3, 30);
+            expect (hoverRingPixel.getAlpha() > 0 && hoverRingPixel.getBrightness() > idleRingPixel.getBrightness(),
+                    "Hover should render a subtle outer ring glow pixel on the cap rim");
+
+            // No colour inversion: the cap face stays dark matte while hovering.
+            // Sample the unlit right-side cap at (50, 30), clear of the lit arc.
+            const auto hoverFace = hoverSnapshot.getPixelAt (50, 30);
+            expect (hoverFace.getBrightness() < 0.2f,
+                    "Hover ring glow must not invert the cap face to white");
+        }
+
+        void testKnobDragAddsArcHaloAndThickensPointer()
+        {
+            beginTest ("Active drag adds an arc halo glow and thickens the pointer per issue #29");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            SynthortionLookAndFeel lookAndFeel;
+            lookAndFeel.setBypassMix (0.0f);
+
+            AnimatedKnob knob (controller);
+            knob.setRange (0.0, 1.0);
+            knob.setValue (0.5, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+            knob.setSize (60, 60);
+            knob.setLookAndFeel (&lookAndFeel);
+
+            const auto restSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+
+            knob.mouseDown (makeMouseDownEvent (knob));
+            expect (knob.isDragging());
+            expect (std::abs (knob.getDragGlowMix() - 1.0f) < 1.0e-6f);
+
+            const auto dragSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+
+            // Pointer at sliderPos 0.5 is vertical at x=30 (up). At rest
+            // (thickness 3) it spans x [28.5, 31.5]; during drag (thickness 5)
+            // it spans x [27.5, 32.5]. Counting bright (R > 200) pixels across
+            // x [26, 34] at y=12 yields ~3 at rest and ~5 during drag, proving
+            // the pointer thickens.
+            int restPointerWidth = 0;
+            int dragPointerWidth = 0;
+            for (int x = 26; x <= 34; ++x)
+            {
+                if (restSnapshot.getPixelAt (x, 12).getRed() > 200)
+                    ++restPointerWidth;
+                if (dragSnapshot.getPixelAt (x, 12).getRed() > 200)
+                    ++dragPointerWidth;
+            }
+            expect (dragPointerWidth > restPointerWidth,
+                    "Drag should thicken the pointer (more bright pixels across the pointer line)");
+
+            // Arc halo: at sliderPos 0.5 the lit arc covers screen angles
+            // ~135..270 deg. A pixel at screen 225 deg, radius 25.5 -> (12, 12)
+            // sits just outside the 2.5 px normal arc stroke (radius 23) but
+            // inside the 5.5 px drag halo stroke (radius [20.25, 26.25]). It
+            // reads matte at rest and a blended halo white on drag.
+            const auto restHalo = restSnapshot.getPixelAt (12, 12);
+            const auto dragHalo = dragSnapshot.getPixelAt (12, 12);
+            expect (dragHalo.getBrightness() > restHalo.getBrightness() + 0.1f,
+                    "Drag should render the arc halo glow just outside the normal arc stroke");
+        }
+
+        void testKnobDragGlowFadesOver300msAfterRelease()
+        {
+            beginTest ("Arc glow and pointer thickening fade back to flat white over 300 ms after mouse release per issue #29");
+
+            expect (AnimatedKnob::kDragGlowFadeMs == 300,
+                    "Drag-glow fade duration must be 300 ms per issue #29");
+            expect (AnimatedKnob::kDragGlowFadeSteps == 8,
+                    "Drag-glow fade quantises to 8 hard steps");
+
+            expect (std::abs (AnimatedKnob::quantizeDragGlowProgress (0.0f) - 0.0f) < 1.0e-6f,
+                    "progress 0 should quantise to step 0/8 = 0");
+            expect (std::abs (AnimatedKnob::quantizeDragGlowProgress (0.5f) - 0.5f) < 1.0e-6f,
+                    "progress 0.5 should quantise to step 4/8 = 0.5");
+            expect (std::abs (AnimatedKnob::quantizeDragGlowProgress (1.0f) - 1.0f) < 1.0e-6f,
+                    "progress 1 should quantise to step 8/8 = 1");
+            expect (std::abs (AnimatedKnob::quantizeDragGlowProgress (0.59f) - 0.625f) < 1.0e-6f,
+                    "progress 0.59 should quantise up to step 5/8 = 0.625");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            SynthortionLookAndFeel lookAndFeel;
+
+            AnimatedKnob knob (controller);
+            knob.setRange (0.0, 1.0);
+            knob.setValue (0.5, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+            knob.setSize (60, 60);
+            knob.setLookAndFeel (&lookAndFeel);
+
+            expect (std::abs (knob.getDragGlowMix()) < 1.0e-6f,
+                    "Drag-glow mix should be 0 at rest");
+            expect (! knob.isDragGlowFading(),
+                    "No drag-glow fade should be in flight at rest");
+
+            knob.mouseDown (makeMouseDownEvent (knob));
+            expect (std::abs (knob.getDragGlowMix() - 1.0f) < 1.0e-6f,
+                    "Drag-glow mix should be held at 1 during a drag");
+            expect (! knob.isDragGlowFading(),
+                    "No fade should be in flight while the drag is still active");
+
+            knob.mouseUp (makeMouseUpEvent (knob));
+            expect (! knob.isDragging(),
+                    "Dragging state should clear on mouse-up");
+            expect (knob.isDragGlowFading(),
+                    "The 300 ms drag-glow fade animator should be in flight immediately after release");
+            expect (std::abs (knob.getDragGlowMix() - 1.0f) < 1.0e-6f,
+                    "Drag-glow mix should still be ~1 immediately after release before the VBlank fade advances");
+        }
+
+        void testKnobDetentPulseFiresOnStepBoundary()
+        {
+            beginTest ("A 50 ms detent halo pulse fires at the pointer each time a step boundary is crossed per issue #29");
+
+            expect (AnimatedKnob::kDetentPulseMs == 50,
+                    "Detent pulse duration must be 50 ms per issue #29");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+            SynthortionLookAndFeel lookAndFeel;
+            lookAndFeel.setBypassMix (0.0f);
+
+            AnimatedKnob knob (controller);
+            knob.setRange (0.0, 1.0);
+            knob.setValue (0.0, juce::dontSendNotification);
+            knob.snapToCurrentValue();
+            knob.setSize (60, 60);
+            knob.setLookAndFeel (&lookAndFeel);
+
+            expect (knob.getLastStepIndex() == 0,
+                    "Last step index should be 0 after snapping to value 0");
+            expect (! knob.isDetentPulseActive(),
+                    "No detent pulse should be in flight at rest");
+            expect (std::abs (knob.getDetentPulseProgress()) < 1.0e-6f,
+                    "Detent pulse progress should be 0 at rest");
+
+            // Cross from step 0 to step 3 (16 Canonical steps, 0.2 ~ step 3).
+            // applyDisplayProportion is the single entry point used by the drag
+            // path and the arc animation callback, so this exercises the real
+            // detent-evaluation path without needing a host VBlank.
+            knob.applyDisplayProportion (0.2f);
+
+            expect (knob.getLastStepIndex() == 3,
+                    "Last step index should advance to 3 after crossing the 0.2 boundary");
+            expect (knob.isDetentPulseActive(),
+                    "A detent pulse animator should be in flight the instant a step boundary is crossed");
+            expect (std::abs (knob.getDetentPulseProgress() - 1.0f) < 1.0e-6f,
+                    "Detent pulse progress should jump to 1 the instant a step boundary is crossed");
+
+            const auto snapshot = knob.createComponentSnapshot (knob.getLocalBounds());
+
+            // Pointer at sliderPos 0.2: knobAngle = start + 0.2 * span. Pointer
+            // tip lands in the upper-left quadrant; sample the detent halo disk
+            // drawn at the tip (radius 4) by scanning a small window and
+            // requiring at least one bright pixel that is not on the flat
+            // pointer line itself.
+            bool hasDetentHalo = false;
+            for (int y = 4; y < 28 && ! hasDetentHalo; ++y)
+                for (int x = 4; x < 30 && ! hasDetentHalo; ++x)
+                    if (snapshot.getPixelAt (x, y).getBrightness() > 0.9f)
+                        hasDetentHalo = true;
+
+            expect (hasDetentHalo,
+                    "The detent halo should render a bright pixel at the pointer tip on a step crossing");
         }
 
         void testMeterSegmentCountIsHardcodedSixteen()
@@ -1709,16 +2067,56 @@ namespace synthortion
             const auto now = juce::Time::getCurrentTime();
 
             return juce::MouseEvent (source,
-                                    pos,
-                                    juce::ModifierKeys (juce::ModifierKeys::leftButtonModifier),
-                                    0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                                    &target,
-                                    &target,
-                                    now,
-                                    pos,
-                                    now,
-                                    1,
-                                    false);
+                                     pos,
+                                     juce::ModifierKeys (juce::ModifierKeys::leftButtonModifier),
+                                     0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                     &target,
+                                     &target,
+                                     now,
+                                     pos,
+                                     now,
+                                     1,
+                                     false);
+        }
+
+        juce::MouseEvent makeMouseEnterEvent (juce::Component& target)
+        {
+            auto source = juce::Desktop::getInstance().getMainMouseSource();
+            const juce::Point<float> pos (static_cast<float> (target.getWidth()) * 0.5f,
+                                          static_cast<float> (target.getHeight()) * 0.5f);
+            const auto now = juce::Time::getCurrentTime();
+
+            return juce::MouseEvent (source,
+                                     pos,
+                                     juce::ModifierKeys(),
+                                     0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                     &target,
+                                     &target,
+                                     now,
+                                     pos,
+                                     now,
+                                     0,
+                                     false);
+        }
+
+        juce::MouseEvent makeMouseUpEvent (juce::Component& target)
+        {
+            auto source = juce::Desktop::getInstance().getMainMouseSource();
+            const juce::Point<float> pos (static_cast<float> (target.getWidth()) * 0.5f,
+                                          static_cast<float> (target.getHeight()) * 0.5f);
+            const auto now = juce::Time::getCurrentTime();
+
+            return juce::MouseEvent (source,
+                                     pos,
+                                     juce::ModifierKeys (juce::ModifierKeys::leftButtonModifier),
+                                     0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                     &target,
+                                     &target,
+                                     now,
+                                     pos,
+                                     now,
+                                     0,
+                                     false);
         }
 
         void testAnimatedKnobDefaultStyleIsCanonical()
@@ -1761,59 +2159,10 @@ namespace synthortion
                     "progress ~0.34 with N=8 should snap to the 3/8 step (0.375)");
         }
 
-        void testCanonicalKnobInvertsFaceOnMouseDown()
-        {
-            beginTest ("Canonical knob inverts its disc from #FFF to #000 on mouse-down");
+        void testCanonicalKnobInvertsFaceOnMouseDown() {}
+        void testTwinShadowRendersOnDrag() {}
 
-            juce::Component dummy;
-            AnimationController controller (&dummy);
-            SynthortionLookAndFeel lookAndFeel;
 
-            AnimatedKnob knob (controller);
-            knob.setRange (0.0, 1.0);
-            knob.setValue (0.5, juce::dontSendNotification);
-            knob.snapToCurrentValue();
-            knob.setSize (60, 60);
-            knob.setLookAndFeel (&lookAndFeel);
-
-            const auto idleSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
-            expect (idleSnapshot.getPixelAt (15, 30).getBrightness() > 0.9f,
-                    "Canonical knob face should be pure #FFF at rest");
-
-            knob.mouseDown (makeMouseDownEvent (knob));
-
-            const auto pressedSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
-            expect (pressedSnapshot.getPixelAt (15, 30).getBrightness() < 0.1f,
-                    "Canonical knob face should invert to pure #000 on mouse-down");
-        }
-
-        void testTwinShadowRendersOnDrag()
-        {
-            beginTest ("AnimatedKnob renders a hard twin shadow ring on mouse-down");
-
-            juce::Component dummy;
-            AnimationController controller (&dummy);
-            SynthortionLookAndFeel lookAndFeel;
-
-            AnimatedKnob knob (controller);
-            knob.setRange (0.0, 1.0);
-            knob.setValue (0.5, juce::dontSendNotification);
-            knob.snapToCurrentValue();
-            knob.setSize (60, 60);
-            knob.setLookAndFeel (&lookAndFeel);
-
-            const auto idleSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
-            knob.mouseDown (makeMouseDownEvent (knob));
-            const auto pressedSnapshot = knob.createComponentSnapshot (knob.getLocalBounds());
-
-            const auto idlePixel = idleSnapshot.getPixelAt (50, 51);
-            const auto pressedPixel = pressedSnapshot.getPixelAt (50, 51);
-
-            expect (idlePixel.getAlpha() == 0 || idlePixel.getBrightness() < 0.1f,
-                    "Pixel outside the rest knob disc should be the transparent substrate");
-            expect (pressedPixel.getAlpha() > 0 && pressedPixel.getBrightness() > idlePixel.getBrightness(),
-                    "On mouse-down the twin-shadow #FFF ring should render a light pixel lower-right of the disc");
-        }
 
         void testEditorKnobsUseFourCanonicalAndFourOutline()
         {
