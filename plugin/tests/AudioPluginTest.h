@@ -122,8 +122,16 @@ namespace synthortion
         {
             testBypassComponentLedTogglesOnClick();
             testBypassSwitchParameterAttachment();
-            testBypassSwitchRendersActiveWhiteBlock();
-            testBypassSwitchRendersBypassedBlackBlockWithOutline();
+            testBypassSwitchAnimationDurationIsHundredMs();
+            testBypassSwitchDepressesWhenActiveAndRestsWhenBypassed();
+            testBypassSwitchLedBrightnessBrightWhenActiveDarkWhenBypassed();
+            testBypassSwitchRendersDualToneBezel();
+            testBypassSwitchRendersVerticalMetallicGradient();
+            testBypassSwitchRendersBrightLedWhenActive();
+            testBypassSwitchRendersDarkLedWhenBypassed();
+            testBypassSwitchLedHaloSpreadsWhenActive();
+            testBypassSwitchHasRoundedCorners();
+            testBypassSwitchLabelIsUnclipped();
             testBypassSwitchFiresSliceGlitchOnToggle();
             testEditorIsOpaque();
             testPanelComponentIsOpaque();
@@ -1830,67 +1838,238 @@ namespace synthortion
             expect (outline == 4, "Editor should expose exactly four Outline (small) knobs");
         }
 
-        void testBypassSwitchRendersActiveWhiteBlock()
+        void testBypassSwitchAnimationDurationIsHundredMs()
         {
-            beginTest ("BypassSwitch active state renders a solid #FFF Block with #000 BYPASS text, no outline");
+            beginTest ("BypassSwitch depress/release animation lasts 100 ms per issue #30");
 
-            SynthortionLookAndFeel lookAndFeel;
-
-            BypassSwitch bypass (nullptr);
-            bypass.setSize (120, 80);
-            bypass.setLookAndFeel (&lookAndFeel);
-            bypass.setToggleState (false, juce::sendNotificationSync);
-            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
-
-            const auto snap = bypass.createComponentSnapshot (bypass.getLocalBounds());
-            const auto white = juce::Colour (0xFFFFFFFF);
-            const auto black = juce::Colour (0xFF000000);
-
-            expect (snap.getPixelAt (15, 70) == white,
-                    "Active state: solid #FFF block fill at the lower-left interior, away from the BYPASS label");
-            expect (snap.getPixelAt (10, 10) == white,
-                    "Active state: no #000 outline ring at the upper-left interior");
-
-            bool hasBlackPixel = false;
-            for (int y = 28; y < 52 && ! hasBlackPixel; ++y)
-                for (int x = 30; x < 90 && ! hasBlackPixel; ++x)
-                    if (snap.getPixelAt (x, y).getBrightness() < 0.05f)
-                        hasBlackPixel = true;
-
-            expect (hasBlackPixel, "Active state: #000 BYPASS label BebasNeue 16pt must render");
+            expect (std::abs (BypassSwitch::kAnimationDurationMs - 100.0) < 1.0e-6,
+                    "kAnimationDurationMs must be 100 ms (depress + release) per issue #30");
+            expect (BypassSwitch::kDepressPixels >= 1.0f && BypassSwitch::kDepressPixels <= 2.0f,
+                    "Cap depress travel must be 1-2 px per issue #30");
         }
 
-        void testBypassSwitchRendersBypassedBlackBlockWithOutline()
+        void testBypassSwitchDepressesWhenActiveAndRestsWhenBypassed()
         {
-            beginTest ("BypassSwitch bypassed state renders a solid #000 block with a 1 px #FFF outline");
+            beginTest ("BypassSwitch cap depresses (sinks) when active and rests at 0 when bypassed");
 
             SynthortionLookAndFeel lookAndFeel;
-
             BypassSwitch bypass (nullptr);
-            bypass.setSize (120, 80);
             bypass.setLookAndFeel (&lookAndFeel);
+            bypass.setSize (120, 80);
+
+            bypass.setToggleState (true, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+            expect (std::abs (bypass.getDepressOffset()) < 1.0e-6f,
+                    "Bypassed cap should rest at 0 depress offset");
+
+            bypass.setToggleState (false, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+            expect (std::abs (bypass.getDepressOffset() - BypassSwitch::kDepressPixels) < 1.0e-6f,
+                    "Active cap should sink by kDepressPixels (1-2 px) per issue #30");
+        }
+
+        void testBypassSwitchLedBrightnessBrightWhenActiveDarkWhenBypassed()
+        {
+            beginTest ("BypassSwitch LED brightness is 1 when active and 0 when bypassed");
+
+            SynthortionLookAndFeel lookAndFeel;
+            BypassSwitch bypass (nullptr);
+            bypass.setLookAndFeel (&lookAndFeel);
+            bypass.setSize (120, 80);
+
+            bypass.setToggleState (false, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+            expect (std::abs (bypass.getLedBrightness() - 1.0f) < 1.0e-6f,
+                    "Active LED brightness should be 1 (bright white glow)");
+
+            bypass.setToggleState (true, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+            expect (std::abs (bypass.getLedBrightness()) < 1.0e-6f,
+                    "Bypassed LED brightness should be 0 (dark / near-invisible)");
+        }
+
+        void testBypassSwitchRendersDualToneBezel()
+        {
+            beginTest ("BypassSwitch body has a 1 px dual-tone bezel (lighter outer, darker inner edge)");
+
+            SynthortionLookAndFeel lookAndFeel;
+            BypassSwitch bypass (nullptr);
+            bypass.setLookAndFeel (&lookAndFeel);
+            bypass.setSize (120, 80);
             bypass.setToggleState (true, juce::sendNotificationSync);
             juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
 
             const auto snap = bypass.createComponentSnapshot (bypass.getLocalBounds());
-            const auto white = juce::Colour (0xFFFFFFFF);
-            const auto black = juce::Colour (0xFF000000);
+            const auto body = bypass.getBodyBounds();
+            const int edgeX = juce::roundToInt (body.getCentreX());
+            const int outerY = juce::roundToInt (body.getY());
+            const int innerY = juce::roundToInt (body.getY()) + 1;
 
-            expect (snap.getPixelAt (10, 70) == black,
-                    "Bypassed state: solid #000 block fill at the lower-left interior, away from the BYPASS label");
+            const float outerBrightness = snap.getPixelAt (edgeX, outerY).getBrightness();
+            const float innerBrightness = snap.getPixelAt (edgeX, innerY).getBrightness();
 
-            expect (snap.getPixelAt (0, 40) == white,
-                    "Bypassed state: 1 px #FFF outline ring on the left edge of the block");
-            expect (snap.getPixelAt (60, 79) == white,
-                    "Bypassed state: 1 px #FFF outline ring on the bottom edge of the block");
+            expect (outerBrightness > innerBrightness,
+                    "Bezel outer edge should be lighter than the inner edge (dual-tone inset)");
+            expect (outerBrightness > 0.2f,
+                    "Bezel outer edge should be a visible light tone");
+            expect (innerBrightness < 0.1f,
+                    "Bezel inner edge should be a dark tone");
+        }
 
-            bool hasWhitePixel = false;
-            for (int y = 28; y < 52 && ! hasWhitePixel; ++y)
-                for (int x = 30; x < 90 && ! hasWhitePixel; ++x)
-                    if (snap.getPixelAt (x, y).getBrightness() > 0.95f)
-                        hasWhitePixel = true;
+        void testBypassSwitchRendersVerticalMetallicGradient()
+        {
+            beginTest ("BypassSwitch body has a vertical metallic gradient (charcoal top, near-black bottom)");
 
-            expect (hasWhitePixel, "Bypassed state: #FFF BYPASS label BebasNeue 16pt must render");
+            SynthortionLookAndFeel lookAndFeel;
+            BypassSwitch bypass (nullptr);
+            bypass.setLookAndFeel (&lookAndFeel);
+            bypass.setSize (120, 80);
+            bypass.setToggleState (true, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            const auto snap = bypass.createComponentSnapshot (bypass.getLocalBounds());
+            const auto body = bypass.getBodyBounds();
+            const int x = juce::roundToInt (body.getCentreX());
+            const int topY = juce::roundToInt (body.getY()) + 2;
+            const int bottomY = juce::roundToInt (body.getBottom()) - 3;
+
+            const float topBrightness = snap.getPixelAt (x, topY).getBrightness();
+            const float bottomBrightness = snap.getPixelAt (x, bottomY).getBrightness();
+
+            expect (topBrightness > bottomBrightness,
+                    "Vertical gradient: top (charcoal) should be brighter than bottom (near-black)");
+            expect (topBrightness < 0.5f,
+                    "Gradient top should be dark charcoal, not white");
+            expect (bottomBrightness < 0.1f,
+                    "Gradient bottom should be near-black");
+        }
+
+        void testBypassSwitchRendersBrightLedWhenActive()
+        {
+            beginTest ("BypassSwitch active state: LED emits bright white glow");
+
+            SynthortionLookAndFeel lookAndFeel;
+            BypassSwitch bypass (nullptr);
+            bypass.setLookAndFeel (&lookAndFeel);
+            bypass.setSize (120, 80);
+            bypass.setToggleState (false, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            const auto snap = bypass.createComponentSnapshot (bypass.getLocalBounds());
+            const auto led = bypass.getLedBounds();
+            const int ledX = juce::roundToInt (led.getCentreX());
+            const int ledY = juce::roundToInt (led.getCentreY());
+
+            expect (snap.getPixelAt (ledX, ledY).getBrightness() > 0.95f,
+                    "Active LED centre should emit bright white");
+        }
+
+        void testBypassSwitchRendersDarkLedWhenBypassed()
+        {
+            beginTest ("BypassSwitch bypassed state: LED aperture is a visible dark hole, no glow");
+
+            SynthortionLookAndFeel lookAndFeel;
+            BypassSwitch bypass (nullptr);
+            bypass.setLookAndFeel (&lookAndFeel);
+            bypass.setSize (120, 80);
+            bypass.setToggleState (true, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            const auto snap = bypass.createComponentSnapshot (bypass.getLocalBounds());
+            const auto led = bypass.getLedBounds();
+            const int ledX = juce::roundToInt (led.getCentreX());
+            const int ledY = juce::roundToInt (led.getCentreY());
+
+            expect (snap.getPixelAt (ledX, ledY).getBrightness() < 0.1f,
+                    "Bypassed LED centre should be dark / near-invisible (no glow)");
+
+            // The aperture hole is distinct from the surrounding cap (criterion: aperture visible).
+            const int surroundY = juce::roundToInt (bypass.getBodyBounds().getY()) + 8;
+            expect (snap.getPixelAt (ledX, surroundY).getBrightness() - snap.getPixelAt (ledX, ledY).getBrightness() > 0.1f,
+                    "Bypassed LED aperture should be a visible dark hole distinct from the cap");
+        }
+
+        void testBypassSwitchLedHaloSpreadsWhenActive()
+        {
+            beginTest ("BypassSwitch active state: LED halo spreads beyond the aperture");
+
+            SynthortionLookAndFeel lookAndFeel;
+
+            BypassSwitch active (nullptr);
+            active.setLookAndFeel (&lookAndFeel);
+            active.setSize (120, 80);
+            active.setToggleState (false, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            BypassSwitch bypassed (nullptr);
+            bypassed.setLookAndFeel (&lookAndFeel);
+            bypassed.setSize (120, 80);
+            bypassed.setToggleState (true, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            const auto activeSnap = active.createComponentSnapshot (active.getLocalBounds());
+            const auto bypassedSnap = bypassed.createComponentSnapshot (bypassed.getLocalBounds());
+
+            const auto activeLed = active.getLedBounds();
+            const auto bypassedLed = bypassed.getLedBounds();
+            const int haloDX = juce::roundToInt (activeLed.getWidth() * 0.5f + 3.0f);
+
+            const int ax = juce::roundToInt (activeLed.getCentreX()) + haloDX;
+            const int ay = juce::roundToInt (activeLed.getCentreY());
+            const int bx = juce::roundToInt (bypassedLed.getCentreX()) + haloDX;
+            const int by = juce::roundToInt (bypassedLed.getCentreY());
+
+            expect (activeSnap.getPixelAt (ax, ay).getBrightness() > bypassedSnap.getPixelAt (bx, by).getBrightness(),
+                    "Active LED halo should spread brighter than the bypassed (no-halo) state at the same relative offset");
+        }
+
+        void testBypassSwitchHasRoundedCorners()
+        {
+            beginTest ("BypassSwitch cap uses rounded corners (distinguished from flat panels)");
+
+            expect (BypassSwitch::kButtonCornerRadius > 0.0f,
+                    "Cap corner radius must be > 0 to distinguish the button from flat 90-corner panels");
+
+            SynthortionLookAndFeel lookAndFeel;
+            BypassSwitch bypass (nullptr);
+            bypass.setLookAndFeel (&lookAndFeel);
+            bypass.setSize (120, 80);
+            bypass.setToggleState (true, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            const auto snap = bypass.createComponentSnapshot (bypass.getLocalBounds());
+            const auto body = bypass.getBodyBounds();
+
+            // The solid flat top edge (full bezel) vs the rounded corner (cut by the arc).
+            // A sharp fillRect cap would paint both equally; rounding leaves the corner dark.
+            const int edgeX = juce::roundToInt (body.getCentreX());
+            const int edgeY = juce::roundToInt (body.getY());
+            const int cornerX = juce::roundToInt (body.getX());
+            const int cornerY = juce::roundToInt (body.getY());
+
+            expect (snap.getPixelAt (cornerX, cornerY).getBrightness() < snap.getPixelAt (edgeX, edgeY).getBrightness() - 0.1f,
+                    "Rounded cap corner should be darker than the solid flat edge (corner cut by rounding, not a sharp 90-corner)");
+        }
+
+        void testBypassSwitchLabelIsUnclipped()
+        {
+            beginTest ("BypassSwitch BYPASS label fits unclipped within the cap (no truncated 'BS')");
+
+            SynthortionLookAndFeel lookAndFeel;
+            BypassSwitch bypass (nullptr);
+            bypass.setLookAndFeel (&lookAndFeel);
+            bypass.setSize (130, 90);
+            bypass.setToggleState (true, juce::sendNotificationSync);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+
+            const auto labelFont = lookAndFeel.getBypassLabelFont();
+            juce::GlyphArrangement glyphs;
+            glyphs.addLineOfText (labelFont, "BYPASS", 0.0f, 0.0f);
+            const int labelWidth = juce::roundToInt (glyphs.getBoundingBox (0, glyphs.getNumGlyphs(), true).getWidth());
+            const auto body = bypass.getBodyBounds();
+
+            expect (labelWidth < juce::roundToInt (body.getWidth()),
+                    "BYPASS label must fit within the cap width so it renders unclipped (no truncated 'BS')");
         }
 
         void testBypassSwitchFiresSliceGlitchOnToggle()

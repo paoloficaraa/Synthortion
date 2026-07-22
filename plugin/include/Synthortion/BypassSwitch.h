@@ -10,16 +10,21 @@ namespace synthortion
 {
     class GlitchOverlay;
 
-    /** Brutalist Block toggle. The bypass state is encoded entirely by colour
-        inversion: the active (signal flows) state renders a solid #FFF block
-        with a #000 BYPASS label centered inside; the bypassed state renders a
-        solid #000 block with a #FFF BYPASS label and a 1 px #FFF outline around
-        the block. No LED, no rounded track and no lever survive.
+    /** Tactile push-button bypass toggle. The button body is a slightly
+        rounded cap with a 1 px dual-tone inset bezel (lighter outer edge,
+        darker inner edge) and a vertical metallic gradient (charcoal at the
+        top to near-black at the bottom) simulating a physical actuator. A
+        small circular LED aperture sits on the cap: active (signal flows)
+        emits a bright white glow with a subtle halo; bypassed is dark /
+        near-invisible.
 
-        State transitions drive a Step-quantised easing (N = 8) preserving the
-        existing 120 ms duration, and fire a GlitchOverlay horizontal Slice
-        glitch burst that visibly slides across the editor background for the
-        ~150 ms burst window matched to the step duration.
+        State semantics: animationProgress 0 = active (LED bright, cap
+        depressed 1-2 px), 1 = bypassed (LED dark, cap at rest). A toggle
+        drives a 100 ms Step-quantised easing (N = 8) so the cap sinks on
+        bypassed->active and lifts back on active->bypassed while the LED
+        ramps, and fires a GlitchOverlay horizontal Slice glitch burst. The
+        shared global bypass mix (AnimationController) fades every component
+        in the same 8 hard steps during the transition.
     */
     class BypassSwitch final : public juce::Button
     {
@@ -33,7 +38,28 @@ namespace synthortion
 
         float getAnimationProgress() const noexcept { return animationProgress; }
 
+        /** LED glow intensity in [0, 1]: 1 = fully active (bright white), 0 = bypassed (dark). */
+        float getLedBrightness() const noexcept;
+
+        /** Cap depress offset in pixels: kDepressPixels when active (sunk), 0 when bypassed (rest). */
+        float getDepressOffset() const noexcept;
+
+        /** The button cap rectangle in local coords, inset from the bounds and translated by the depress offset. */
+        juce::Rectangle<float> getBodyBounds() const noexcept;
+
+        /** The circular LED aperture bounds in local coords, riding on the cap (depress-applied). */
+        juce::Rectangle<float> getLedBounds() const noexcept;
+
         static constexpr int kBypassSteps = 8;
+
+        /** Depress/release animation duration per issue #30 (100 ms). */
+        static constexpr double kAnimationDurationMs = 100.0;
+
+        /** Cap travel distance when active (1-2 px sink per issue #30). */
+        static constexpr float kDepressPixels = 2.0f;
+
+        /** Slightly rounded cap corners, distinguishing the button from flat panels. */
+        static constexpr float kButtonCornerRadius = 6.0f;
 
     private:
         void paintButton (juce::Graphics& g, bool isMouseOver, bool isMouseDown) override;
@@ -52,7 +78,9 @@ namespace synthortion
         std::optional<juce::Animator> currentAnimator;
 
         static constexpr int kBypassLabelHeight = 16;
-        static constexpr double kAnimationDurationMs = 120.0;
+        static constexpr float kBezelInset = 3.0f;
+        static constexpr float kLedRadius = 4.0f;
+        static constexpr float kLedTopOffset = 15.0f;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BypassSwitch)
     };
