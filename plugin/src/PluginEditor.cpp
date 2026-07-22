@@ -100,6 +100,7 @@ namespace synthortion
         glitchOverlay.drawBypassSlices (g, getLocalBounds());
         glitchOverlay.drawDeadPixelScatter (g, getLocalBounds());
         glitchOverlay.drawBootBurst (g, getLocalBounds(), glitchOverlay.getBootBurstProgress());
+        glitchOverlay.drawFlickerBurst (g, getLocalBounds());
     }
 
     void AudioPluginAudioProcessorEditor::drawGrainOverlay (juce::Graphics& g)
@@ -289,6 +290,7 @@ namespace synthortion
             oscilloscope.setBypassed (bypass);
             inputMeter.setBypassed (bypass);
             outputMeter.setBypassed (bypass);
+            glitchOverlay.setBypassAmplified (bypass);
         }
     }
 
