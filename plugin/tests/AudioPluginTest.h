@@ -151,6 +151,8 @@ namespace synthortion
             testOscilloscopeTracesMergeIntoContinuousStreak();
             testOscilloscopeTripletRendersThreeParallelColumns();
             testOscilloscopeSweepRendersViaSharedOverlay();
+            testPlotterSubstrateRendersPermanentScanlineOverlay();
+            testPlotterSubstrateRendersPermanentDitherOverlay();
             testOscilloscopeGhostTrailsUseThreeDiscreteAlphas();
             testOscilloscopeSilentCenterlineFlickersHard();
             testOscilloscopeBypassDecaysOutputAmplitude();
@@ -183,6 +185,9 @@ namespace synthortion
             testMeterBarHasWhiteOutlineWithNotchedTicks();
             testMeterPeakHoldMovesInSixteenSteps();
             testMeterPeakDecayUsesStepEasing();
+            testMeterLitSegmentsAboveMinusTwelveDbArePureWhite();
+            testMeterLitSegmentsBelowMinusTwelveDbAreDimmedWhite();
+            testMeterDimmedSegmentAlphaIsFourTenths();
             testMeterBypassShowsAllSegmentsOff();
             testEditorBackgroundUnaffectedByBypass();
             testBypassTransitionPropagatesToComponents();
@@ -558,6 +563,7 @@ namespace synthortion
                 scope.setSize (100, 100);
                 GlitchOverlay overlay;
                 scope.setGlitchOverlay (&overlay);
+                scope.setSubstrateTextureVisible (false);
 
                 for (int i = 0; i < 3; ++i)
                     scope.refresh();
@@ -581,6 +587,7 @@ namespace synthortion
                 scope.setSize (100, 100);
                 GlitchOverlay overlay;
                 scope.setGlitchOverlay (&overlay);
+                scope.setSubstrateTextureVisible (false);
 
                 for (int i = 0; i < 3; ++i)
                     scope.refresh();
@@ -608,6 +615,7 @@ namespace synthortion
             scope.setSize (100, 100);
             GlitchOverlay overlay;
             scope.setGlitchOverlay (&overlay);
+            scope.setSubstrateTextureVisible (false);
 
             for (int i = 0; i < 3; ++i)
                 scope.refresh();
@@ -637,6 +645,7 @@ namespace synthortion
             scope.setSize (100, 100);
             GlitchOverlay overlay;
             scope.setGlitchOverlay (&overlay);
+            scope.setSubstrateTextureVisible (false);
 
             for (int i = 0; i < 3; ++i)
                 scope.refresh();
@@ -667,6 +676,7 @@ namespace synthortion
             scope.setSize (100, 100);
             GlitchOverlay overlay;
             scope.setGlitchOverlay (&overlay);
+            scope.setSubstrateTextureVisible (false);
 
             for (int i = 0; i < 3; ++i)
                 scope.refresh();
@@ -691,6 +701,62 @@ namespace synthortion
             expect (std::abs (alphas[2] - 0.15f) < 1.0e-6f, "Oldest ghost trail should be 0.15 alpha");
             expect (alphas[0] > alphas[1] && alphas[1] > alphas[2],
                     "Ghost trail alphas must be 3 descending discrete steps, not a linear fade formula");
+        }
+
+        void testPlotterSubstrateRendersPermanentScanlineOverlay()
+        {
+            beginTest ("Plotter substrate paints a permanent scanline overlay across its bounds per issue #31");
+
+            AudioScopeRingBuffer buffer (512);
+            buffer.writeInput (makeStereoSignal (512, 0.0f));
+            buffer.writeOutput (makeStereoSignal (512, 0.0f));
+
+            OscilloscopeComponent scope (buffer, nullptr);
+            scope.setSize (100, 12);
+            GlitchOverlay overlay;
+            scope.setGlitchOverlay (&overlay);
+
+            for (int i = 0; i < 3; ++i)
+                scope.refresh();
+
+            const auto snap = scope.createComponentSnapshot (scope.getLocalBounds());
+            const auto scanlineRow = GlitchOverlay::scanlineSpacingForTests();
+
+            bool hasScanline = false;
+            for (int y = 0; y < 12; y += scanlineRow)
+                if (snap.getPixelAt (50, y) == juce::Colour (0xFFFFFFFF))
+                    hasScanline = true;
+
+            expect (hasScanline,
+                    "Plotter substrate must render a permanent #FFF scanline across its own bounds per issue #31");
+        }
+
+        void testPlotterSubstrateRendersPermanentDitherOverlay()
+        {
+            beginTest ("Plotter substrate paints a permanent dither overlay across its bounds per issue #31");
+
+            AudioScopeRingBuffer buffer (512);
+            buffer.writeInput (makeStereoSignal (512, 0.0f));
+            buffer.writeOutput (makeStereoSignal (512, 0.0f));
+
+            OscilloscopeComponent scope (buffer, nullptr);
+            scope.setSize (200, 100);
+            GlitchOverlay overlay;
+            scope.setGlitchOverlay (&overlay);
+
+            for (int i = 0; i < 3; ++i)
+                scope.refresh();
+
+            const auto snap = scope.createComponentSnapshot (scope.getLocalBounds());
+
+            bool hasDither = false;
+            for (int y = 0; y < 100 && ! hasDither; ++y)
+                for (int x = 0; x < 200; ++x)
+                    if (snap.getPixelAt (x, y) == juce::Colour (0xFFFFFFFF))
+                        hasDither = true;
+
+            expect (hasDither,
+                    "Plotter substrate must render a permanent #FFF dither pixel in its bounds per issue #31");
         }
 
         void testOscilloscopeSilentCenterlineFlickersHard()
@@ -1397,9 +1463,9 @@ namespace synthortion
             const auto snap = meter.createComponentSnapshot (meter.getLocalBounds());
 
             // barX = 10, barW = 20, barBottom = 160, segmentHeight = 10.
-            // Segment 8 (from bottom) spans y in [70, 79] and is ON for 14 lit segments.
-            expect (snap.getPixelAt (20, 75) == white,
-                    "Mid-bar pixel inside a lit segment should be pure #FFF (LED ON)");
+            // Segment 13 (above the -12 dB threshold) spans y in [20, 29] and is ON as #FFF.
+            expect (snap.getPixelAt (20, 25) == white,
+                    "Lit segment above the -12 dB threshold should render pure #FFF (LED ON, full intensity)");
             // Segment 14 spans y in [10, 19] and is OFF for 14 lit segments.
             expect (snap.getPixelAt (20, 15) == black,
                     "Pixel inside an unlit segment above the RMS level should be #000 (LED OFF)");
@@ -1414,7 +1480,7 @@ namespace synthortion
             silentMeter.updateFromBuffer (silentBuffer);
 
             const auto silentSnap = silentMeter.createComponentSnapshot (silentMeter.getLocalBounds());
-            expect (silentSnap.getPixelAt (20, 75) == black,
+            expect (silentSnap.getPixelAt (20, 25) == black,
                     "Silent meter should render all segments OFF (#000)");
             expect (silentSnap.getPixelAt (20, 5) == black,
                     "Silent meter top segment should also be OFF (#000)");
@@ -1422,7 +1488,7 @@ namespace synthortion
 
         void testMeterSegmentsAreBinaryBlackWhite()
         {
-            beginTest ("MeterComponent segments render as binary #FFF or #000 (no alpha-blended greys)");
+            beginTest ("MeterComponent segments above the -12 dB threshold render as binary #FFF (no alpha blen in that band)");
 
             juce::Component dummy;
             AnimationController controller (&dummy);
@@ -1439,17 +1505,38 @@ namespace synthortion
 
             const auto snap = meter.createComponentSnapshot (meter.getLocalBounds());
 
-            int greyPixelCount = 0;
-            for (int y = 0; y < 160; ++y)
+            // Issue #31 re-introduces 0.4 alpha dimming for LED segments below the
+            // -12 dB threshold, so pixels in that band can legitimately land in a
+            // mid-grey (alpha-blended) range. The bar's brightness profile is now:
+            //   - unlit segments above the lit ceiling: pure #000
+            //   - lit segments at or above the -12 dB threshold: pure #FFF (255/255/255)
+            //   - lit segments below the -12 dB threshold: alpha 0.4 white over
+            //     a #000 substrate so the snapshot reads ~0.4 brightness
+            //   - tick notch pixels carved into the outline: pure #000
+            // So we only require the *above -12 dB* lit band to be cleanly binary
+            // (0 or 255 brightness), and treat mid-grey as legitimate below that.
+            constexpr int kBarHeight = 160;
+            constexpr float kSegmentHeight = static_cast<float> (kBarHeight)
+                                          / static_cast<float> (MeterComponent::kSegmentCount);
+            // The above-threshold band starts at the bottom of segment
+            // kThresholdSegmentIndex - 1 (segment 12 starts one pixel lower than
+            // its bot). Concretely: segment 12 spans y in [30, 39] for a 160 px
+            // tall bar, so we scan every row of segments 12..15 (y in [0, 40)).
+            const int aboveBandBottom = static_cast<int> (std::ceil (
+                static_cast<float> (kBarHeight)
+                - static_cast<float> (MeterComponent::kThresholdSegmentIndex) * kSegmentHeight));
+
+            int aboveBandGreyPixelCount = 0;
+            for (int y = 0; y < aboveBandBottom; ++y)
             {
-                const auto pixel = snap.getPixelAt (20, y); // mid-bar column (no outline/tick overlap)
+                const auto pixel = snap.getPixelAt (20, y);
                 const auto brightness = pixel.getBrightness();
                 if (brightness > 0.01f && brightness < 0.99f)
-                    ++greyPixelCount;
+                    ++aboveBandGreyPixelCount;
             }
 
-            expect (greyPixelCount == 0,
-                    "Mid-bar column should contain only hard #FFF or #000 pixels, no alpha-blended greys");
+            expect (aboveBandGreyPixelCount == 0,
+                    "Lit bar pixels above the -12 dB threshold (top band) should be hard #FFF or #000, no alpha-blended grey");
         }
 
         void testMeterBarHasWhiteOutlineWithNotchedTicks()
@@ -1570,6 +1657,99 @@ namespace synthortion
                     "progress 0.3 should quantise to step 5/16 = 0.3125");
         }
 
+        void testMeterLitSegmentsAboveMinusTwelveDbArePureWhite()
+        {
+            beginTest ("MeterComponent lit segments at or above the -12 dB threshold render pure #FFF per issue #31");
+
+            const auto pureWhite = juce::Colour (0xFFFFFFFF);
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+
+            // -6 dB signal -> lit segment index 14 (i = 0..13), so segments 0..11
+            // fall below the -12 dB threshold and segments 12..13 fall at or above.
+            // Segment 13 sits at meter y = barBottom - 14 * segmentHeight = 20.
+            juce::AudioBuffer<float> signalBuffer (2, 64);
+            signalBuffer.clear();
+            for (int ch = 0; ch < signalBuffer.getNumChannels(); ++ch)
+                for (int i = 0; i < signalBuffer.getNumSamples(); ++i)
+                    signalBuffer.setSample (ch, i, 0.5f);
+
+            MeterComponent meter (controller);
+            meter.setSize (40, 160);
+            meter.updateFromBuffer (signalBuffer);
+
+            const auto snap = meter.createComponentSnapshot (meter.getLocalBounds());
+
+            // barX = 10, barW = 20, barBottom = 160, segmentHeight = 10.
+            // Segment i top = 160 - (i+1)*10, bottom = 160 - i*10.
+            // Segment 13 (lit, above the -12 dB line) spans y [20, 29].
+            // Segment 13 midbar column = (20, 25).
+            const auto aboveThresholdPixel = snap.getPixelAt (20, 25);
+            expect (juce::roundToInt (aboveThresholdPixel.getRed()) == 255
+                    && juce::roundToInt (aboveThresholdPixel.getGreen()) == 255
+                    && juce::roundToInt (aboveThresholdPixel.getBlue()) == 255,
+                    "Lit segment above the -12 dB threshold must render in pure #FFF (no alpha dim) per issue #31");
+            expect (aboveThresholdPixel == pureWhite,
+                    "Lit segment above the -12 dB threshold must be byte-equivalent to pure #FFF per issue #31");
+        }
+
+        void testMeterLitSegmentsBelowMinusTwelveDbAreDimmedWhite()
+        {
+            beginTest ("MeterComponent lit segments below the -12 dB threshold render dimmed white (~0.4 alpha) per issue #31");
+
+            juce::Component dummy;
+            AnimationController controller (&dummy);
+
+            // -6 dB signal -> lit segments 0..13 -> segments 0..11 are below the
+            // -12 dB threshold and must render dimmed (alpha ~0.4), not pure white.
+            juce::AudioBuffer<float> signalBuffer (2, 64);
+            signalBuffer.clear();
+            for (int ch = 0; ch < signalBuffer.getNumChannels(); ++ch)
+                for (int i = 0; i < signalBuffer.getNumSamples(); ++i)
+                    signalBuffer.setSample (ch, i, 0.5f);
+
+            MeterComponent meter (controller);
+            meter.setSize (40, 160);
+            meter.updateFromBuffer (signalBuffer);
+
+            const auto snap = meter.createComponentSnapshot (meter.getLocalBounds());
+
+            // The meter fills its bounds with #000 first, then draws each row at
+            // the requested alpha. When the snapshot blends a (white, alpha=0.4)
+            // fill onto the opaque #000 substrate, juce composes the result as
+            // approximately (R,G,B) = (0.4*255) = 102 with full alpha -- the dim
+            // reads off the *brightness* channel rather than the alpha channel.
+            // Segment 8 (lit, threshold ~-27 dB, well below the -12 dB line)
+            // spans y in [70, 79], midbar pixel (20, 75).
+            const auto belowThresholdPixel = snap.getPixelAt (20, 75);
+            expect (belowThresholdPixel.getBrightness() > 0.2f,
+                    "Dimmed segment brightness must read clearly above the #000 substrate (~0.4 alpha on white)");
+            expect (belowThresholdPixel.getBrightness() < 0.85f,
+                    "Lit segment below the -12 dB threshold must NOT reach full white brightness (alpha dim applied) per issue #31");
+            expect (belowThresholdPixel.getBrightness() > 0.0f,
+                    "Lit segment below the -12 dB threshold must still register some white light (not pure black)");
+
+            // Segment 9 (lit, threshold ~-23 dB, below -12 dB) spans y in [80, 89].
+            const auto belowThresholdPixel2 = snap.getPixelAt (20, 85);
+            expect (belowThresholdPixel2.getBrightness() > 0.2f
+                    && belowThresholdPixel2.getBrightness() < 0.85f,
+                    "Adjacent lit segment below the -12 dB threshold must also render dimmed per issue #31");
+
+            // The dimmed and pure-white segments are visually distinct.
+            expect (std::abs (belowThresholdPixel.getBrightness()
+                              - snap.getPixelAt (20, 25).getBrightness()) > 0.2f,
+                    "Dimmed (<-12 dB, brightness ~0.4) and pure-white (>= -12 dB, brightness 1.0) segments must use different brightness per issue #31");
+        }
+
+        void testMeterDimmedSegmentAlphaIsFourTenths()
+        {
+            beginTest ("MeterComponent dimmed segment uses a ~0.4 alpha constant per issue #31");
+
+            expect (std::abs (MeterComponent::kDimmedAlpha - 0.4f) < 1.0e-6f,
+                    "Dimmed segment alpha constant must be 0.4 per issue #31");
+        }
+
         void testMeterBypassShowsAllSegmentsOff()
         {
             beginTest ("MeterComponent bypass renders all segments off (#000) with the 1px #FFF outline preserved");
@@ -1591,9 +1771,10 @@ namespace synthortion
             activeMeter.updateFromBuffer (buffer);
 
             const auto activeSnap = activeMeter.createComponentSnapshot (activeMeter.getLocalBounds());
-            // Segment 8 (y in [70, 79]) is ON for -6 dB (14 lit segments).
-            expect (activeSnap.getPixelAt (20, 75) == white,
-                    "Active meter should light segments for a -6 dB signal");
+            // Segment 13 (y in [20, 29]) is lit AND above the -12 dB threshold,
+            // so it renders pure #FFF in the active state.
+            expect (activeSnap.getPixelAt (20, 25) == white,
+                    "Active meter should light segments for a -6 dB signal (above-threshold pixel is pure #FFF)");
 
             MeterComponent bypassedMeter (controller);
             bypassedMeter.setBypassed (true);
@@ -1603,6 +1784,8 @@ namespace synthortion
             const auto bypassedSnap = bypassedMeter.createComponentSnapshot (bypassedMeter.getLocalBounds());
             expect (bypassedSnap.getPixelAt (20, 75) == black,
                     "Bypassed meter should render all segments OFF (#000 inside the bar)");
+            expect (bypassedSnap.getPixelAt (20, 25) == black,
+                    "Bypassed meter above-threshold band should also be OFF (#000)");
             expect (bypassedSnap.getPixelAt (20, 5) == black,
                     "Bypassed meter top segment should also be OFF (#000)");
             // Outline preserved on both edges.

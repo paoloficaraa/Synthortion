@@ -10,8 +10,12 @@ namespace synthortion
     /** Vertical RMS/peak-hold meter rendered as a 16-segment LED ladder.
 
         The meter is drawn as 16 hard-threshold vertical LED blocks stacked
-        from the bottom up; each block is binary #FFF (ON) or #000 (OFF)
-        decided by comparing the block's dB threshold to the current RMS dB.
+        from the bottom up. Each lit block's brightness is gated by its dB
+        position: lit segments at or above kThresholdSegmentIndex (the -12 dB
+        band) render as pure #FFF, lit segments below the threshold render
+        at kDimmedAlpha (~0.4 alpha white) per issue #31, and unlit segments
+        render as pure #000. The substrate is a dead-flat #000 fill.
+
         A 1px #FFF outline frames the bar with notched reference ticks at
         -6/-12/-24 dB carved into the outline. The peak-hold marker is a
         single 1px #FFF line that jumps in discrete 1/16 steps; its decay
@@ -39,6 +43,18 @@ namespace synthortion
 
         /** Number of LED segments the meter is split into (hardcoded per spec). */
         static constexpr int kSegmentCount = 16;
+
+        /** Segment index corresponding to the -12 dB threshold: lit segments
+            with index >= kThresholdSegmentIndex render at pure #FFF; lit
+            segments with index < kThresholdSegmentIndex render dimmed at
+            kDimmedAlpha (~0.4 alpha) per issue #31.
+        */
+        static constexpr int kThresholdSegmentIndex = 12;
+
+        /** Alpha (0..1) used for lit LED segments below the -12 dB threshold
+            per issue #31 (dimmed white over a black substrate).
+        */
+        static constexpr float kDimmedAlpha = 0.4f;
 
         /** Quantized-step easing used by startPeakDecay. Maps a continuous
             progress in [0, 1] to the nearest hard step boundary in [0, 1].

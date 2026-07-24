@@ -13,8 +13,13 @@ namespace synthortion
 
         Reads pre-DSP (input) and post-DSP (output) samples from the lock-free
         AudioScopeRingBuffer and renders them as two pixelated vertical-stroke
-        traces on the DEADLOCK Plotter substrate. Updates are driven by the
-        AnimationController's VBlank timeline for fluid motion.
+        traces on the DEADLOCK Plotter substrate. The Plotter always paints a
+        permanent subtle scanline + dither overlay (via GlitchOverlay) on its
+        pure #000 substrate per issue #31; the white pixel traces, ghost trails
+        and Sweep band are layered on top of that overlay. Updates are driven by
+        the AnimationController's VBlank timeline for fluid motion, with the
+        breath-line animation preserving the silence-detection flicker from
+        earlier slices.
     */
     class OscilloscopeComponent final : public juce::Component
     {
@@ -28,6 +33,13 @@ namespace synthortion
 
         void setBypassed (bool bypassed) noexcept;
         void setGlitchOverlay (GlitchOverlay* overlay) noexcept { glitchOverlay = overlay; }
+
+        // Whether the Plotter paints its permanent scanline/dither substrate
+        // overlay via @c glitchOverlay. Default is true per issue #31 so the
+        // Plotter substrate always carries the GLITCH texture. Tests that
+        // assert pure-#000 substrate pixels (e.g. trace-no-bleed checks for
+        // pre-existing behaviour) disable it via this accessor.
+        void setSubstrateTextureVisible (bool visible) noexcept { substrateTextureVisible = visible; }
 
         /** Manual refresh entry point for tests and non-VBlank environments. */
         void refresh();
@@ -59,6 +71,7 @@ namespace synthortion
         GlitchOverlay* glitchOverlay = nullptr;
         std::optional<juce::Animator> currentAnimator;
         bool animationRunning = false;
+        bool substrateTextureVisible = true;
 
         static constexpr int kHistoryFrames = 3;
         static constexpr float kSilenceThreshold = 1.0e-4f;

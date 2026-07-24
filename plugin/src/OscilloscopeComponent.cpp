@@ -85,6 +85,12 @@ namespace synthortion
     {
         g.fillAll (juce::Colour (kSubstrateArgb));
 
+        if (substrateTextureVisible && glitchOverlay != nullptr)
+        {
+            glitchOverlay->drawDitherNoise (g, getLocalBounds());
+            glitchOverlay->drawScanlines (g, getLocalBounds());
+        }
+
         if (silent)
         {
             drawBreathLine (g);

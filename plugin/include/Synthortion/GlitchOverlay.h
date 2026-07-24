@@ -80,6 +80,7 @@ namespace synthortion
         static constexpr int driftBandHeight() noexcept { return kDriftBandHeight; }
         static constexpr int flickerBlockSize() noexcept { return kFlickerBlockSize; }
         static constexpr int driftBandStepForTests() noexcept { return kDriftBandSteps; }
+        static constexpr int scanlineSpacingForTests() noexcept { return kScanlineSpacing; }
         static constexpr int driftBandStepTicksForTests() noexcept { return kDriftBandStepTicks; }
         static constexpr int flickerPeriodTicksForTests() noexcept { return kFlickerPeriodTicks; }
         static constexpr int sweepWidthForTests() noexcept { return kSweepWidth; }

@@ -8,6 +8,7 @@ namespace synthortion
     namespace
     {
         const juce::Colour kWhite (0xFFFFFFFF);
+        const juce::Colour kDimmedWhite (0xFFFFFFFF);
         const juce::Colour kBlack (0xFF000000);
 
         const std::array<float, 3> kReferenceTickDb { -6.0f, -12.0f, -24.0f };
@@ -16,7 +17,6 @@ namespace synthortion
     MeterComponent::MeterComponent (AnimationController& controller)
         : animationController (controller)
     {
-        setOpaque (true);
     }
 
     MeterComponent::~MeterComponent()
@@ -148,7 +148,17 @@ namespace synthortion
         {
             const int segTop = juce::roundToInt (static_cast<float> (barBottom) - static_cast<float> (i + 1) * segmentHeightF);
             const int segBottom = juce::roundToInt (static_cast<float> (barBottom) - static_cast<float> (i) * segmentHeightF);
-            g.setColour (i < litCount ? kWhite : kBlack);
+            if (i < litCount)
+            {
+                if (i >= kThresholdSegmentIndex)
+                    g.setColour (kWhite);
+                else
+                    g.setColour (kDimmedWhite.withAlpha (kDimmedAlpha));
+            }
+            else
+            {
+                g.setColour (kBlack);
+            }
             g.fillRect (barX, segTop, barW, segBottom - segTop);
         }
 
