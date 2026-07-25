@@ -99,7 +99,7 @@ namespace synthortion
     {
         glitchOverlay.drawBypassSlices (g, getLocalBounds());
         glitchOverlay.drawDeadPixelScatter (g, getLocalBounds());
-        glitchOverlay.drawBootBurst (g, getLocalBounds(), glitchOverlay.getBootBurstProgress());
+        glitchOverlay.drawBootWipe (g, getLocalBounds(), glitchOverlay.getBootWipeProgress());
         glitchOverlay.drawFlickerBurst (g, getLocalBounds());
     }
 
@@ -264,8 +264,8 @@ namespace synthortion
 
     void AudioPluginAudioProcessorEditor::visibilityChanged()
     {
-        if (isVisible() && ! glitchOverlay.isBootBurstFired())
-            glitchOverlay.triggerBootBurst();
+        if (isVisible() && ! glitchOverlay.isBootWipeFired())
+            glitchOverlay.triggerBootWipe();
     }
 
     void AudioPluginAudioProcessorEditor::timerCallback()
