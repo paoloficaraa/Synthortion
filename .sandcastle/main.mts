@@ -21,9 +21,34 @@
 // Or add to package.json:
 //   "scripts": { "sandcastle": "npx tsx .sandcastle/main.mts" }
 
+import * as fs from "fs";
+import * as path from "path";
+import { fileURLToPath } from "url";
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
 import { z } from "zod";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function loadDotEnv(filePath: string): Record<string, string> {
+  try {
+    const content = fs.readFileSync(filePath, "utf-8");
+    const env: Record<string, string> = {};
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx === -1) continue;
+      env[trimmed.slice(0, eqIdx).trim()] = trimmed.slice(eqIdx + 1).trim();
+    }
+    return env;
+  } catch {
+    return {};
+  }
+}
+
+const dotEnv = loadDotEnv(path.resolve(__dirname, ".sandcastle/.env"));
+const agentEnv = dotEnv;
 
 // The planner emits its plan as JSON inside <plan> tags; Output.object extracts
 // and validates it against this schema. We use Zod here, but any Standard
@@ -90,8 +115,8 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // One iteration is enough: the planner just needs to read and reason,
     // not write code. (Structured output requires maxIterations: 1.)
     maxIterations: 1,
-    // Planner: GLM-5.2 Max — forte ragionamento e analisi dipendenze
-    agent: sandcastle.opencode("opencode-go/kimi-k3", { variant: "max" }),
+    // Planner: nemotron-3-ultra — ragionamento profondo
+    agent: sandcastle.opencode("nvidia/nvidia/nemotron-3-ultra-550b-a55b", { variant: "max", env: agentEnv }),
     promptFile: "./.sandcastle/plan-prompt.md",
     // Extract and validate the <plan> JSON into a typed object. Throws
     // StructuredOutputError if the tag is missing, the JSON is malformed, or
@@ -139,8 +164,8 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           name: "implementer",
           maxIterations: 60,
           idleTimeoutSeconds: 1800,
-          // Implementer: Kimi K2.7 Code — specializzato per coding
-          agent: sandcastle.opencode("opencode-go/glm-5.2", { variant: "max" }),
+          // Implementer: DeepSeek V4 Flash — coding
+          agent: sandcastle.opencode("nvidia/minimaxai/minimax-m3", { variant: "max", env: agentEnv }),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
@@ -155,8 +180,8 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
             name: "reviewer",
             maxIterations: 1,
             idleTimeoutSeconds: 1800,
-            // Reviewer: DeepSeek V4 Pro — attento ai dettagli e sicurezza
-            agent: sandcastle.opencode("opencode-go/deepseek-v4-pro", { variant: "max" }),
+            // Reviewer: GPT-OSS 120B — review
+            agent: sandcastle.opencode("nvidia/z-ai/glm-5.2", { variant: "max", env: agentEnv }),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
               BRANCH: issue.branch,
@@ -228,8 +253,8 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     name: "merger",
     maxIterations: 1,
     idleTimeoutSeconds: 1800,
-    // Merger: Qwen3.7 Plus — merge e risoluzione conflitti
-    agent: sandcastle.opencode("opencode-go/qwen3.7-max", { variant: "max" }),
+    // Merger: Llama 3.3 70B — merge e risoluzione conflitti
+    agent: sandcastle.opencode("opencode/deepseek-v4-flash-free", { variant: "max", env: agentEnv }),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
       // A markdown list of branch names, one per line.

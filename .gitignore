@@ -84,6 +84,7 @@ CMakeSettings.json
 # ==========================================
 
 .worktrees/
+plan.json
 
 # ==========================================
 # NODE.JS / OPENCODE

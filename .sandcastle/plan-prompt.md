@@ -25,7 +25,7 @@ For each unblocked issue, assign branch name `sandcastle/issue-{id}` (determinis
 
 # OUTPUT
 
-JSON in `<plan>` tags:
+JSON in `<plan>` tags only — do NOT write any file to disk.
 
 <plan>
 {"issues": [{"id": "42", "title": "Fix auth bug", "branch": "sandcastle/issue-42"}]}
