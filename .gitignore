@@ -113,7 +113,7 @@ format-context.js
 *.filtergraph
 
 # ==========================================
-# OS / JUNK
+# OPERATING SYSTEM
 # ==========================================
 
 .DS_Store
