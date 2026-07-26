@@ -113,7 +113,7 @@ format-context.js
 *.filtergraph
 
 # ==========================================
-# OPERATING SYSTEM
+# OS / JUNK
 # ==========================================
 
 .DS_Store
@@ -122,6 +122,7 @@ ehthumbs.db
 *.tmp
 *.temp
 *.log
+*.lnk
 
 # ==========================================
 # SUBMODULES (JUCE is a submodule, keep it)
