@@ -1,329 +1,173 @@
-#include "Synthortion/PluginProcessor.h"
 #include "Synthortion/PluginEditor.h"
+#include "Synthortion/PluginProcessor.h"
 
 namespace synthortion
 {
-    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-
     AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
         : AudioProcessorEditor (&p),
-          processorRef (p),
-          lookAndFeel (),
-          animationController (this),
-          distortionPanel ("DISTORTION", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
-          chorusPanel ("CHORUS", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
-          delayPanel ("DELAY", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
-          comingSoonPanel ("COMING SOON", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
-          inputPanel ("INPUT", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
-          outputPanel ("OUTPUT", lookAndFeel.findColour (SynthortionLookAndFeel::panelFillColourId)),
-          bypassComponent (processorRef.apvts, "PLUGIN_BYPASS", &animationController),
-          oscilloscope (processorRef.getScopeBuffer(), &animationController),
-          inputMeter (animationController),
-          outputMeter (animationController),
-          driveKnob (animationController),
-          bitCrushKnob (animationController),
-          chorusMixKnob (animationController),
-          delayTimeKnob (animationController),
-          delayFeedbackKnob (animationController),
-          delayMixKnob (animationController),
-          inputGainKnob (animationController),
-          outputGainKnob (animationController)
+          processorRef (p)
     {
         setOpaque (true);
-        setLookAndFeel (&lookAndFeel);
-        startTimer (1000 / kTimerHz);
 
-        addAndMakeVisible (distortionPanel);
-        addAndMakeVisible (chorusPanel);
-        addAndMakeVisible (delayPanel);
-        addAndMakeVisible (comingSoonPanel);
-        comingSoonPanel.setPlaceholder (true);
-        comingSoonPanel.setGlitchOverlay (&glitchOverlay);
-        addAndMakeVisible (inputPanel);
-        addAndMakeVisible (outputPanel);
-        inputPanel.setHeadingStyle (12.0f, 2.0f);
-        outputPanel.setHeadingStyle (12.0f, 2.0f);
-        addAndMakeVisible (bypassComponent);
-        bypassComponent.setGlitchOverlay (&glitchOverlay);
-        addAndMakeVisible (oscilloscope);
-        oscilloscope.setGlitchOverlay (&glitchOverlay);
-        addAndMakeVisible (inputMeter);
-        addAndMakeVisible (outputMeter);
+        titleLabel.setText ("Synthortion", juce::dontSendNotification);
+        titleLabel.setFont (juce::FontOptions (juce::Font::getDefaultSansSerifFontName(), 22.0f, juce::Font::bold));
+        titleLabel.setColour (juce::Label::textColourId, juce::Colours::white);
+        titleLabel.setJustificationType (juce::Justification::left);
+        addAndMakeVisible (titleLabel);
 
-        // DISTORTION
-        setupKnobWithLabel (driveKnob, driveTitleLabel, driveLabel, "COLOR", "COLOR", driveAttachment, distortionPanel);
-        driveKnob.setKnobStyle (AnimatedKnob::KnobStyle::Canonical);
-        setupKnobWithLabel (bitCrushKnob, bitCrushTitleLabel, bitCrushLabel, "BITCRUSH", "BITCRUSH", bitCrushAttachment, distortionPanel);
-        bitCrushKnob.setKnobStyle (AnimatedKnob::KnobStyle::Canonical);
+        comingSoonLabel.setText ("COMING SOON", juce::dontSendNotification);
+        comingSoonLabel.setFont (juce::FontOptions (juce::Font::getDefaultSansSerifFontName(), 14.0f, juce::Font::bold));
+        comingSoonLabel.setColour (juce::Label::textColourId, juce::Colours::white);
+        comingSoonLabel.setJustificationType (juce::Justification::centred);
+        addAndMakeVisible (comingSoonLabel);
 
-        // CHORUS
-        setupKnobWithLabel (chorusMixKnob, chorusMixTitleLabel, chorusMixLabel, "MIX", "CHORUS_MIX", chorusMixAttachment, chorusPanel);
-        chorusMixKnob.setKnobStyle (AnimatedKnob::KnobStyle::Outline);
+        auto setupTitleLabel = [this] (juce::Label& label, const juce::String& text)
+        {
+            label.setText (text, juce::dontSendNotification);
+            label.setFont (juce::FontOptions (juce::Font::getDefaultSansSerifFontName(), 11.0f, juce::Font::plain));
+            label.setColour (juce::Label::textColourId, juce::Colours::white);
+            label.setJustificationType (juce::Justification::centred);
+            addAndMakeVisible (label);
+        };
 
-        // DELAY
-        setupKnobWithLabel (delayTimeKnob, delayTimeTitleLabel, delayTimeLabel, "TIME", "DELAY_TIME", delayTimeAttachment, delayPanel);
-        delayTimeKnob.setKnobStyle (AnimatedKnob::KnobStyle::Outline);
-        setupKnobWithLabel (delayFeedbackKnob, delayFeedbackTitleLabel, delayFeedbackLabel, "FB", "DELAY_FEEDBACK", delayFeedbackAttachment, delayPanel);
-        delayFeedbackKnob.setKnobStyle (AnimatedKnob::KnobStyle::Outline);
-        setupKnobWithLabel (delayMixKnob, delayMixTitleLabel, delayMixLabel, "MIX", "DELAY_MIX", delayMixAttachment, delayPanel);
-        delayMixKnob.setKnobStyle (AnimatedKnob::KnobStyle::Outline);
+        setupTitleLabel (inputGainTitleLabel, "INPUT");
+        setupTitleLabel (outputGainTitleLabel, "OUTPUT");
+        setupTitleLabel (colorTitleLabel, "COLOR");
+        setupTitleLabel (bitCrushTitleLabel, "BIT CRUSH");
+        setupTitleLabel (chorusMixTitleLabel, "CHORUS MIX");
+        setupTitleLabel (delayTimeTitleLabel, "TIME");
+        setupTitleLabel (delayFeedbackTitleLabel, "FDBK");
+        setupTitleLabel (delayMixTitleLabel, "MIX");
 
-        // SIDE BARS
-        setupKnobWithLabel (inputGainKnob, inputGainTitleLabel, inputGainLabel, "", "INPUT_GAIN", inputGainAttachment, *this);
-        inputGainKnob.setKnobStyle (AnimatedKnob::KnobStyle::Canonical);
-        setupKnobWithLabel (outputGainKnob, outputGainTitleLabel, outputGainLabel, "", "OUTPUT_GAIN", outputGainAttachment, *this);
-        outputGainKnob.setKnobStyle (AnimatedKnob::KnobStyle::Canonical);
+        auto setupRotarySlider = [this] (juce::Slider& slider, int textBoxWidth)
+        {
+            slider.setSliderStyle (juce::Slider::Rotary);
+            slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, textBoxWidth, 16);
+            addAndMakeVisible (slider);
+        };
+
+        setupRotarySlider (inputGainSlider, 60);
+        setupRotarySlider (outputGainSlider, 60);
+        setupRotarySlider (colorSlider, 60);
+        setupRotarySlider (bitCrushSlider, 60);
+        setupRotarySlider (chorusMixSlider, 60);
+        setupRotarySlider (delayTimeSlider, 70);
+        setupRotarySlider (delayFeedbackSlider, 60);
+        setupRotarySlider (delayMixSlider, 60);
+
+        bypassButton.setButtonText ("BYPASS");
+        addAndMakeVisible (bypassButton);
+
+        auto& apvts = processorRef.apvts;
+
+        auto setRangeFromNormalisable = [] (juce::Slider& slider, const juce::NormalisableRange<float>& r)
+        {
+            slider.setRange (static_cast<double> (r.start),
+                             static_cast<double> (r.end),
+                             static_cast<double> (r.interval));
+        };
+
+        juce::NormalisableRange<float> gainRange (-60.0f, 12.0f, 0.1f);
+        gainRange.setSkewForCentre (0.0f);
+
+        juce::NormalisableRange<float> unitRange (0.0f, 1.0f, 0.01f);
+        juce::NormalisableRange<float> feedbackRange (0.0f, 0.95f, 0.01f);
+        juce::NormalisableRange<float> msRange (1.0f, 2000.0f, 1.0f);
+
+        setRangeFromNormalisable (inputGainSlider, gainRange);
+        inputGainSlider.setValue (0.0, juce::dontSendNotification);
+        setRangeFromNormalisable (outputGainSlider, gainRange);
+        outputGainSlider.setValue (0.0, juce::dontSendNotification);
+        setRangeFromNormalisable (colorSlider, unitRange);
+        colorSlider.setValue (0.0, juce::dontSendNotification);
+        setRangeFromNormalisable (bitCrushSlider, unitRange);
+        bitCrushSlider.setValue (0.0, juce::dontSendNotification);
+        setRangeFromNormalisable (chorusMixSlider, unitRange);
+        chorusMixSlider.setValue (0.0, juce::dontSendNotification);
+        setRangeFromNormalisable (delayTimeSlider, msRange);
+        delayTimeSlider.setValue (250.0, juce::dontSendNotification);
+        setRangeFromNormalisable (delayFeedbackSlider, feedbackRange);
+        delayFeedbackSlider.setValue (0.4, juce::dontSendNotification);
+        setRangeFromNormalisable (delayMixSlider, unitRange);
+        delayMixSlider.setValue (0.0, juce::dontSendNotification);
+
+        inputGainSlider.setTextValueSuffix (" dB");
+        inputGainSlider.setNumDecimalPlacesToDisplay (1);
+        outputGainSlider.setTextValueSuffix (" dB");
+        outputGainSlider.setNumDecimalPlacesToDisplay (1);
+        delayTimeSlider.setTextValueSuffix (" ms");
+        delayTimeSlider.setNumDecimalPlacesToDisplay (0);
+
+        inputGainAttachment = std::make_unique<SliderAttachment> (apvts, "INPUT_GAIN", inputGainSlider);
+        outputGainAttachment = std::make_unique<SliderAttachment> (apvts, "OUTPUT_GAIN", outputGainSlider);
+        colorAttachment = std::make_unique<SliderAttachment> (apvts, "COLOR", colorSlider);
+        bitCrushAttachment = std::make_unique<SliderAttachment> (apvts, "BITCRUSH", bitCrushSlider);
+        chorusMixAttachment = std::make_unique<SliderAttachment> (apvts, "CHORUS_MIX", chorusMixSlider);
+        delayTimeAttachment = std::make_unique<SliderAttachment> (apvts, "DELAY_TIME", delayTimeSlider);
+        delayFeedbackAttachment = std::make_unique<SliderAttachment> (apvts, "DELAY_FEEDBACK", delayFeedbackSlider);
+        delayMixAttachment = std::make_unique<SliderAttachment> (apvts, "DELAY_MIX", delayMixSlider);
+        bypassAttachment = std::make_unique<ButtonAttachment> (apvts, "PLUGIN_BYPASS", bypassButton);
 
         setResizable (false, false);
         setSize (kWindowWidth, kWindowHeight);
     }
 
-    AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
-    {
-        stopTimer();
-        animationController.clearAllAnimators();
-        setLookAndFeel (nullptr);
-    }
+    AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor() = default;
 
     void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     {
-        g.fillAll (juce::Colour (0xFF000000));
-
-        const auto bounds = getLocalBounds();
-        drawGrainOverlay (g);
-        glitchOverlay.drawScanlines (g, bounds);
-        drawSectionSeparators (g);
-    }
-
-    void AudioPluginAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
-    {
-        glitchOverlay.drawBypassSlices (g, getLocalBounds());
-        glitchOverlay.drawDeadPixelScatter (g, getLocalBounds());
-        glitchOverlay.drawBootWipe (g, getLocalBounds(), glitchOverlay.getBootWipeProgress());
-        glitchOverlay.drawFlickerBurst (g, getLocalBounds());
-    }
-
-    void AudioPluginAudioProcessorEditor::drawGrainOverlay (juce::Graphics& g)
-    {
-        glitchOverlay.drawDitherNoise (g, getLocalBounds());
-    }
-
-    void AudioPluginAudioProcessorEditor::drawSectionSeparators (juce::Graphics& g)
-    {
-        const auto dimmed = lookAndFeel.findColour (SynthortionLookAndFeel::dimmedColourId);
-        const float dashLen = 4.0f;
-        const float gapLen = 4.0f;
-
-        auto dashedH = [&g, dimmed, dashLen, gapLen] (int y, int x1, int x2)
-        {
-            g.setColour (dimmed);
-            for (float x = static_cast<float> (x1); x < static_cast<float> (x2); x += dashLen + gapLen)
-            {
-                const float xe = juce::jmin (x + dashLen, static_cast<float> (x2));
-                g.drawHorizontalLine (y, x, xe);
-            }
-        };
-
-        auto dashedV = [&g, dimmed, dashLen, gapLen] (int x, int y1, int y2)
-        {
-            g.setColour (dimmed);
-            for (float y = static_cast<float> (y1); y < static_cast<float> (y2); y += dashLen + gapLen)
-            {
-                const float ye = juce::jmin (y + dashLen, static_cast<float> (y2));
-                g.drawVerticalLine (x, y, ye);
-            }
-        };
-
-        const int leftBarRight = kSideBarWidth;
-        const int rightBarLeft = kWindowWidth - kSideBarWidth;
-        const int topBarBottom = kTopBarHeight;
-        const int centerTop = topBarBottom + kGap;
-        const int centerLeft = leftBarRight + kGap;
-        const int centerRight = rightBarLeft - kGap;
-        const int centerBottom = kWindowHeight - kGap;
-
-        dashedH (topBarBottom + kGap / 2, 0, kWindowWidth);
-        dashedH (centerBottom + kGap / 2, 0, kWindowWidth);
-
-        dashedV (leftBarRight + kGap / 2, topBarBottom, kWindowHeight);
-        dashedV (rightBarLeft - kGap / 2, topBarBottom, kWindowHeight);
-
-        const int distortionBottom = centerTop + (centerBottom - centerTop) * 55 / 100;
-        const int bottomRowTop = distortionBottom + kGap;
-        dashedH (distortionBottom + kGap / 2, centerLeft, centerRight);
-
-        const int bottomRowWidth = centerRight - centerLeft;
-        const int comingSoonWidth = 110;
-        const int comingSoonLeft = centerRight - comingSoonWidth;
-        const int delayRight = comingSoonLeft - kGap;
-        const int delayWidth = (bottomRowWidth - comingSoonWidth - kGap) * 55 / 100;
-        const int delayLeft = delayRight - delayWidth;
-        const int chorusRight = delayLeft - kGap;
-
-        dashedV (chorusRight + kGap / 2, bottomRowTop, centerBottom);
-        dashedV (delayRight + kGap / 2, bottomRowTop, centerBottom);
-    }
-
-    void AudioPluginAudioProcessorEditor::layoutSidebar (juce::Rectangle<int> sidebarBounds,
-                                                         MeterComponent& meter, AnimatedKnob& knob,
-                                                         juce::Label& valueLabel, juce::Label& titleLabel)
-    {
-        const int knobSize = 45;
-        const int labelH = 12;
-
-        sidebarBounds.removeFromTop (kSidebarHeaderHeight);
-        const int meterH = sidebarBounds.getHeight() - knobSize - kGap - 2 - labelH;
-        meter.setBounds (sidebarBounds.removeFromTop (meterH).reduced (2, 0));
-        sidebarBounds.removeFromTop (kGap);
-        knob.setBounds (sidebarBounds.removeFromTop (knobSize));
-        sidebarBounds.removeFromTop (2);
-        valueLabel.setBounds (sidebarBounds.removeFromTop (labelH));
-        titleLabel.setBounds (0, 0, 0, 0);
+        g.fillAll (juce::Colours::darkgrey);
+        g.setColour (juce::Colours::black);
+        g.drawHorizontalLine (kSeparatorY1, 0.0f, static_cast<float> (kWindowWidth));
+        g.drawHorizontalLine (kSeparatorY2, static_cast<float> (kSidebarWidth), static_cast<float> (kWindowWidth));
+        g.drawHorizontalLine (kSeparatorY3, static_cast<float> (kSidebarWidth), static_cast<float> (kWindowWidth));
     }
 
     void AudioPluginAudioProcessorEditor::resized()
     {
         auto bounds = getLocalBounds();
 
-        // Top bar
-        auto topBar = bounds.removeFromTop (kTopBarHeight);
-        bypassComponent.setBounds (topBar.removeFromLeft (kBypassWidth));
-        topBar.removeFromLeft (kGap);
-        oscilloscope.setBounds (topBar);
+        // Header (y 0..60)
+        auto headerArea = bounds.removeFromTop (kHeaderHeight);
+        titleLabel.setBounds (headerArea.removeFromLeft (kSidebarWidth * 3).reduced (12, 12));
+        bypassButton.setBounds (headerArea.removeFromRight (kSidebarWidth).reduced (12, 18));
 
-        // Side bars
-        auto centerArea = bounds;
-        auto leftBar = centerArea.removeFromLeft (kSideBarWidth);
-        auto rightBar = centerArea.removeFromRight (kSideBarWidth);
+        // Sidebar (left 120 px)
+        auto sidebarLeft = bounds.removeFromLeft (kSidebarWidth);
+        auto inputGainArea = sidebarLeft.removeFromTop (sidebarLeft.getHeight() / 2);
+        inputGainTitleLabel.setBounds (inputGainArea.removeFromTop (16));
+        inputGainSlider.setBounds (inputGainArea.reduced (10));
+        auto outputGainArea = sidebarLeft;
+        outputGainTitleLabel.setBounds (outputGainArea.removeFromTop (16));
+        outputGainSlider.setBounds (outputGainArea.reduced (10));
 
-        inputPanel.setBounds (leftBar);
-        outputPanel.setBounds (rightBar);
+        // Distortion: x 140..420, y 80..240
+        auto distortionArea = juce::Rectangle<int> (140, kSeparatorY1 + 20, 280, kSeparatorY2 - kSeparatorY1 - 40);
+        auto distLeftHalf = distortionArea.removeFromLeft (distortionArea.getWidth() / 2);
+        colorTitleLabel.setBounds (distLeftHalf.removeFromTop (16));
+        colorSlider.setBounds (distLeftHalf.reduced (10));
+        bitCrushTitleLabel.setBounds (distortionArea.removeFromTop (16));
+        bitCrushSlider.setBounds (distortionArea.reduced (10));
 
-        layoutSidebar (leftBar, inputMeter, inputGainKnob, inputGainLabel, inputGainTitleLabel);
-        layoutSidebar (rightBar, outputMeter, outputGainKnob, outputGainLabel, outputGainTitleLabel);
+        // Chorus: x 140..420, y 260..420
+        auto chorusArea = juce::Rectangle<int> (140, kSeparatorY2 + 20, 280, kSeparatorY3 - kSeparatorY2 - 40);
+        chorusMixTitleLabel.setBounds (chorusArea.removeFromTop (16));
+        chorusMixSlider.setBounds (chorusArea.reduced (10));
 
-        const int labelH = 12;
+        // Delay: x 440..660, y 80..240
+        auto delayArea = juce::Rectangle<int> (440, kSeparatorY1 + 20, 220, kSeparatorY2 - kSeparatorY1 - 40);
+        auto delayOneThird = delayArea.getWidth() / 3;
+        auto d1 = delayArea.removeFromLeft (delayOneThird);
+        delayTimeTitleLabel.setBounds (d1.removeFromTop (16));
+        delayTimeSlider.setBounds (d1.reduced (6));
+        auto d2 = delayArea.removeFromLeft (delayOneThird);
+        delayFeedbackTitleLabel.setBounds (d2.removeFromTop (16));
+        delayFeedbackSlider.setBounds (d2.reduced (6));
+        delayMixTitleLabel.setBounds (delayArea.removeFromTop (16));
+        delayMixSlider.setBounds (delayArea.reduced (6));
 
-        // Center panels
-        centerArea.removeFromTop (kGap);
-        centerArea.removeFromBottom (kGap);
-        centerArea.removeFromLeft (kGap);
-        centerArea.removeFromRight (kGap);
-
-        auto distortionArea = centerArea.removeFromTop (centerArea.getHeight() * 55 / 100);
-        auto bottomRow = centerArea;
-        bottomRow.removeFromTop (kGap);
-
-        distortionPanel.setBounds (distortionArea);
-
-        const int comingSoonWidth = 110;
-        comingSoonPanel.setBounds (bottomRow.removeFromRight (comingSoonWidth));
-        bottomRow.removeFromRight (kGap);
-
-        delayPanel.setBounds (bottomRow.removeFromRight (bottomRow.getWidth() * 55 / 100));
-        bottomRow.removeFromRight (kGap);
-        chorusPanel.setBounds (bottomRow);
-
-        // Layout knobs inside panels
-        const int largeKnob = 86;
-        const int smallKnob = 55;
-
-        auto distArea = distortionPanel.getLocalBounds();
-        auto distLeft = distArea.removeFromLeft (distArea.getWidth() / 2);
-        auto distRight = distArea;
-
-        driveKnob.setBounds (distLeft.withSizeKeepingCentre (largeKnob, largeKnob));
-        driveTitleLabel.setBounds (distLeft.getX(), driveKnob.getY() - labelH - 2, distLeft.getWidth(), labelH);
-        driveLabel.setBounds (distLeft.getX(), driveKnob.getBottom() + 2, distLeft.getWidth(), labelH);
-
-        bitCrushKnob.setBounds (distRight.withSizeKeepingCentre (largeKnob, largeKnob));
-        bitCrushTitleLabel.setBounds (distRight.getX(), bitCrushKnob.getY() - labelH - 2, distRight.getWidth(), labelH);
-        bitCrushLabel.setBounds (distRight.getX(), bitCrushKnob.getBottom() + 2, distRight.getWidth(), labelH);
-
-        chorusMixKnob.setBounds (chorusPanel.getLocalBounds().withSizeKeepingCentre (smallKnob, smallKnob));
-        chorusMixTitleLabel.setBounds (chorusPanel.getLocalBounds().getX(), chorusMixKnob.getY() - labelH - 2, chorusPanel.getLocalBounds().getWidth(), labelH);
-        chorusMixLabel.setBounds (chorusPanel.getLocalBounds().getX(), chorusMixKnob.getBottom() + 2, chorusPanel.getLocalBounds().getWidth(), labelH);
-
-        auto delayArea = delayPanel.getLocalBounds();
-        auto d1 = delayArea.removeFromLeft (delayArea.getWidth() / 3);
-        auto d2 = delayArea.removeFromLeft (delayArea.getWidth() / 2);
-        auto d3 = delayArea;
-
-        delayTimeKnob.setBounds (d1.withSizeKeepingCentre (smallKnob, smallKnob));
-        delayTimeTitleLabel.setBounds (d1.getX(), delayTimeKnob.getY() - labelH - 2, d1.getWidth(), labelH);
-        delayTimeLabel.setBounds (d1.getX(), delayTimeKnob.getBottom() + 2, d1.getWidth(), labelH);
-
-        delayFeedbackKnob.setBounds (d2.withSizeKeepingCentre (smallKnob, smallKnob));
-        delayFeedbackTitleLabel.setBounds (d2.getX(), delayFeedbackKnob.getY() - labelH - 2, d2.getWidth(), labelH);
-        delayFeedbackLabel.setBounds (d2.getX(), delayFeedbackKnob.getBottom() + 2, d2.getWidth(), labelH);
-
-        delayMixKnob.setBounds (d3.withSizeKeepingCentre (smallKnob, smallKnob));
-        delayMixTitleLabel.setBounds (d3.getX(), delayMixKnob.getY() - labelH - 2, d3.getWidth(), labelH);
-        delayMixLabel.setBounds (d3.getX(), delayMixKnob.getBottom() + 2, d3.getWidth(), labelH);
-    }
-
-    void AudioPluginAudioProcessorEditor::visibilityChanged()
-    {
-        if (isVisible() && ! glitchOverlay.isBootWipeFired())
-            glitchOverlay.triggerBootWipe();
-    }
-
-    void AudioPluginAudioProcessorEditor::timerCallback()
-    {
-        updateMainControlLabels();
-        updateBypassState();
-        glitchOverlay.tick();
-
-        lookAndFeel.setBypassMix (animationController.getBypassMix());
-
-        inputMeter.updateFromBuffer (oscilloscope.getCurrentInputBuffer());
-        outputMeter.updateFromBuffer (oscilloscope.getCurrentOutputBuffer());
-    }
-
-    void AudioPluginAudioProcessorEditor::updateBypassState()
-    {
-        const bool bypass = processorRef.apvts.getRawParameterValue ("PLUGIN_BYPASS")->load() > 0.5f;
-        if (bypass != lastBypassState)
-        {
-            lastBypassState = bypass;
-            animationController.startBypassTransition (bypass);
-            oscilloscope.setBypassed (bypass);
-            inputMeter.setBypassed (bypass);
-            outputMeter.setBypassed (bypass);
-            glitchOverlay.setBypassAmplified (bypass);
-        }
-    }
-
-    void AudioPluginAudioProcessorEditor::setupKnobWithLabel (
-        AnimatedKnob& knob,
-        juce::Label& titleLabel,
-        juce::Label& valueLabel,
-        const juce::String& title,
-        const juce::String& paramId,
-        std::unique_ptr<SliderAttachment>& attachment,
-        juce::Component& parent)
-    {
-        parent.addAndMakeVisible (knob);
-        attachment = std::make_unique<SliderAttachment> (processorRef.apvts, paramId, knob);
-        knob.snapToCurrentValue();
-
-        titleLabel.setText (title, juce::dontSendNotification);
-        titleLabel.setJustificationType (juce::Justification::centred);
-        titleLabel.setFont (lookAndFeel.getParameterLabelFont());
-        titleLabel.setColour (juce::Label::textColourId, lookAndFeel.findColour (SynthortionLookAndFeel::textColourId));
-        parent.addAndMakeVisible (titleLabel);
-
-        valueLabel.setText ("", juce::dontSendNotification);
-        valueLabel.setJustificationType (juce::Justification::centred);
-        valueLabel.setFont (lookAndFeel.getParameterValueFont());
-        valueLabel.setColour (juce::Label::textColourId, lookAndFeel.findColour (SynthortionLookAndFeel::textColourId));
-        parent.addAndMakeVisible (valueLabel);
-    }
-
-    juce::String AudioPluginAudioProcessorEditor::formatPercentage (float normalizedValue)
-    {
-        int percentage = static_cast<int> (normalizedValue * 100.0f);
-        return juce::String (percentage) + "%";
+        // Coming Soon: x 680..780, y 80..240
+        comingSoonLabel.setBounds (680, kSeparatorY1 + 20, 100, kSeparatorY2 - kSeparatorY1 - 40);
     }
 
     juce::String AudioPluginAudioProcessorEditor::formatDB (float dbValue)
@@ -337,38 +181,14 @@ namespace synthortion
         return "0 dB";
     }
 
-    juce::String AudioPluginAudioProcessorEditor::formatMilliseconds (float ms)
+    juce::String AudioPluginAudioProcessorEditor::formatPercentage (float normalizedValue)
     {
-        if (ms >= 1000.0f)
-            return juce::String (ms / 1000.0f, 2) + " s";
-
-        return juce::String (static_cast<int> (ms)) + " ms";
+        const int percentage = static_cast<int> (normalizedValue * 100.0f);
+        return juce::String (percentage) + "%";
     }
 
-    void AudioPluginAudioProcessorEditor::updateMainControlLabels()
+    juce::String AudioPluginAudioProcessorEditor::formatMilliseconds (float msValue)
     {
-        auto colorValue = processorRef.apvts.getRawParameterValue ("COLOR")->load();
-        driveLabel.setText (formatPercentage (colorValue), juce::dontSendNotification);
-
-        auto bitCrushValue = processorRef.apvts.getRawParameterValue ("BITCRUSH")->load();
-        bitCrushLabel.setText (formatPercentage (bitCrushValue), juce::dontSendNotification);
-
-        auto delayTimeValue = processorRef.apvts.getRawParameterValue ("DELAY_TIME")->load();
-        delayTimeLabel.setText (formatMilliseconds (delayTimeValue), juce::dontSendNotification);
-
-        auto delayMixValue = processorRef.apvts.getRawParameterValue ("DELAY_MIX")->load();
-        delayMixLabel.setText (formatPercentage (delayMixValue), juce::dontSendNotification);
-
-        auto delayFeedbackValue = processorRef.apvts.getRawParameterValue ("DELAY_FEEDBACK")->load();
-        delayFeedbackLabel.setText (formatPercentage (delayFeedbackValue), juce::dontSendNotification);
-
-        auto chorusMixValue = processorRef.apvts.getRawParameterValue ("CHORUS_MIX")->load();
-        chorusMixLabel.setText (formatPercentage (chorusMixValue), juce::dontSendNotification);
-
-        auto inputGainValue = processorRef.apvts.getRawParameterValue ("INPUT_GAIN")->load();
-        inputGainLabel.setText (formatDB (inputGainValue), juce::dontSendNotification);
-
-        auto outputGainValue = processorRef.apvts.getRawParameterValue ("OUTPUT_GAIN")->load();
-        outputGainLabel.setText (formatDB (outputGainValue), juce::dontSendNotification);
+        return juce::String (static_cast<int> (msValue)) + " ms";
     }
 }
