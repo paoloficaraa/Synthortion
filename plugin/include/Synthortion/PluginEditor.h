@@ -15,6 +15,23 @@ namespace synthortion
         void paint (juce::Graphics&) override;
         void resized() override;
 
+        juce::ToggleButton* findBypassButton()
+        {
+            for (auto* child : getChildren())
+                if (auto* btn = dynamic_cast<juce::ToggleButton*> (child))
+                    return btn;
+            return nullptr;
+        }
+
+        juce::Label* findLabelWithText (const juce::String& text)
+        {
+            for (auto* child : getChildren())
+                if (auto* label = dynamic_cast<juce::Label*> (child))
+                    if (label->getText() == text)
+                        return label;
+            return nullptr;
+        }
+
     private:
         static constexpr int kWindowWidth = 800;
         static constexpr int kWindowHeight = 480;
