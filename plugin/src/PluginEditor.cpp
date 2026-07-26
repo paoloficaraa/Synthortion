@@ -39,35 +39,21 @@ namespace synthortion
         setupTitleLabel (delayFeedbackTitleLabel, "FDBK");
         setupTitleLabel (delayMixTitleLabel, "MIX");
 
-        auto setupPercentageSlider = [this] (juce::Slider& slider)
+        auto setupRotarySlider = [this] (juce::Slider& slider, int textBoxWidth)
         {
             slider.setSliderStyle (juce::Slider::Rotary);
-            slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 16);
+            slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, textBoxWidth, 16);
             addAndMakeVisible (slider);
         };
 
-        auto setupDbSlider = [this] (juce::Slider& slider)
-        {
-            slider.setSliderStyle (juce::Slider::Rotary);
-            slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 16);
-            addAndMakeVisible (slider);
-        };
-
-        auto setupMsSlider = [this] (juce::Slider& slider)
-        {
-            slider.setSliderStyle (juce::Slider::Rotary);
-            slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 70, 16);
-            addAndMakeVisible (slider);
-        };
-
-        setupDbSlider (inputGainSlider);
-        setupDbSlider (outputGainSlider);
-        setupPercentageSlider (colorSlider);
-        setupPercentageSlider (bitCrushSlider);
-        setupPercentageSlider (chorusMixSlider);
-        setupMsSlider (delayTimeSlider);
-        setupPercentageSlider (delayFeedbackSlider);
-        setupPercentageSlider (delayMixSlider);
+        setupRotarySlider (inputGainSlider, 60);
+        setupRotarySlider (outputGainSlider, 60);
+        setupRotarySlider (colorSlider, 60);
+        setupRotarySlider (bitCrushSlider, 60);
+        setupRotarySlider (chorusMixSlider, 60);
+        setupRotarySlider (delayTimeSlider, 70);
+        setupRotarySlider (delayFeedbackSlider, 60);
+        setupRotarySlider (delayMixSlider, 60);
 
         bypassButton.setButtonText ("BYPASS");
         addAndMakeVisible (bypassButton);
@@ -154,9 +140,6 @@ namespace synthortion
         auto outputGainArea = sidebarLeft;
         outputGainTitleLabel.setBounds (outputGainArea.removeFromTop (16));
         outputGainSlider.setBounds (outputGainArea.reduced (10));
-
-        // Bottom main area
-        auto mainArea = bounds;
 
         // Distortion: x 140..420, y 80..240
         auto distortionArea = juce::Rectangle<int> (140, kSeparatorY1 + 20, 280, kSeparatorY2 - kSeparatorY1 - 40);
