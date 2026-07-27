@@ -1,120 +1,109 @@
 # Ubiquitous Language
 
-A glossary for the **Synthortion** audio plugin UI redesign to the **Modern Deadlock** aesthetic — brutalist industrial roots with physical tactile depth, always-visible components, and purposeful glitch-modern motion.
+Glossary for the Synthortion audio plugin: a minimal-JUCE interim state before a WebView-based UI rewrite.
 
-## Aesthetic
+## Architecture layers
 
-| Term               | Definition                                                                          | Aliases to avoid            |
-| ------------------ | ----------------------------------------------------------------------------------- | --------------------------- |
-| **Modern Deadlock** | The refined visual identity: monochrome industrial palette with physical depth cues and subtle glitch texture | Deadlock style, the restyle, the new look |
-| **Brutalist**      | A style built from binary contrast, hard edges, monolithic typography, and no soft gradients | Industrial, raw            |
-| **Glitch**         | Digital CRT-look artifacts drawn procedurally for screen-realism texture             | Noise, artifacts           |
-| **Dither**         | A 1-bit noise pattern (#000/#FFF per pixel) tiled as permanent background texture    | Stipple, grain             |
-| **Scanline**       | Horizontal rows at fixed spacing across the canvas simulating CRT raster             | Raster line                |
-| **Physicality**    | The quality of tactile depth conveyed through shadow, gradient, animation, and bezel cues — making flat pixels feel like hardware | 3D look, depth, realistic  |
+| Term                 | Definition                                                                    | Aliases to avoid        |
+| -------------------- | ----------------------------------------------------------------------------- | ----------------------- |
+| **Audio engine**     | The `PluginProcessor` + four DSP modules; processes audio, owns APVTS. Untouched across UI changes. | Processor, audio core, back end |
+| **Minimal editor**   | The temporary `PluginEditor` (stock JUCE controls, no custom L&F, no Timer). Removed everything decorative. | Stock editor, stripped editor, interim UI |
+| **Future WebView UI**| The planned next-step editor using `juce::WebBrowserComponent` (HTML+CSS+JS in a webview host). | Web UI, webview editor, redesign |
+| **APVTS**            | `juce::AudioProcessorValueTreeState`: the parameter state manager binding DAW automation ↔ UI sliders ↔ DSP params. | Parameter tree, value tree |
 
-## Palette & Color
+## UI controls (minimal editor)
 
-| Term               | Definition                                                                          | Aliases to avoid         |
-| ------------------ | ----------------------------------------------------------------------------------- | ------------------------ |
-| **Canvas**         | The outermost plugin background fill: solid pitch black `#000000`                    | Window background, wallpaper |
-| **Surface**        | A panel's background fill: deep near-black `#0D0D0E` or `#121214`                  | Panel fill, section bg   |
-| **Ink**            | Pure white `#FFFFFF` used for all text, outlines, pointer, and LED segments         | White, #FFF, accent     |
-| **Dimmed**         | Reduced-intensity white (e.g. 0.4 alpha) for inactive knob arc segments, low-end meter LEDs, or faint grid lines | Grey, faded, muted |
-| **Metallic gradient** | A vertical charcoal-to-near-black gradient on the bypass push-button cap, simulating physical actuator finish | Shiny, 3D gradient |
+| Term              | Definition                                                            | Aliases to avoid                        |
+| ----------------- | --------------------------------------------------------------------- | --------------------------------------- |
+| **Stock slider**  | A plain `juce::Slider` drawn in rotary mode, no custom L&F.           | Knob, dial, AnimatedKnob                |
+| **Stock label**   | A plain `juce::Label` displaying parameter name or numeric value.     | Title, value text, BebasNeue label      |
+| **Bypass toggle** | A plain `juce::ToggleButton` bound to the `PLUGIN_BYPASS` parameter.  | Push button, bypass switch, LED button  |
+| **Attachment**    | A `SliderAttachment` or `ButtonAttachment` linking a stock control to an APVTS parameter ID. | Binding, connection, param link         |
+| **Value formatter**| Static function (`formatDB`, `formatPercentage`, `formatMilliseconds`) converting raw float → display string. | Value text callback, display format     |
 
-## Widgets
+## Parameters
 
-| Term | Definition | Aliases to avoid |
-| --- | --- | --- |
-| **Panel** | A sharp-cornered dark-flat container holding knobs and labeled with a BebasNeue header | Section, rack module, box |
-| **Section header** | A BebasNeue all-caps title at the panel top, followed by a 1px white divider rule | Title, heading, label strip |
-| **Knob** | A rotary control rendering a dark domed cap with a white Pointer, a segment arc, and drop-shadow elevation | Dial, rotary slider |
-| **Pointer** | A thick white needle/indicator line radiating from knob center, always visible | Indicator line, needle, tick |
-| **Segment arc** | A value ring rendered as N discrete steps (16 Canonical / 8 Outline) in white, optionally haloing during drag | LED arc, tick ring, stroke arc |
-| **Detent** | A vertical-thin 50ms haloing effect at the pointer when it crosses a step boundary in hardware-face, simulating a physical notch click | Click, notch, haptic |
-| **Bezel** | A dual-thin inset border framing the bypass push-button, creating a raised or sunken edge | Edge, rim |
-| **Push button** | The bypass toggle: a tactile cap with bezel, LED aperture, vertical metallic gradient, and a press/release depression animation | Bypass switch, toggle, button |
-| **LED aperture** | A small circle inset in the push-button body that glows bright or stays dark, showing the active/barebypassed state. | LED, indicator, state dot |
-| **Plotter** | The pixel-traced oscilloscope rendering each audio buffer as a vertical-stroke trace with ghost trails | Scope, waveform, oscilloscope component |
-| **Meter** | The 16-segment vertical LED ladder showing trays input or output RMS level | LED bar, level meter, VU |
-| **Peak hold** | A 1px white line marking the recent RMS peak, descending one segment per step while decaying | Hold marker, peak indicator |
-| **Grid** | Dashed low-alpha white lines between panels | Grid separator, dashed line |
+| Term            | Parameter ID       | Range          | Default | Domain meaning                                      |
+| --------------- | ------------------ | -------------- | ------- | --------------------------------------------------- |
+| **Input Gain**  | `INPUT_GAIN`       | –60..+12 dB    | 0 dB    | Pre-DSP level trim.                                 |
+| **Color**       | `COLOR`            | 0..1           | 0       | Drive intensity — the main distortion character. Labeled "COLOR" on the front-panel. |
+| **Bit Crush**   | `BITCRUSH`         | 0..1           | 0       | Sample-rate/bit-depth reduction mix.                 |
+| **Chorus Mix**  | `CHORUS_MIX`       | 0..1           | 0       | Wet/dry blend of the 3-LFO chorus.                  |
+| **Delay Time**  | `DELAY_TIME`       | 1..2000 ms     | 250 ms  | Ping-pong delay interval.                            |
+| **Delay Feedback**| `DELAY_FEEDBACK` | 0..0.95        | 0.4     | Feedback amount for the delay repeats.               |
+| **Delay Mix**   | `DELAY_MIX`        | 0..1           | 0       | Wet/dry blend of the delay output.                   |
+| **Output Gain** | `OUTPUT_GAIN`      | –60..+12 dB    | 0 dB    | Post-DSP level trim.                                 |
+| **Volume Compensation**| `VOLUME_COMPENSATION`| 0..1 (bool) | 1    | Toggle: compensates loudness increase from distortion. Not exposed in stock UI. |
+| **Bypass**      | `PLUGIN_BYPASS`    | false/true     | false   | Master bypass: skips all DSP modules when active.    |
 
-## Typography
+## Sections (layout regions)
 
-| Term | Definition | Aliases to avoid |
-| --- | --- | --- |
-| **BebasNeue** | The primary industrial typeface used for section headers, button labels, and "COMING SOON" | Bebas, headline display font |
-| **Montserrat** | The secondary clean-sans typeface used only for numeric knob value labels (e.g. "45%", "+3.2 dB") | Numeric font, value font |
+| Term              | Definition                                                                  | Aliases to avoid             |
+| ----------------- | --------------------------------------------------------------------------- | ---------------------------- |
+| **Header**        | Top 60 px bar: "Synthortion" title left, bypass toggle right. No panel.     | Top bar, title bar, header strip |
+| **Sidebar**       | Left 120 px column: Input Gain slider top half, Output Gain slider bottom half. | Input/output bar, lateral panel |
+| **Distortion section** | Main area slot: Color (drive) + Bit Crush sliders. Below the header separator, bounded at y=240. | Drive block, COLOR panel   |
+| **Chorus section**| Single-slider slot for Chorus Mix, below the distortion area.               | Chorus block, modulation slot |
+| **Delay section** | Three-slider slot: Time + Feedback + Mix.                                   | Delay block, echo section   |
+| **Coming Soon**   | Top-right 200×160 area: text-only `Label` reading "COMING SOON". Placeholder for future expansion. | Filler, spare slot           |
+| **Separator**     | A 1 px black horizontal line drawn at section boundaries in `paint()`.       | Divider rule, grid line     |
 
-## Animation & Physics
+## Sections (physical layout sketch)
 
-| Term | Definition | Aliases to avoid |
-| --- | --- | --- |
-| **Step** | A discrete jump in displayed value rather than a smooth blend; the next-selection arc animates its pointer in steps only | Tick, quantized frame |
-| **Step count N** | The quantization grid choices: Canonical knob 16, Outline knob 8, Meter 16, Ghost trails 3, Bypass 8 | Quantization steps, segment count |
-| **Depress** | The 100ms push-button animation sinking 1–2px while the LED brightens on bypass toggle | Push, press, sink |
-| **Release** | The 100ms push-button animation rising 1–2px while the LED dims, when switching to bypass | Lift, rise, unpress |
-| **Detent** | A 50ms widening halo pulse on the pointer when a step boundary is crossed; simulates a physical notch | Click feedback, tick pulse |
-| **Interior gradient** | A light-to-dark radial gradient on the knob cap faces, creating a subtle domed shine | Inner shadow, cap gradient |
-| **Elevation shadow** | A tight 2px offset monochrome shadow drawn behind all knobs, hinting that the dial sits on the panel | Drop shadow, floating shadow |
-| **Bypass mix** | The global 0..1 fade value that dims the whole UI when bypass engaged, with N=8 step drops | Bypass factor, bypass fade |
-| **Slice** | A temporary horizontal band shifted ±1–3px during a bypass transition, drawn slid over children | Band glitch, glitch slide |
-| **Sweep** | A vertical 4px band traveling left→right across the Plotter in 16 step positions (~0.5 Hz) | Scan line, charge line |
-| **Flicker** | A rare command-scene random glitch burst that adds dynamism; amps when bypassed | Great flicker, spike |
-| **Burst** | A 300ms glitch stutter-wipe on open — also replaces the window background from pure black as the interface stays-up | Boot burst, intro animation, splash |
-| **Cursor** | A slow-blinking underline beneath "COMING SOON"; two-state merely on/off every 500ms | Blinking dash, pulse underline |
+```
++-------------------------------------------------------------------+
+| [Synthortion]                                          [BYPASS ☐] |  ← Header (y 0–60)
++-------------------------------------------------------------------+
+|  ║             |  DISTORTION                      DELAY            |
+|  ║  INPUT      |  ⊙ COLOR    ⊙ BIT CRUSH          ⊙ TIME  ⊙ FDBK ⊙ MIX |
+|  ║  [gain]     |                                     [Coming Soon] |
+|  ║             |  CHORUS                                           |
+|  ║  OUTPUT     |  ⊙ CHORUS MIX                                      |
+|  ║  [gain]     |                                                    |
++-------------------------------------------------------------------+
+```
 
-## Architecture
+## DSP modules
 
-| Term | Definition | Aliases to avoid |
-| --- | --- | --- |
-| **GlitchOverlay** | The module owning all dither, scanline, dead-pixel, slice, burst, sweep, flicker, and cursor drawing | Glitch engine, overlay manager |
-| **AnimationController** | The VBlank-driven animator registry; hosts the global bypass mix and manages all knob, button, and meter animations | Controller, animator registry |
-| **Ring buffer** | The lock-free `AudioScopeRingBuffer` feeding the Plotter and Meters | AudioScopeRingBuffer, scope buffer |
-| **Timer** | The 60 Hz callback that drives UI refresh, label updates, and glitch frame updates | Clock tick, frame tick |
-| **VBlank** | The display-refresh-synchronized timeline from JUCE, used as the master animation clock | vblank driver, VBlankUpdater |
-| **Attachments** | The `SliderAttachment` / `ButtonAttachment` objects binding UI controls to the APVTS parameter system | Parameter attachments, bindings |
+| Term                 | Class                    | Role                                                     |
+| -------------------- | ------------------------ | -------------------------------------------------------- |
+| **WarmDistortion**   | `WarmDistortion`         | Tape-style asymmetric saturation with drive-dependent filter, pink noise, wow/flutter. |
+| **BitCrusher**       | `BitCrusher`             | Sample-rate and bit-depth reducer.                       |
+| **Chorus**           | `SynthortionChorus`      | 3-LFO stereo chorus with crossover split.                |
+| **Delay**            | `PingPongDelay`          | Stereo ping-pong delay with damping filter.              |
+| **Ring buffer**      | `AudioScopeRingBuffer`   | Lock-free dual-channel buffer feeding the (now removed) oscilloscope. **Deleted.** |
 
 ## Relationships
 
-- Every **Panel** contains zero or more **Knobs** and a **Section header**
-- A **Knob** drives a **Value arc** (quantized to the knob's **Step count N**) and a **Pointer**
-- A **Push button** toggles between **Active** (LED) and **Bypassed** (dark LED); the transition animates by **Depress** or **Released**
-- A **Plotter** runs a **Sweep** permanently; the visual **Slice** fires only when toggling bypass
-- The **GlitchOverlay** renders the **Burst** (on open), continuous **Dither+Scanlines** background, and random **flicker** events
-- The **AnimationController** drives **Step** transitions, **Detent** pulses, and the global **Bypass** fade
-- Opening the plugin editor fires a **Burst**: 300ms stuttering wipe + fade-in from black
-- Closing the editor calls `stopTimer()` first, cancels active animators, then destroys components in reverse declaration order
+- The **Minimal editor** is an interim state before the **Future WebView UI** replaces it entirely.
+- Each **Stock slider** is bound to one **Parameter** via an **Attachment** and the **APVTS**.
+- When **Bypass** is active, the entire DSP chain (WarmDistortion → BitCrusher → Chorus → Delay) is skipped in `processBlock`; only Input/Output Gains pass through.
+- The **Audio engine** is shared across all editor states and is never modified.
+- Sections are purely visual — no `PanelComponent`, no custom container. Separators are painted directly.
 
 ## Example dialogue
 
-> **Dev:** "When the user turns a **Knob**, does the **Pointer** snap to each **Step** value instantly?"
-> **Domain expert:** "No — the **Pointer** animates in **Step** jumps over 250ms. Each time it crosses a **Step** boundary, a **Detent** halo flashes for 50ms to simulate a physical notch click."
->
-> **Dev:** "And what happens while the user is actively dragging?"
+> **Dev:** "We're deleting every custom component — `AnimatedKnob`, `PanelComponent`, `SynthortionLookAndFeel`, `GlitchOverlay`, the oscilloscope, the meters. What does the user see?"
 
-> **Domain expert:** "During drag, the **Value arc** grows a subtle **Interior glow** ring and the **Pointer** thicken slightly. On release, the glow fades out in 300ms and the arc returns to flat thick white. This isn't sticky 2D; it tracks."
+> **Domain expert:** "A plain window with eight **stock sliders** (rotary), their labels, and a **bypass toggle**. Positions match the old layout: input/output on the left sidebar, distortion up top, chorus below, delay on the right. Dark grey fill, 1 px black **separators**. That's it. No animations, no glitch, no custom fonts."
 
-> **Dev:** "What changes visually when the user clicks the **Push button** to bypass?"
+> **Dev:** "And automation still works?"
 
-> **Domain expert:** "A **100ms depress** (button sinks 1–2px, **LED** glows), then the global **Bypass** mix triggers a 300ms **Step** animation over N=8 levels for all knobs and meters. **Slice** pulls trigger a few temporary horizontal displacement bands in the **GlitchOverlay** over ~150ms. The **Plotter** fades its input arms but keeps the **Sweep running."
+> **Domain expert:** "Yes — each **stock slider** is bound to its **Parameter** via an **Attachment**. DAW automation and preset recall are unchanged. The **Audio engine** and **APVTS** are untouched."
 
-> **Dev:** "What about the knobs when they're idle — not hovered or dragged?"
+> **Dev:** "What about the oscilloscope and meters? Those were fed from the ring buffer."
 
-> **Domain expert:** "All components are always-visible. **Cap** stays dark, **Pointer** is sharp white, the **Elevation shadow** sits constantly below every knob. **Hover** adds a subtle outer ring glow on the cap rim — no color inversion. This is true hardware behavior: the controls are permanent, not conditional."
+> **Domain expert:** "The **Ring buffer** is deleted. No visualisation. Later, when we build the **Future WebView UI**, we'll re-add monitoring in HTML — but right now the scope and meters simply don't exist."
 
-> **Dev:** "And the background surface?"
+> **Dev:** "When the user toggles bypass, does the audio crossfade smoothly?"
 
-> **Domain expert:** "Always pitch black: the **Canvas** is solid #000. Every **Panel** is slightly lifted dark charcoal with a 1 px white border. Behind everything runs **Dither** and **Scanline** texture — permanent, subtle. The **Burst** on open slits the book twice with a glitch stutter wipe then the canvas fades in within 300ms."
+> **Domain expert:** "No — it's a hard mute of the DSP chain. The old visual crossfade (`bypassMix`) was rendered by `AnimationController` and only cosmetic. The processor has always toggled bypass with a boolean check. No behaviour changed."
 
 ## Flagged ambiguities
 
-- **"glow"**: The old code used Gaussian-blur-based soft glow everywhere. The new grammar has **Interior glow** (subtle arc ring during interaction) and **LED glow** (bright halo around the push button aperture). These are procedural
-- **"shadow"**: Previously an ambiguous blur or broad drop. Now replaced by two explicit terms: **Elevation shadow** (2px low-opacity behind knobs) and **Hard shadow** (1px solid offset). The word "shadow" alone never product design; always use the compound version.
-- **"scope" / "Plotter"**: In old code the oscilloscope widget was "scope" while the data buffer was likewise "scope". The new domain always uses **Plotter** for the audience display and **Ring buffer** for the data source.
-- **"active" / "bypassed"**: The old code treated active as `1 - bypassMix`. In the new spec, the **Push button LED** is likewise **Active** in white-hot when active, and dim replaces the old active-level concept.
-- **"small knob" / "large knob"**: Old informal catch-all. Replaced by **Canonical knob** (16-step, large, with front-face gradient) and **Outline knob** (8-step, small, rim ticks). Either one may be a firmware knob; one of the two formal only.
-- **"tick"**: Was specifically used for both vertical-led plus analysis mark. Now only **LED ladder segment** (the vertical indicator) or **Segment arc step** (the arc step).
-- **"toggle"**: Old usage encompassed both bypass and **Push button**. Now only the physical switch control; the bypass certainly always a **Push button**.
+- **"Knob" / "slider"**: The previous glossary used "Knob" for the custom `AnimatedKnob` (segment-arc rotary with pointer/detent). In the minimal editor, "Slider" refers to a stock `juce::Slider` in rotary mode. These are semantically different: a knob has discrete steps and hardware-face rendering; a stock slider has none of that. Always use **Stock slider** for the interim, **Knob** only when referring to the removed custom component.
+- **"Bypass button" / "Bypass toggle"**: The old UI had a `BypassSwitch` + `BypassComponent` with push-button animation, LED, bezel. The new editor uses a plain `juce::ToggleButton`. Use **Bypass toggle** for the new control; **Push button** for the removed component.
+- **"Panel"**: Previously a `PanelComponent` with dark fill, section header, and decorative border. Now "section" is just a layout region bounded by painted separator lines. No container object exists.
+- **"Glitch" / "CRT"**: These terms (Dither, Scanline, Sweep, Burst, Slice, Flicker) described the `GlitchOverlay` class. That class is deleted. These words no longer refer to any active UI element. Use only in historical context.
+- **"AnimationController" / "VBlank" / "Bypass mix"**: All refer to deleted animation infrastructure. The bypass mix uniform was a visual fade value; the audio never used it. Dead concepts.
+- **"BebasNeue" / "Montserrat"**: The bundled fonts are deleted. The old usage of these fonts for section headers (BebasNeue) and value labels (Montserrat) is replaced by JUCE default typeface. These font names are now historical only.

@@ -116,7 +116,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // not write code. (Structured output requires maxIterations: 1.)
     maxIterations: 1,
     // Planner: nemotron-3-ultra — ragionamento profondo
-    agent: sandcastle.opencode("nvidia/nvidia/nemotron-3-ultra-550b-a55b", { variant: "max", env: agentEnv }),
+    agent: sandcastle.opencode("google/gemini-3.6-flash", { variant: "max", env: agentEnv }),
     promptFile: "./.sandcastle/plan-prompt.md",
     // Extract and validate the <plan> JSON into a typed object. Throws
     // StructuredOutputError if the tag is missing, the JSON is malformed, or

@@ -11,9 +11,23 @@ and maintainability while preserving exact functionality.
 
 # CONTEXT
 
-## Branch diff
+## Branch diff — summary
 
-!`git diff {{TARGET_BRANCH}}...{{BRANCH}}`
+!`git diff {{TARGET_BRANCH}}...{{BRANCH}} --stat`
+
+Do NOT run `git diff {{TARGET_BRANCH}}...{{BRANCH}}` wholesale — on large
+cleanups the full diff can exceed the OS argv limit at sandbox spawn and
+crash the reviewer with `spawn E2BIG` (it happened on issue #39, ~76k
+tokens). Instead, inspect the change one file at a time:
+
+!`git diff --name-only {{TARGET_BRANCH}}...{{BRANCH}}`
+
+For each path listed above, run on demand:
+
+    git diff {{TARGET_BRANCH}}...{{BRANCH}} -- <path>
+
+to load just that file's hunks into your context. This keeps the prompt
+bounded regardless of branch diff size.
 
 ## Commits on this branch
 
@@ -29,7 +43,11 @@ and maintainability while preserving exact functionality.
 
 # REVIEW PROCESS
 
-1. **Understand the change**: Read the diff and commits to understand intent.
+1. **Understand the change**: Read the `--stat` summary, the changed-file
+   list, and the commit subject lines above to get scope and intent. Then
+   load hunks selectively with `git diff {{TARGET_BRANCH}}...{{BRANCH}}
+   -- <path>` for each file you actually need to review (see the CONTEXT
+   note about why the full `git diff` is not safe to inline here).
 
 2. **Analyze for improvements**:
    - Reduce unnecessary complexity and nesting
