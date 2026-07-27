@@ -284,8 +284,6 @@ namespace synthortion
             buffer.applyGain(inputGainLinear);
         }
 
-        scopeBuffer.writeInput (buffer);
-
         juce::dsp::AudioBlock<float> block(buffer);
         juce::dsp::ProcessContextReplacing<float> context(block);
 
@@ -324,8 +322,6 @@ namespace synthortion
             const float outputGainLinear = juce::Decibels::decibelsToGain(outputGainSmoother.getCurrentValue());
             buffer.applyGain(outputGainLinear);
         }
-
-        scopeBuffer.writeOutput (buffer);
 
         const int distortionLatency = warmDistortion.getLatencySamples();
         currentTotalLatency.store(distortionLatency);
