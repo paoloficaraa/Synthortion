@@ -12,28 +12,18 @@ juce_add_plugin(Synthortion
 
 juce_add_binary_data(SynthortionResources
     SOURCES
-        resources/BebasNeue-Regular.ttf
-        resources/Montserrat-VariableFont_wght.ttf
+        resources/OFL-BebasNeue.txt
+        resources/OFL-Montserrat.txt
 )
 
 target_sources(Synthortion
 PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
-    src/SynthortionLookAndFeel.cpp
-    src/PanelComponent.cpp
-    src/BypassComponent.cpp
-    src/BypassSwitch.cpp
     src/WarmDistortion.cpp
     src/PingPongDelay.cpp
     src/BitCrusher.cpp
     src/SynthortionChorus.cpp
-    src/AnimationController.cpp
-    src/AudioScopeRingBuffer.cpp
-    src/OscilloscopeComponent.cpp
-    src/MeterComponent.cpp
-    src/AnimatedKnob.cpp
-    src/GlitchOverlay.cpp
 )
 
 target_include_directories(Synthortion
@@ -48,7 +38,6 @@ PRIVATE
     juce::juce_audio_processors
     juce::juce_gui_extra
     juce::juce_dsp
-    juce::juce_animation
 PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags
@@ -80,22 +69,12 @@ target_sources(SynthortionTests
 PRIVATE
     tests/Main.cpp
     tests/AudioPluginTest.h
-    src/SynthortionLookAndFeel.cpp
-    src/PanelComponent.cpp
-    src/BypassComponent.cpp
-    src/BypassSwitch.cpp
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
     src/WarmDistortion.cpp
     src/PingPongDelay.cpp
     src/BitCrusher.cpp
     src/SynthortionChorus.cpp
-    src/AnimationController.cpp
-    src/AudioScopeRingBuffer.cpp
-    src/OscilloscopeComponent.cpp
-    src/MeterComponent.cpp
-    src/AnimatedKnob.cpp
-    src/GlitchOverlay.cpp
 )
 
 target_include_directories(SynthortionTests
@@ -118,7 +97,6 @@ PRIVATE
     juce::juce_audio_processors
     juce::juce_gui_extra
     juce::juce_dsp
-    juce::juce_animation
     juce::juce_core
     juce::juce_events
     juce::juce_graphics

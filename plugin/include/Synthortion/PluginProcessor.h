@@ -10,7 +10,6 @@
 #include "Synthortion/SynthortionChorus.h"
 #include "Synthortion/PingPongDelay.h"
 #include "Synthortion/BitCrusher.h"
-#include "Synthortion/AudioScopeRingBuffer.h"
 
 namespace synthortion
 {
@@ -22,8 +21,6 @@ namespace synthortion
         ~AudioPluginAudioProcessor() override;
 
         friend class AudioPluginAudioProcessorEditor;
-
-        AudioScopeRingBuffer& getScopeBuffer() noexcept { return scopeBuffer; }
 
         void prepareToPlay(double sampleRate, int samplesPerBlock) override;
         void releaseResources() override;
@@ -50,8 +47,6 @@ namespace synthortion
         void setStateInformation(const void *data, int sizeInBytes) override;
 
         juce::LinearSmoothedValue<float> smoothedColorDrive { 0.0f };
-
-        AudioScopeRingBuffer scopeBuffer;
 
         juce::AudioProcessorValueTreeState& getAPVTS() noexcept { return apvts; }
 
