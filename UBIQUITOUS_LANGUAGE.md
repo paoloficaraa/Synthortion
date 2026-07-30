@@ -1,67 +1,69 @@
 # Ubiquitous Language
 
-Glossary for the Synthortion audio plugin: a minimal-JUCE interim state before a WebView-based UI rewrite.
+Glossary for the Synthortion audio plugin: a WebView-based React UI replacing the minimal-JUCE interim editor.
 
 ## Architecture layers
 
 | Term                 | Definition                                                                    | Aliases to avoid        |
 | -------------------- | ----------------------------------------------------------------------------- | ----------------------- |
 | **Audio engine**     | The `PluginProcessor` + four DSP modules; processes audio, owns APVTS. Untouched across UI changes. | Processor, audio core, back end |
-| **Minimal editor**   | The temporary `PluginEditor` (stock JUCE controls, no custom L&F, no Timer). Removed everything decorative. | Stock editor, stripped editor, interim UI |
-| **Future WebView UI**| The planned next-step editor using `juce::WebBrowserComponent` (HTML+CSS+JS in a webview host). | Web UI, webview editor, redesign |
-| **APVTS**            | `juce::AudioProcessorValueTreeState`: the parameter state manager binding DAW automation ↔ UI sliders ↔ DSP params. | Parameter tree, value tree |
+| **WebView UI**       | The production editor: a `juce::WebBrowserComponent` hosting a React/Vite single-page app inside the plugin window. | Web UI, webview editor, HTML editor, future UI |
+| **APVTS**            | `juce::AudioProcessorValueTreeState`: the parameter state manager binding DAW automation ↔ UI controls ↔ DSP params. | Parameter tree, value tree |
+| **IPC bridge**       | The serialized message channel (JSON or binary) between the WebView UI and the Audio engine's C++ thread. | Message bus, JS bridge, data link |
 
-## UI controls (minimal editor)
+## Technology stack
 
-| Term              | Definition                                                            | Aliases to avoid                        |
-| ----------------- | --------------------------------------------------------------------- | --------------------------------------- |
-| **Stock slider**  | A plain `juce::Slider` drawn in rotary mode, no custom L&F.           | Knob, dial, AnimatedKnob                |
-| **Stock label**   | A plain `juce::Label` displaying parameter name or numeric value.     | Title, value text, BebasNeue label      |
-| **Bypass toggle** | A plain `juce::ToggleButton` bound to the `PLUGIN_BYPASS` parameter.  | Push button, bypass switch, LED button  |
-| **Attachment**    | A `SliderAttachment` or `ButtonAttachment` linking a stock control to an APVTS parameter ID. | Binding, connection, param link         |
-| **Value formatter**| Static function (`formatDB`, `formatPercentage`, `formatMilliseconds`) converting raw float → display string. | Value text callback, display format     |
+| Term                 | Definition                                                                    | Aliases to avoid        |
+| -------------------- | ----------------------------------------------------------------------------- | ----------------------- |
+| **Tailwind CSS**     | Utility-first CSS framework used exclusively for design system structure, layout, spacing, and CSS variable theming. | CSS framework, utility classes |
+| **Framer Motion**    | React animation library handling micro-interactions: hover states, entrance animations, and UI feedback on controls. | Animation lib, motion |
+| **React Three Fiber**| React renderer for Three.js, used exclusively for the 3D FFT Visualizer scene (GLSL shaders, geometry, particles). | R3F, Three.js, WebGL layer |
+| **CSS Modules**      | Vite-native scoped CSS files (`.module.css`) co-located with components for styles that exceed Tailwind utilities. | Scoped CSS, local styles |
+
+## Visual identity
+
+| Term                     | Definition                                                              | Aliases to avoid        |
+| ------------------------ | ----------------------------------------------------------------------- | ----------------------- |
+| **Glitch Brutalism**     | The plugin's design language: sharp corners, hard shadows, monochromatic palette, no soft gradients or rounded edges. | Dark theme, industrial theme, brutalist |
+| **Vintage Industrial palette** | The three-color foundation of the UI: `#0f0e0e` (dark), `#f6f6f6` (light), `#c7c3ba` (warm accent). | Color scheme, theme colors |
+| **Noise overlay**        | A fractal-noise SVG texture composited over the entire plugin chassis via CSS `::after`, giving a subtle grain. | Grain, texture, dither |
+
+## UI components
+
+| Term                 | Definition                                                                    | Aliases to avoid        |
+| -------------------- | ----------------------------------------------------------------------------- | ----------------------- |
+| **VstLayout**        | The root layout component: a 3-column `flex-row` container (Left Meter, Center Hub, Right Meter) with rack screws. | Main container, shell, wrapper |
+| **PresetHeader**     | The top 64 px bar containing the bypass toggle, plugin title, and the embedded LCD preset selector. | Header, top bar, title bar |
+| **Knob**             | A vector SVG rotary control with polar math for the notch position, vertical pointer-drag interaction, and `focus-visible` accessibility. | Dial, rotary, slider, stock slider |
+| **Value arc**        | The circular SVG stroke around a Knob that fills proportionally to the current parameter value; colored `#c7c3ba`. | Circus, active arc, progress ring, indicator |
+| **ToggleSwitch**     | A binary button (e.g., PRE/POST, WIDE) bound to a boolean parameter, styled as a flat Brutalist pill. | Button, switch, selector |
+| **GainMeter**        | A full-height 2D Canvas component rendering 32 discrete segmented blocks to visualize signal level (Input or Output). | VU meter, level meter, volume bar |
+| **FftVisualizer**    | A React Three Fiber `<Canvas>` scene rendering audio-reactive 3D geometry with hard shadows, sharp corners, and glitchy particles. | Spectrum, analyser, oscilloscope, waveform |
+| **Glitch particles** | Lightweight floating particle systems inside the FftVisualizer, adding subtle motion and industrial atmosphere. | Dust, sparks, ambient particles |
 
 ## Parameters
 
 | Term            | Parameter ID       | Range          | Default | Domain meaning                                      |
 | --------------- | ------------------ | -------------- | ------- | --------------------------------------------------- |
-| **Input Gain**  | `INPUT_GAIN`       | –60..+12 dB    | 0 dB    | Pre-DSP level trim.                                 |
-| **Color**       | `COLOR`            | 0..1           | 0       | Drive intensity — the main distortion character. Labeled "COLOR" on the front-panel. |
-| **Bit Crush**   | `BITCRUSH`         | 0..1           | 0       | Sample-rate/bit-depth reduction mix.                 |
-| **Chorus Mix**  | `CHORUS_MIX`       | 0..1           | 0       | Wet/dry blend of the 3-LFO chorus.                  |
-| **Delay Time**  | `DELAY_TIME`       | 1..2000 ms     | 250 ms  | Ping-pong delay interval.                            |
-| **Delay Feedback**| `DELAY_FEEDBACK` | 0..0.95        | 0.4     | Feedback amount for the delay repeats.               |
-| **Delay Mix**   | `DELAY_MIX`        | 0..1           | 0       | Wet/dry blend of the delay output.                   |
-| **Output Gain** | `OUTPUT_GAIN`      | –60..+12 dB    | 0 dB    | Post-DSP level trim.                                 |
-| **Volume Compensation**| `VOLUME_COMPENSATION`| 0..1 (bool) | 1    | Toggle: compensates loudness increase from distortion. Not exposed in stock UI. |
+| **Input Gain**  | `INPUT_GAIN`       | –24..+24 dB    | 0 dB    | Pre-DSP level trim, controlled by the left GainMeter's TRIM Knob. |
+| **Drive**       | `COLOR`            | 0..100%        | 0       | Drive intensity — the main distortion character. Labeled "DRV" on the faceplate. |
+| **Bit Crush**   | `BITCRUSH`         | 0..100%        | 0       | Sample-rate/bit-depth reduction mix. Labeled "BCR". |
+| **Delay Time**  | `DELAY_TIME`       | 1..2000 ms     | 250 ms  | Ping-pong delay interval. Labeled "DLY".            |
+| **Delay Feedback**| `DELAY_FEEDBACK` | 0..95%         | 40%     | Feedback amount for the delay repeats.               |
+| **Delay Mix**   | `DELAY_MIX`        | 0..100%        | 0       | Wet/dry blend of the delay output.                   |
+| **Chorus Mix**  | `CHORUS_MIX`       | 0..100%        | 0       | Wet/dry blend of the 3-LFO chorus. Labeled "CHR".   |
+| **Chorus Wide** | `CHORUS_WIDE`      | false/true     | false   | Toggle: widens the stereo image of the chorus effect. |
+| **Output Gain** | `OUTPUT_GAIN`      | –24..+24 dB    | 0 dB    | Post-DSP level trim, controlled by the right GainMeter's TRIM Knob. |
 | **Bypass**      | `PLUGIN_BYPASS`    | false/true     | false   | Master bypass: skips all DSP modules when active.    |
 
-## Sections (layout regions)
+## Layout regions (3-column design)
 
-| Term              | Definition                                                                  | Aliases to avoid             |
-| ----------------- | --------------------------------------------------------------------------- | ---------------------------- |
-| **Header**        | Top 60 px bar: "Synthortion" title left, bypass toggle right. No panel.     | Top bar, title bar, header strip |
-| **Sidebar**       | Left 120 px column: Input Gain slider top half, Output Gain slider bottom half. | Input/output bar, lateral panel |
-| **Distortion section** | Main area slot: Color (drive) + Bit Crush sliders. Below the header separator, bounded at y=240. | Drive block, COLOR panel   |
-| **Chorus section**| Single-slider slot for Chorus Mix, below the distortion area.               | Chorus block, modulation slot |
-| **Delay section** | Three-slider slot: Time + Feedback + Mix.                                   | Delay block, echo section   |
-| **Coming Soon**   | Top-right 200×160 area: text-only `Label` reading "COMING SOON". Placeholder for future expansion. | Filler, spare slot           |
-| **Separator**     | A 1 px black horizontal line drawn at section boundaries in `paint()`.       | Divider rule, grid line     |
-
-## Sections (physical layout sketch)
-
-```
-+-------------------------------------------------------------------+
-| [Synthortion]                                          [BYPASS ☐] |  ← Header (y 0–60)
-+-------------------------------------------------------------------+
-|  ║             |  DISTORTION                      DELAY            |
-|  ║  INPUT      |  ⊙ COLOR    ⊙ BIT CRUSH          ⊙ TIME  ⊙ FDBK ⊙ MIX |
-|  ║  [gain]     |                                     [Coming Soon] |
-|  ║             |  CHORUS                                           |
-|  ║  OUTPUT     |  ⊙ CHORUS MIX                                      |
-|  ║  [gain]     |                                                    |
-+-------------------------------------------------------------------+
-```
+| Term                   | Definition                                                                     | Aliases to avoid           |
+| ---------------------- | ------------------------------------------------------------------------------ | -------------------------- |
+| **Left Meter column**  | Narrow left column: full-height GainMeter (Input) with embedded TRIM Knob, bordered right. | Input sidebar, left panel |
+| **Center Hub**         | Wide central column: PresetHeader on top, FftVisualizer below it, 5-knob Matrix Faceplate at the bottom. | Main area, center panel |
+| **Right Meter column** | Narrow right column: full-height GainMeter (Output) with embedded TRIM Knob, bordered left. | Output sidebar, right panel |
+| **Matrix Faceplate**   | A `grid-cols-5` area inside the Center Hub containing the five main DSP Knobs (DRV, BCR, DLY, DLY-FBK/MIX, CHR) with their ToggleSwitches. | Controls grid, knob panel |
 
 ## DSP modules
 
@@ -71,39 +73,39 @@ Glossary for the Synthortion audio plugin: a minimal-JUCE interim state before a
 | **BitCrusher**       | `BitCrusher`             | Sample-rate and bit-depth reducer.                       |
 | **Chorus**           | `SynthortionChorus`      | 3-LFO stereo chorus with crossover split.                |
 | **Delay**            | `PingPongDelay`          | Stereo ping-pong delay with damping filter.              |
-| **Ring buffer**      | `AudioScopeRingBuffer`   | Lock-free dual-channel buffer feeding the (now removed) oscilloscope. **Deleted.** |
 
 ## Relationships
 
-- The **Minimal editor** is an interim state before the **Future WebView UI** replaces it entirely.
-- Each **Stock slider** is bound to one **Parameter** via an **Attachment** and the **APVTS**.
-- When **Bypass** is active, the entire DSP chain (WarmDistortion → BitCrusher → Chorus → Delay) is skipped in `processBlock`; only Input/Output Gains pass through.
-- The **Audio engine** is shared across all editor states and is never modified.
-- Sections are purely visual — no `PanelComponent`, no custom container. Separators are painted directly.
+- The **WebView UI** replaces the deleted Minimal editor entirely; it is hosted inside `juce::WebBrowserComponent`.
+- The **WebView UI** communicates with the **Audio engine** exclusively through the **IPC bridge**; no shared memory crosses the boundary.
+- Each **Knob** is a controlled React component (`value`, `onChange`) whose top-level state in `App.tsx` maps 1:1 to an **APVTS** parameter via the **IPC bridge**.
+- A **GainMeter** contains exactly one **Knob** (the TRIM control) and one 2D Canvas visualization for signal level.
+- The **FftVisualizer** renders inside a React Three Fiber `<Canvas>` and reacts to the `engineActive` state; it contains sharp 3D geometry and **Glitch particles**.
+- The **Value arc** is the only UI element using the `#c7c3ba` accent color; all other elements use `#0f0e0e` (dark) or `#f6f6f6` (light).
+- The **Matrix Faceplate** is divided into 5 equal columns by `border` dividers, each column hosting one DSP parameter's Knob and optional ToggleSwitches.
 
 ## Example dialogue
 
-> **Dev:** "We're deleting every custom component — `AnimatedKnob`, `PanelComponent`, `SynthortionLookAndFeel`, `GlitchOverlay`, the oscilloscope, the meters. What does the user see?"
+> **Dev:** "When the user drags a **Knob** vertically, what happens on the C++ side?"
 
-> **Domain expert:** "A plain window with eight **stock sliders** (rotary), their labels, and a **bypass toggle**. Positions match the old layout: input/output on the left sidebar, distortion up top, chorus below, delay on the right. Dark grey fill, 1 px black **separators**. That's it. No animations, no glitch, no custom fonts."
+> **Domain expert:** "The **Knob** fires its `onChange` callback, which updates the controlled state in `App.tsx`. That state change is serialized and sent over the **IPC bridge** to the **Audio engine**, which writes it into the **APVTS**. DAW automation records from there."
 
-> **Dev:** "And automation still works?"
+> **Dev:** "And the **GainMeter** — is it reading real audio levels?"
 
-> **Domain expert:** "Yes — each **stock slider** is bound to its **Parameter** via an **Attachment**. DAW automation and preset recall are unchanged. The **Audio engine** and **APVTS** are untouched."
+> **Domain expert:** "Not yet. Right now the **GainMeter** renders simulated blocks using `Math.random()`. Once the **IPC bridge** is wired, the **Audio engine** will push peak level data into the **WebView UI**, and the **GainMeter** canvas will consume that instead."
 
-> **Dev:** "What about the oscilloscope and meters? Those were fed from the ring buffer."
+> **Dev:** "The **FftVisualizer** is being upgraded to 3D. Does the 3D scene need to match the old 2D bars exactly?"
 
-> **Domain expert:** "The **Ring buffer** is deleted. No visualisation. Later, when we build the **Future WebView UI**, we'll re-add monitoring in HTML — but right now the scope and meters simply don't exist."
+> **Domain expert:** "No. The 3D scene introduces sharp geometric primitives with hard shadows and **Glitch particles**. The math for audio reactivity (vertex displacement driven by signal) carries over, but the visual output is intentionally different — it's an upgrade, not a port. It must still respect **Glitch Brutalism**: no soft edges, no bloom, no rounded forms."
 
-> **Dev:** "When the user toggles bypass, does the audio crossfade smoothly?"
+> **Dev:** "What color does the **Value arc** use?"
 
-> **Domain expert:** "No — it's a hard mute of the DSP chain. The old visual crossfade (`bypassMix`) was rendered by `AnimationController` and only cosmetic. The processor has always toggled bypass with a boolean check. No behaviour changed."
+> **Domain expert:** "Always `#c7c3ba` from the **Vintage Industrial palette**. That warm tone is reserved exclusively for the arc stroke. The Knob body and track use `#0f0e0e` and `#f6f6f6`."
 
 ## Flagged ambiguities
 
-- **"Knob" / "slider"**: The previous glossary used "Knob" for the custom `AnimatedKnob` (segment-arc rotary with pointer/detent). In the minimal editor, "Slider" refers to a stock `juce::Slider` in rotary mode. These are semantically different: a knob has discrete steps and hardware-face rendering; a stock slider has none of that. Always use **Stock slider** for the interim, **Knob** only when referring to the removed custom component.
-- **"Bypass button" / "Bypass toggle"**: The old UI had a `BypassSwitch` + `BypassComponent` with push-button animation, LED, bezel. The new editor uses a plain `juce::ToggleButton`. Use **Bypass toggle** for the new control; **Push button** for the removed component.
-- **"Panel"**: Previously a `PanelComponent` with dark fill, section header, and decorative border. Now "section" is just a layout region bounded by painted separator lines. No container object exists.
-- **"Glitch" / "CRT"**: These terms (Dither, Scanline, Sweep, Burst, Slice, Flicker) described the `GlitchOverlay` class. That class is deleted. These words no longer refer to any active UI element. Use only in historical context.
-- **"AnimationController" / "VBlank" / "Bypass mix"**: All refer to deleted animation infrastructure. The bypass mix uniform was a visual fade value; the audio never used it. Dead concepts.
-- **"BebasNeue" / "Montserrat"**: The bundled fonts are deleted. The old usage of these fonts for section headers (BebasNeue) and value labels (Montserrat) is replaced by JUCE default typeface. These font names are now historical only.
+- **"Circus" / "Value arc"**: During planning, "circus" was used informally to mean the circular SVG stroke that tracks the Knob's current value. The canonical term is **Value arc**. "Circus" must not appear in code or documentation.
+- **"Knob" / "Stock slider"**: In the previous glossary, "Knob" referred to the deleted `AnimatedKnob` custom component, while "Stock slider" was the interim `juce::Slider`. Now **Knob** refers exclusively to the new React SVG rotary control. "Stock slider" is a dead term — the Minimal editor no longer exists.
+- **"Minimal editor"**: The temporary JUCE-only editor described in the previous glossary. It has been fully superseded by the **WebView UI**. Do not reference it as a current or future state.
+- **"FFT"**: The FftVisualizer does not perform an actual Fast Fourier Transform. It uses procedural math (sin/cos structural noise) to simulate audio-reactive motion. The name is aspirational — actual FFT data will arrive later via the **IPC bridge**. Do not assume real frequency analysis is happening.
+- **"Shadow"**: In the context of the **FftVisualizer**, shadows are hard-edged and cast by directional lights onto flat geometry. In the context of CSS (e.g., `box-shadow` on the chassis), shadows are inset industrial effects. These are visually and technically distinct.
