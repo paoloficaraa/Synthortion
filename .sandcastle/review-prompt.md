@@ -1,12 +1,20 @@
 # SKILLS
 
-**Task-specific skill.** After reading the diff, invoke `find-skills` to discover
-the best matching review skill. Common matches for this repo:
-- `code-review` → General logic, architecture, and safety
-- `impeccable` → Visual fidelity, CSS/Tailwind precision, and accessibility
-- `graphify` → Module dependencies and file structure consistency
+**Task-specific skill.** Select the best matching skill from the table below.
+Check the branch diff's file types to determine focus.
+
+| If the diff primarily touches …                          | Load this skill       |
+|----------------------------------------------------------|-----------------------|
+| `ui/` files (React, TSX, CSS, Tailwind)                  | `impeccable`          |
+| `Source/` files (C++, JUCE, DSP)                         | `code-review`         |
+| Both `ui/` and `Source/`                                 | `code-review` (first) |
+| `.sandcastle/`, `*.md`, config files                     | `graphify`            |
+| Tests (`*.test.tsx`, `*_test.cpp`)                       | `tdd`                 |
 
 Load and follow the selected skill.
+
+> ⚠️ Do NOT invoke `find-skills` — it searches the public ecosystem and misses
+> locally installed skills. Use the direct mapping above.
 
 # TASK
 

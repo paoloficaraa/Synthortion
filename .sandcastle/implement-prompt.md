@@ -4,16 +4,25 @@
 It stays active for every response (code, tests, and error strings remain normal;
 the skill auto-drops for security warnings). Cuts output tokens by 65%+.
 
-**Task-specific skill.** After reading the issue, invoke `find-skills` to
-discover the best matching skill for this task. Common matches for this repo:
-- `impeccable` and `ui-ux-pro-max` → UI components, visual design, or frontend architecture
-- `graphify` → Codebase questions, file relationships, or architecture review
-- `tdd` → Test-driven development for DSP-boundary logic
-- `codebase-design` → Deep module design (e.g., IPC bridge, parameter state)
-- `vercel-react-best-practices` → React/Vite performance patterns
-- `webapp-testing` → Playwright tests for WebView UI
+**Task-specific skill.** After reading the issue, select the best matching skill(s)
+using the mapping table below. Check the issue's **labels** first, then **title**.
 
-Load and follow the selected skill alongside `caveman`.
+| When issue …                                          | Load these skills                                        |
+|-------------------------------------------------------|----------------------------------------------------------|
+| Label: `ui`, `frontend`, `visual`, `component`        | `impeccable`, `ui-ux-pro-max`                            |
+| Title contains: `UI`, `visualizer`, `layout`          | `impeccable`, `ui-ux-pro-max`                            |
+| Label: `bug`, `fix`, `debug`                          | `systematic-debugging`, `tdd`                            |
+| Label: `test`, `testing`                              | `tdd`, `webapp-testing`                                  |
+| Label: `architecture`, `refactor`                     | `codebase-design`, `graphify`                            |
+| Label: `spec`, `prd`, `documentation`                 | `ubiquitous-language` (write specs), also check title    |
+| Title contains: `spec`, `PRD` **AND** `UI`, `component` | `impeccable`, `ui-ux-pro-max` (spec → implementation)   |
+| Label: `dsp`, `audio`, `engine`                       | `tdd`, `codebase-design`                                 |
+| None of the above                                     | `impeccable` (UI default), `graphify` (exploration)      |
+
+Load and follow the selected skill(s) alongside `caveman`.
+
+> ⚠️ Do NOT invoke `find-skills`. It searches the public ecosystem and misses locally
+> installed skills. Use the direct mapping above.
 
 # TASK
 
