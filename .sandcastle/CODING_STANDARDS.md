@@ -169,3 +169,40 @@ private:
   - Run `pluginval` CLI for real-time validation (trap heap allocations / locks on audio thread).
   - Run `pluginval` in **Fuzz Mode** for automated parameter stress testing prior to release.
 - **JUCE GUI Test Setup**: Wrap GUI tests in `juce::initialiseJuce_GUI()` and `juce::shutdownJuce_GUI()`.
+---
+
+## 7. WebView UI Standards (React / TypeScript / Vite)
+
+### 7.1 File Structure
+- All UI source code lives in `ui/`.
+- Component files use `PascalCase.tsx` (e.g., `VstLayout.tsx`, `Knob.tsx`).
+- Styles co-located as CSS Modules: `Knob.module.css`.
+- Place shared types in `ui/src/types/`, shared utilities in `ui/src/utils/`.
+
+### 7.2 Component Architecture
+- **State**: Hoist all parameter state to `App.tsx` as controlled props (no internal state for values bound to DSP params).
+- **Props**: Define strict TypeScript interfaces for every component's props.
+- **Pure components**: Use `React.memo` for stable, frequently rendered components (e.g., `Knob`, `GainMeter`).
+- **3D**: Use `@react-three/fiber` exclusively for the `FftVisualizer`. Never mix Three.js directly.
+
+### 7.3 Styling (Glitch Brutalism)
+- **Colors**: Use CSS custom properties defined on `:root` in `ui/src/index.css`.
+  - `--bg: #0f0e0e` (dark industrial background)
+  - `--fg: #f6f6f6` (light text and accents)
+  - `--accent: #c7c3ba` (warm value arc — reserved exclusively for knob arcs)
+- **Shapes**: Prefer sharp corners and hard shadows. Avoid `border-radius`, `blur()`, or soft gradients.
+- **Noise overlay**: The `.vst-container` must include the fractal-noise SVG `::after` pseudo-element for grain texture.
+
+### 7.4 Interaction Patterns
+- **Knob drag**: Vertical mouse drag only (up = increase value, down = decrease).
+- **Keyboard**: All interactive controls must support `focus-visible` and arrow-key (or Enter) activation.
+- **Touch**: Ensure controls work on touch devices (pointer events, not just mouse events).
+
+### 7.5 Testing
+- **Unit tests**: Use Vitest with `@testing-library/react` for component integration.
+- **Visual**: Use Playwright for visual regression tests of the full WebView UI.
+- **Mocking**: Mock `window.__JUCE__.backend` IPC bridge when testing state flow.
+
+### 7.6 Accessible Communication
+- Follow the glossary in `UBIQUITOUS_LANGUAGE.md`.
+- Never use legacy terms: "circus" (use "value arc"), "stock slider" (use "knob"), "HTML editor" (use "WebView UI").

@@ -1,79 +1,95 @@
 # SKILLS
 
 **Tone.** Load the `caveman` skill at `wenyan-ultra` intensity BEFORE any action.
-It stays active every response (code, tests, and error strings remain normal;
+It stays active for every response (code, tests, and error strings remain normal;
 the skill auto-drops for security warnings). Cuts output tokens by 65%+.
 
 **Task-specific skill.** After reading the issue, invoke `find-skills` to
-discover the best matching skill for this task (e.g. `impeccable` for UI,
-`systematic-debugging` for bugs, `tdd` for test-first features). Load and follow
-that skill alongside `caveman`.
+discover the best matching skill for this task. Common matches for this repo:
+- `impeccable` and `ui-ux-pro-max` → UI components, visual design, or frontend architecture
+- `graphify` → Codebase questions, file relationships, or architecture review
+- `tdd` → Test-driven development for DSP-boundary logic
+- `codebase-design` → Deep module design (e.g., IPC bridge, parameter state)
+- `vercel-react-best-practices` → React/Vite performance patterns
+- `webapp-testing` → Playwright tests for WebView UI
+
+Load and follow the selected skill alongside `caveman`.
 
 # TASK
 
-Fix issue {{TASK_ID}}: {{ISSUE_TITLE}}
+Resolve issue {{TASK_ID}}: {{ISSUE_TITLE}}
 
-Pull in the issue using `gh issue view <ID>`. If it has a parent PRD, pull that in too. Only work on the issue specified.
-
-Work on branch {{BRANCH}}. Make commits and verify the build.
+1. Pull the issue using `gh issue view {{TASK_ID}}`.
+2. If the issue references a parent PRD or spec, pull that in too.
+3. Work exclusively on the issue specified. Do not expand scope.
+4. Work on branch `{{BRANCH}}`.
+5. Make atomic commits with messages following [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) (e.g., `feat(ui): add GainMeter component`).
+6. Verify the build and linting before pushing.
 
 # CONTEXT
 
-Last 10 commits:
+## Recent commits
 
 <recent-commits>
-
 !`git log -n 10 --format="%H%n%ad%n%B---" --date=short`
-
 </recent-commits>
 
-# PROJECT
-
+## Project
 @.sandcastle/project-context.md
 
-# CODING STANDARDS
+## Ubiquitous Language
+Always use terms from [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md). Examples:
+- **WebView UI** (not "web UI" or "HTML editor")
+- **Value arc** (not "circus" or "active arc")
+- **Glitch Brutalism** (not "dark theme" or "industrial theme")
+- **IPC bridge** (not "message bus" or "JS bridge")
 
-@.sandcastle/CODING_STANDARDS.md
+## Coding Standards
+- **File structure**: All WebView UI code lives in `ui/` (React/Vite). C++ DSP code lives in `plugin/`.
+- **Styling**: Use Tailwind CSS for layout/spacing. Use CSS Modules (`.module.css`) for component-scoped styles.
+- **State**: Hoist all parameter state to `App.tsx` (controlled components).
+- **3D**: Use React Three Fiber (`@react-three/fiber`) exclusively for `FftVisualizer`.
+- **Colors**: Use the **Vintage Industrial palette** (`#0f0e0e`, `#f6f6f6`, `#c7c3ba`).
+- **Accessibility**: Every interactive control must support `focus-visible` and keyboard navigation.
 
-# EXPLORATION
+## Build Commands
+```bash
+npm install       # Install dependencies
+npm run dev       # Start Vite dev server
+npm run build     # Build for production
+npm run lint      # Run ESLint
+npm run test      # Run unit tests
+```
 
-Explore the repo and fill your context window. Pay extra attention to:
-- Existing test infrastructure in `plugin/tests/`
-- The gin library patterns in `modules/gin/` (uses `juce::UnitTest`)
-- Audio thread safety constraints (see CODING_STANDARDS.md)
+## Out of Scope
+- Implementing the C++ IPC bridge (handled by separate issue).
+- Real FFT analysis (simulated noise is acceptable for now).
+- DAW-specific integration (VST/AU/AAX).
 
 # EXECUTION
 
 If applicable, use RGR:
-1. RED: write one test
+1. RED: write one test (e.g. Vitest/Playwright)
 2. GREEN: implement to pass that test
 3. REPEAT until done
 4. REFACTOR
 
-For C++ changes:
-- RAII for all resources (no raw `new`/`delete`)
-- `override` on virtual functions, `noexcept` where applicable
-- `std::atomic<float>*` cached from APVTS for audio thread param access
-
 # FEEDBACK
 
 Before committing:
-- If `plugin/CMakeLists.txt` changed: `npm run configure` first
 - `npm run typecheck` — must pass, zero errors
-- `npm run test` — must pass
-- **Never `rm -rf build`** — wastes ccache
+- `npm run lint` — must pass
+- Verify visual fidelity against the **Glitch Brutalism** spec.
 
 # COMMIT
 
 Commit message format:
-1. Start with `RALPH:` prefix
-2. Task completed + PRD reference
-3. Key decisions made
-4. Files changed
-5. Blockers or notes for next iteration
+`type(scope): description`
+Example: `feat(ui): implement 3-column layout for VstLayout`
 
 # FINAL RULES
 
-If task not complete, leave a comment on the issue with what was done. Do not close the issue — done later.
-Once complete, output <promise>COMPLETE</promise>.
-ONLY WORK ON A SINGLE TASK.
+If task not complete, leave a detailed summary of:
+1. What was achieved.
+2. Where exactly you stopped (file/line).
+3. What is the immediate next step.

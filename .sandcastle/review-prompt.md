@@ -1,8 +1,12 @@
 # SKILLS
 
 **Task-specific skill.** After reading the diff, invoke `find-skills` to discover
-the best matching review skill (e.g. `code-review` for general review,
-`impeccable` for UI polish, `systematic-debugging` for bugs). Load and follow.
+the best matching review skill. Common matches for this repo:
+- `code-review` → General logic, architecture, and safety
+- `impeccable` → Visual fidelity, CSS/Tailwind precision, and accessibility
+- `graphify` → Module dependencies and file structure consistency
+
+Load and follow the selected skill.
 
 # TASK
 
@@ -17,67 +21,49 @@ and maintainability while preserving exact functionality.
 
 Do NOT run `git diff {{TARGET_BRANCH}}...{{BRANCH}}` wholesale — on large
 cleanups the full diff can exceed the OS argv limit at sandbox spawn and
-crash the reviewer with `spawn E2BIG` (it happened on issue #39, ~76k
-tokens). Instead, inspect the change one file at a time:
+crash the reviewer with `spawn E2BIG`. Instead, inspect the change one file at a time:
 
 !`git diff --name-only {{TARGET_BRANCH}}...{{BRANCH}}`
 
 For each path listed above, run on demand:
-
-    git diff {{TARGET_BRANCH}}...{{BRANCH}} -- <path>
-
-to load just that file's hunks into your context. This keeps the prompt
-bounded regardless of branch diff size.
+    `git diff {{TARGET_BRANCH}}...{{BRANCH}} -- <path>`
 
 ## Commits on this branch
 
 !`git log {{TARGET_BRANCH}}..{{BRANCH}} --oneline`
 
 # PROJECT
-
 @.sandcastle/project-context.md
 
-# CODING STANDARDS
+# UBIQUITOUS LANGUAGE
+Always ensure terms in code and comments align with [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
+# CODING STANDARDS
 @.sandcastle/CODING_STANDARDS.md
 
 # REVIEW PROCESS
 
-1. **Understand the change**: Read the `--stat` summary, the changed-file
-   list, and the commit subject lines above to get scope and intent. Then
-   load hunks selectively with `git diff {{TARGET_BRANCH}}...{{BRANCH}}
-   -- <path>` for each file you actually need to review (see the CONTEXT
-   note about why the full `git diff` is not safe to inline here).
+1. **Understand the change**: Read the `--stat` summary, the changed-file list, and the commit subject lines to get scope and intent. Load hunks selectively to keep the prompt bounded.
 
 2. **Analyze for improvements**:
-   - Reduce unnecessary complexity and nesting
-   - Eliminate redundant code and abstractions
-   - Improve readability through clear names
-   - Consolidate related logic; remove obvious comments
-   - Avoid nested ternaries — prefer `switch`/`if-else`
-   - Choose clarity over brevity
+   - **Visual Fidelity**: Does it adhere to **Glitch Brutalism**? (Sharp corners, hard shadows, `#0f0e0e`/`#f6f6f6`/`#c7c3ba`).
+   - **Performance**: Are React components avoiding unnecessary re-renders? Is Three.js usage optimized?
+   - **Accessibility**: Are `focus-visible` and keyboard tab-orders correct for the new controls?
+   - **Readability**: Reduce nesting, eliminate redundant abstractions, and prefer clarity over brevity.
 
 3. **Check correctness**:
-   - Does implementation match intent? Edge cases handled?
-   - Are new/changed behaviours covered by tests?
-   - Unsafe casts, `any` types, unchecked assumptions?
-   - Injection vulnerabilities, credential leaks, security issues?
-
-4. **Check coding standards**: Verify compliance with @.sandcastle/CODING_STANDARDS.md
-
-5. **Maintain balance**: Avoid over-simplification that reduces clarity,
-   maintainability, or debuggability. Preserve helpful abstractions.
-
-6. **Preserve functionality**: Never change what the code does — only how.
+   - Does implementation match the issue spec?
+   - Are parameter ranges and IDs aligned with the **APVTS**?
+   - Is state hoisted correctly to `App.tsx`?
 
 # EXECUTION
 
-If improvements to make:
+If you find improvements to make:
 1. Apply changes directly on this branch
 2. If `plugin/CMakeLists.txt` changed: `npm run configure` first
 3. Run `npm run typecheck` and `npm run test` (ccache makes subsequent builds ~30s). **Never `rm -rf build`.**
-4. Commit describing the refinements
+4. Commit describing refinements using [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `refactor(ui): simplify Knob drag logic`)
 
 If code is already clean: do nothing.
 
-Once complete, output <promise>COMPLETE</promise>.
+Once complete, output `<promise>COMPLETE</promise>`.
