@@ -45,7 +45,7 @@ Always use terms from [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md). Examp
 - **IPC bridge** (not "message bus" or "JS bridge")
 
 ## Coding Standards
-- **File structure**: All WebView UI code lives in `ui/` (React/Vite). C++ DSP code lives in `plugin/`.
+- **File structure**: All WebView UI code lives in `ui/` (React/Vite). C++ DSP code lives in `Source/`.
 - **Styling**: Use Tailwind CSS for layout/spacing. Use CSS Modules (`.module.css`) for component-scoped styles.
 - **State**: Hoist all parameter state to `App.tsx` (controlled components).
 - **3D**: Use React Three Fiber (`@react-three/fiber`) exclusively for `FftVisualizer`.

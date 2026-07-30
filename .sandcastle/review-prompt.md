@@ -60,7 +60,7 @@ Always ensure terms in code and comments align with [UBIQUITOUS_LANGUAGE.md](../
 
 If you find improvements to make:
 1. Apply changes directly on this branch
-2. If `plugin/CMakeLists.txt` changed: `npm run configure` first
+2. If `Source/CMakeLists.txt` changed: `npm run configure` first
 3. Run `npm run typecheck` and `npm run test` (ccache makes subsequent builds ~30s). **Never `rm -rf build`.**
 4. Commit describing refinements using [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `refactor(ui): simplify Knob drag logic`)
 
