@@ -1,33 +1,13 @@
-# PROJECT
-
-@.sandcastle/project-context.md
-
-# ISSUES
-
-Open issues (pre-filtered to **ready-for-agent** or **ready-for-work**):
-
-<issues-json>
-!`gh issue list --state open --limit 100 --json number,title,body,labels,comments --jq '[.[] | select(.labels[].name == "ready-for-agent" or .labels[].name == "ready-for-work") | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`
-</issues-json>
-
 # TASK
 
-Build a dependency graph. Issue B is **blocked by** A if:
-- B requires code/infrastructure A introduces (e.g., WebView UI must exist before wiring IPC bridge)
-- A and B modify overlapping files/modules (likely merge conflicts)
-- B depends on a decision/API shape A establishes (e.g., parameter IDs, layout structure, or APVTS state shape)
+Read the file `.sandcastle/planner-instructions.md` with the Read tool and
+follow it EXACTLY (it contains the fetch command, the dependency rules, and
+the output format). Do not skip the Read step.
 
-An issue is **unblocked** if it has zero blocking dependencies on other open issues.
+# OUTPUT (summary)
 
-For each unblocked issue, assign branch name `sandcastle/issue-{id}` (deterministic, no slug).
+Your FINAL message must be ONLY a JSON block wrapped in <plan> tags, e.g.:
 
-# OUTPUT
+<plan>{"issues": [{"id":"42","title":"Fix auth bug","branch":"sandcastle/issue-42"}]}</plan>
 
-JSON in `<plan>` tags only — do NOT write any file to disk.
-
-<plan>
-{"issues": [{"id": "42", "title": "Implement WebView UI layout", "branch": "sandcastle/issue-42"}]}
-</plan>
-
-Include only unblocked issues. If all blocked, include the single highest-priority candidate.
-If no issues at all: `<plan>{}{"issues": []}</plan>`. Always emit `<plan>` tags.
+No prose, no markdown fences. If nothing to work on: <plan>{"issues":[]}</plan>.

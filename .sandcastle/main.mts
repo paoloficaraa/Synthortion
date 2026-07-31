@@ -1,7 +1,7 @@
 // Parallel Planner with Review — four-phase orchestration loop
 //
 // This template drives a multi-phase workflow:
-//   Phase 1 (Plan):             An opus agent analyzes open issues, builds a
+//   Phase 1 (Plan):             A smart-routed agent analyzes open issues, builds a
 //                               dependency graph, and outputs a <plan> JSON
 //                               listing unblocked issues with branch names.
 //   Phase 2 (Execute + Review): For each issue, a sandbox is created via
@@ -21,34 +21,27 @@
 // Or add to package.json:
 //   "scripts": { "sandcastle": "npx tsx .sandcastle/main.mts" }
 
-import * as fs from "fs";
-import * as path from "path";
-import { fileURLToPath } from "url";
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
+import { execSync } from "node:child_process";
 import { z } from "zod";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Run a command on the HOST and return its stdout.
 
-function loadDotEnv(filePath: string): Record<string, string> {
+function sh(cmd: string): string {
   try {
-    const content = fs.readFileSync(filePath, "utf-8");
-    const env: Record<string, string> = {};
-    for (const line of content.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eqIdx = trimmed.indexOf("=");
-      if (eqIdx === -1) continue;
-      env[trimmed.slice(0, eqIdx).trim()] = trimmed.slice(eqIdx + 1).trim();
-    }
-    return env;
-  } catch {
-    return {};
+    return execSync(cmd, {
+      encoding: "utf8",
+      shell: "bash",
+      maxBuffer: 16 * 1024 * 1024,
+    }).trim();
+  } catch (error) {
+    return `(command failed: ${String(error)})`;
   }
 }
 
-const dotEnv = loadDotEnv(path.resolve(__dirname, ".sandcastle/.env"));
-const agentEnv = dotEnv;
+// Branch that feature branches are cut from and merged back into.
+const baseBranch = sh("git branch --show-current") || "main";
 
 // The planner emits its plan as JSON inside <plan> tags; Output.object extracts
 // and validates it against this schema. We use Zod here, but any Standard
@@ -68,20 +61,13 @@ const planSchema = z.object({
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
 const MAX_ITERATIONS = 10;
 
-// Agent skills from host — mounted readonly into every sandbox so agents
-// can invoke `find-skills`, `caveman`, `impeccable`, and any other skill.
-// ~/.agents/skills/ and ~/.config/opencode/skills/ auto-load per OpenCode convention.
-const skillMounts = [
-  { hostPath: "~/.agents/skills", sandboxPath: "~/.agents/skills", readonly: true },
-  { hostPath: "~/.config/opencode/skills", sandboxPath: "~/.config/opencode/skills", readonly: true },
-];
-
 // Hooks run inside the sandbox before the agent starts each iteration.
 // npm install ensures the sandbox always has fresh dependencies.
 const hooks = {
   sandbox: {
     onSandboxReady: [
       { command: "npm install" },
+      // JUCE is a git submodule — populate it in every fresh worktree before agents build.
       { command: "git submodule update --init --recursive" },
     ],
   },
@@ -90,7 +76,22 @@ const hooks = {
 // Copy node_modules from the host into the worktree before each sandbox
 // starts. Avoids a full npm install from scratch; the hook above handles
 // platform-specific binaries and any packages added since the last copy.
-const copyToWorktree = ["node_modules"];
+// .sandcastle/skills is gitignored (not in the git worktree) but the
+// implementer/reviewer/merger agents read skills from there — so we copy it
+// alongside node_modules.
+const copyToWorktree = ["node_modules", ".sandcastle/skills"];
+
+// Agent env: shrink Claude Code's system prompt (skill/agent listings are
+// large). This keeps total input below the threshold where Claude Code's CCR
+// content-retrieval mangles prompt text for third-party (Omniroute-routed)
+// models, and cuts token cost per run.
+const agentEnv = {
+  CLAUDE_CODE_SIMPLE_SYSTEM_PROMPT: "1",
+  CLAUDE_CODE_DISABLE_BUNDLED_SKILLS: "1",
+};
+
+// Shortcut for the claudeCode provider with our shared env.
+const cc = (model: string) => sandcastle.claudeCode(model, { env: agentEnv });
 
 // ---------------------------------------------------------------------------
 // Main loop
@@ -102,7 +103,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // -------------------------------------------------------------------------
   // Phase 1: Plan
   //
-  // The planning agent (opus, for deeper reasoning) reads the open issue list,
+  // The planning agent (auto/smart routing) reads the open issue list,
   // builds a dependency graph, and selects the issues that can be worked in
   // parallel right now (i.e., no blocking dependencies on other open issues).
   //
@@ -110,18 +111,36 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // -------------------------------------------------------------------------
   const plan = await sandcastle.run({
     hooks,
-    sandbox: docker({ mounts: skillMounts }),
+    sandbox: docker(),
     name: "planner",
     // One iteration is enough: the planner just needs to read and reason,
     // not write code. (Structured output requires maxIterations: 1.)
     maxIterations: 1,
-    // Planner: nemotron-3-ultra — ragionamento profondo
-    agent: sandcastle.opencode("google/gemini-3.6-flash", { variant: "max", env: agentEnv }),
+    // auto/smart: verified to work with Bash tool calls on this Omniroute.
+    // (auto/best-reasoning resolves to ambiguous model ids -> "400 Ambiguous
+    // model", and non-Claude backends cannot resolve CCR placeholders.)
+    agent: cc("auto/reasoning"),
     promptFile: "./.sandcastle/plan-prompt.md",
+    // NOTE: we deliberately do NOT inject the issue list or long instructions
+    // into the prompt. Claude Code's CCR feature replaces injected content
+    // with `[CCR retrieve hash=...]` placeholders that third-party
+    // (Omniroute-routed) models cannot resolve — the planner would report
+    // "no issues JSON". Instead the planner READS the full instructions from
+    // .sandcastle/planner-instructions.md and FETCHES the issue list itself
+    // via the Bash tool; tool results are delivered to any model reliably.
+    // (gh + GH_TOKEN are baked into the sandbox.)
+    //
     // Extract and validate the <plan> JSON into a typed object. Throws
     // StructuredOutputError if the tag is missing, the JSON is malformed, or
     // validation fails — which aborts the loop.
-    output: sandcastle.Output.object({ tag: "plan", schema: planSchema }),
+    output: sandcastle.Output.object({
+      tag: "plan",
+      schema: planSchema,
+      // Models often write prose instead of the <plan> block after tool
+      // calls. Retrying resumes the same session and asks it to re-emit
+      // ONLY the JSON block.
+      maxRetries: 2,
+    }),
   });
 
   const issues = plan.output.issues;
@@ -153,7 +172,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     issues.map(async (issue) => {
       const sandbox = await sandcastle.createSandbox({
         branch: issue.branch,
-        sandbox: docker({ mounts: skillMounts }),
+        sandbox: docker(),
         hooks,
         copyToWorktree,
       });
@@ -162,15 +181,17 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         // Run the implementer
         const implement = await sandbox.run({
           name: "implementer",
-          maxIterations: 60,
-          idleTimeoutSeconds: 1800,
-          // Implementer: DeepSeek V4 Flash — coding
-          agent: sandcastle.opencode("nvidia/minimaxai/minimax-m3", { variant: "max", env: agentEnv }),
+          maxIterations: 100,
+          // auto/coding: verified to work with Bash tool calls on this
+          // Omniroute. (gemini/gemini-3.1-flash-lite errors with "missing
+          // thought_signature" whenever it calls a tool.)
+          agent: cc("auto/coding"),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
             ISSUE_TITLE: issue.title,
             BRANCH: issue.branch,
+            RECENT_COMMITS: sh("git log -n 5 --oneline"),
           },
         });
 
@@ -179,12 +200,11 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
-            idleTimeoutSeconds: 1800,
-            // Reviewer: GPT-OSS 120B — review
-            agent: sandcastle.opencode("nvidia/z-ai/glm-5.2", { variant: "max", env: agentEnv }),
+            agent: cc("auto/smart"),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
               BRANCH: issue.branch,
+              TARGET_BRANCH: baseBranch,
             },
           });
 
@@ -249,12 +269,10 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // -------------------------------------------------------------------------
   await sandcastle.run({
     hooks,
-    sandbox: docker({ mounts: skillMounts }),
+    sandbox: docker(),
     name: "merger",
     maxIterations: 1,
-    idleTimeoutSeconds: 1800,
-    // Merger: Llama 3.3 70B — merge e risoluzione conflitti
-    agent: sandcastle.opencode("opencode/deepseek-v4-flash-free", { variant: "max", env: agentEnv }),
+    agent: cc("auto/fast"),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
       // A markdown list of branch names, one per line.

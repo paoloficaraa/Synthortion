@@ -1,29 +1,29 @@
 FROM node:22-bookworm
 
-# Install system dependencies (git, gh, build tools, JUCE/Linux deps)
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
   git \
   curl \
   jq \
+  && rm -rf /var/lib/apt/lists/*
+
+# C++20 toolchain + JUCE 8 Linux build dependencies (VST3, WebView/WebKit)
+RUN apt-get update && apt-get install -y \
+  build-essential \
   cmake \
   ninja-build \
-  build-essential \
   pkg-config \
-  ccache \
   libasound2-dev \
-  libjack-dev \
-  libfreetype-dev \
-  libfontconfig1-dev \
-  libwebkit2gtk-4.1-dev \
-  libgtk-3-dev \
-  libcurl4-openssl-dev \
   libx11-dev \
-  libxcomposite-dev \
-  libxcursor-dev \
   libxext-dev \
   libxinerama-dev \
+  libxcursor-dev \
   libxrandr-dev \
-  libxrender-dev \
+  libxcomposite-dev \
+  libfreetype6-dev \
+  libcurl4-openssl-dev \
+  libgtk-3-dev \
+  libwebkit2gtk-4.1-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
@@ -42,17 +42,17 @@ ARG AGENT_GID=1000
 
 # Rename the base image's "node" user to "agent" and align UID/GID.
 RUN groupmod -o -g $AGENT_GID node && usermod -o -u $AGENT_UID -g $AGENT_GID -d /home/agent -m -l agent node
-
-# Install OpenCode CLI (run as root before USER agent).
-# Agent skills (~150+ from host) are bind-mounted readonly at runtime via
-# main.mts skillMounts — no rebuild needed when skills change.
-RUN npm install -g opencode-ai@latest
-
 USER ${AGENT_UID}:${AGENT_GID}
+
+# Install Claude Code CLI
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
+# Add Claude to PATH
+ENV PATH="/home/agent/.local/bin:$PATH"
 
 WORKDIR /home/agent
 
-# In worktree sandbox mode, Sandcastle bind-mounts the git worktree at ${SANDBOX_REPO_DIR}
-# and overrides the working directory to ${SANDBOX_REPO_DIR} at container start.
-# Structure your Dockerfile so that ${SANDBOX_REPO_DIR} can serve as the project root.
+# In worktree sandbox mode, Sandcastle bind-mounts the git worktree at /home/agent/workspace
+# and overrides the working directory to /home/agent/workspace at container start.
+# Structure your Dockerfile so that /home/agent/workspace can serve as the project root.
 ENTRYPOINT ["sleep", "infinity"]
