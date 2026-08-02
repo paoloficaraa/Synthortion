@@ -128,9 +128,8 @@ ehthumbs.db
 # SUBMODULES (JUCE is a submodule, keep it)
 # ==========================================
 
-# libs/juce and modules/gin are tracked submodules
-# Comment out if you want to ignore them
+# libs/juce is a tracked submodule
+# Comment out if you want to ignore it
 # libs/
-# modules/
 
 node_modules/
