@@ -62,11 +62,15 @@ const planSchema = z.object({
 const MAX_ITERATIONS = 10;
 
 // Hooks run inside the sandbox before the agent starts each iteration.
-// npm install ensures the sandbox always has fresh dependencies.
+// NOTE: do NOT run `npm install` here — it is the corruption vector we hit:
+// planner and merger run in HEAD mode (host repo mounted read-write), so an
+// npm install executed inside the container rewrote the HOST node_modules
+// with Linux binaries (e.g. @esbuild/linux-x64, breaking host `tsx` on
+// Windows). Implementer worktrees get node_modules via copyToWorktree below;
+// the git submodule hook stays so fresh worktrees get JUCE.
 const hooks = {
   sandbox: {
     onSandboxReady: [
-      { command: "npm install" },
       // JUCE is a git submodule — populate it in every fresh worktree before agents build.
       { command: "git submodule update --init --recursive" },
     ],
@@ -95,15 +99,16 @@ const agentEnv = {
 // Graphify graph data is gitignored too, so it is bind-mounted read-only
 // alongside the skills — sandbox agents query it for architecture awareness
 // (graphify query/path/explain). See `mounts` on each docker() call.
+//
+// NOTE: do NOT add mount host paths that don't exist on the host — sandcastle
+// 0.12 validates every mount via resolveUserMounts() and THROWS
+// `Mount hostPath does not exist` at startup, aborting the whole run.
+// (`~/.config/opencode/skills` was previously listed here but does not exist
+// on this host; agents read skills from ~/.agents/skills instead.)
 const sandboxMounts = [
   {
     hostPath: "~/.agents/skills",
     sandboxPath: "~/.agents/skills",
-    readonly: true,
-  },
-  {
-    hostPath: "~/.config/opencode/skills",
-    sandboxPath: "~/.config/opencode/skills",
     readonly: true,
   },
   {

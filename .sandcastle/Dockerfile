@@ -54,6 +54,15 @@ USER ${AGENT_UID}:${AGENT_GID}
 # Install Claude Code CLI
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
+# Install the graphify skill for Claude Code — README install is two steps:
+#   pip install graphifyy && graphify install
+# The pip step above (as root) provides the CLI at /usr/local/bin/graphify;
+# this second step runs as the agent user so the skill lands in
+# ~/.claude/skills/graphify/SKILL.md and is registered in ~/.claude/CLAUDE.md.
+# Sandbox agents are Claude Code, so this is what makes the `/graphify`
+# skill (query/path/explain) discoverable inside every sandbox.
+RUN graphify install --platform claude
+
 # Add Claude to PATH
 ENV PATH="/home/agent/.local/bin:$PATH"
 
