@@ -1,0 +1,121 @@
+@import 'tailwindcss';
+
+/* Vintage Industrial Design Tokens */
+:root {
+  /* Brand Palette */
+  --bg: #0f0e0e;
+  --surface: #121212;
+  --fg: #f6f6f6;
+  --muted: #888888;
+  --border: #333333;
+  --accent: #c7c3ba;
+  --danger: #ff4444;
+
+  /* Typography */
+  --font-display: 'Akira Expanded', Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Space Mono', ui-monospace, monospace;
+
+  /* Noise Overlay */
+  --noise-opacity: 0.025;
+}
+
+/* Reset and Base Styles */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background-color: #030303;
+  color: var(--fg);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow: auto;
+}
+
+/* Typography Utilities */
+.font-display { font-family: var(--font-display); }
+.font-body { font-family: var(--font-body); }
+.font-mono { font-family: var(--font-mono); }
+
+.uppercase-tracked {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.display-tracked {
+  letter-spacing: -0.02em;
+}
+
+/* Noise Overlay Texture */
+.noise-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.025'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 50;
+  mix-blend-mode: overlay;
+}
+
+/* Focus-Visible Accessibility */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* VST Container Base */
+.vst-container {
+  width: 880px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow:
+    0 60px 100px -20px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Entrance Animation */
+@keyframes vst-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-vst-enter {
+  animation: vst-enter 220ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-vst-enter {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Tailwind Theme Extensions */
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+}
