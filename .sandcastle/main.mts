@@ -91,7 +91,10 @@ const agentEnv = {
 };
 
 // Shortcut for the claudeCode provider with our shared env.
-const cc = (model: string) => sandcastle.claudeCode(model, { env: agentEnv });
+// effort: "max" forces maximum reasoning effort (model_reasoning_effort=max)
+// on every agent — planner, implementer, reviewer and merger.
+const cc = (model: string) =>
+  sandcastle.claudeCode(model, { env: agentEnv, effort: "max" });
 
 // ---------------------------------------------------------------------------
 // Main loop
