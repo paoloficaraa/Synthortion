@@ -24,6 +24,7 @@
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
 import { execSync } from "node:child_process";
+import { join } from "node:path";
 import { z } from "zod";
 
 const REPO_ROOT = execSync("git rev-parse --show-toplevel", {
@@ -111,15 +112,24 @@ const agentEnv = {
 // `Mount hostPath does not exist` at startup, aborting the whole run.
 // (`~/.config/opencode/skills` was previously listed here but does not exist
 // on this host; agents read skills from ~/.agents/skills instead.)
+//
+// NOTE: sandboxPath MUST be an absolute POSIX path. The lib resolves relative
+// sandbox paths with `path.resolve(SANDBOX_REPO_DIR, …)`, which on Windows
+// mangles them to `C:\home\agent\workspace\…` and makes docker fail with
+// "too many colons" (the drive colon is parsed as a mount separator).
+// SANDBOX_REPO_DIR mirrors the lib's constant — the worktree always lives at
+// /home/agent/workspace in the container (see Dockerfile WORKDIR).
+const SANDBOX_REPO_DIR = "/home/agent/workspace";
+const SANDBOX_HOME_DIR = "/home/agent";
 const sandboxMounts = [
   {
     hostPath: "~/.agents/skills",
-    sandboxPath: "~/.agents/skills",
+    sandboxPath: `${SANDBOX_HOME_DIR}/.agents/skills`,
     readonly: true,
   },
   {
-    hostPath: "graphify-out",
-    sandboxPath: "graphify-out",
+    hostPath: join(REPO_ROOT, "graphify-out"),
+    sandboxPath: `${SANDBOX_REPO_DIR}/graphify-out`,
     readonly: true,
   },
 ];
