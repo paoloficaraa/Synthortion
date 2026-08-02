@@ -19,22 +19,32 @@ Read the JSON output. It looks like:
 
 ## Step 2 — Build a dependency graph
 
-For the fetched issues: issue B is BLOCKED by A if B needs code/APIs A
-introduces, or B touches overlapping files (merge conflicts), or B depends on
-a decision A establishes. An issue is UNBLOCKED if no other issue blocks it.
+For the fetched issues: fetch each issue body with `gh issue view <id> --json
+body`. Issue B is BLOCKED by A if B needs code/APIs A introduces, or B touches
+overlapping files (merge conflicts), or B depends on a decision A
+establishes, or its body explicitly lists A (or T0x id) as a blocker. An
+issue is UNBLOCKED if no other issue blocks it.
 
-A knowledge graph of the repo is mounted read-only at `graphify-out/` and the
-`graphify` tools/skill are installed in the sandbox. When you need to
-understand which files/modules an issue really touches, use the graphify
-tools: ask a natural-language question about the code (e.g. "what does the EQ
-curve UI touch?") and they return a scoped subgraph — this makes the
-blocked/unblocked decision much more accurate.
+T0x ticket ids (T01, T02, …) map to issue numbers via the order you fetched
+in Step 1 — use the issue bodies to translate. Never assume a ticket id maps
+to a specific GitHub number.
 
-IMPORTANT: never pass issue IDs, ticket numbers (T01, T02, …) or issue
-numbers to graphify — it knows nothing about GitHub issues; blocking
-relationships come from the issue bodies you fetch with `gh issue view`.
-If graphify returns no matches, fall back to reasoning about the issue
-bodies yourself.
+### Skills to help you plan
+
+The full host skill catalog is mounted read-only at `~/.agents/skills`. You
+can read any `SKILL.md` there. Useful planning skills (read before deciding):
+
+- `~/.agents/skills/wayfinder/SKILL.md` — planner for huge backlog that
+  doesn't fit one agent session; split it into a shared map with
+  dependency-aware ordering. Skim it if the backlog is large or tangled.
+- `~/.agents/skills/find-skills/SKILL.md` — only to CHECK coverage: if an
+  issue's domain is not in the local catalog, you may `echo "" | npx skills
+  find "<domain>" | sed 's/\x1b\[[0-9;]*m//g'` to confirm a public skill
+  exists (the implementer will READ it via `skills use` without installing).
+  Do NOT install or clone anything from the planner.
+
+You do NOT need skills for small/clean backlogs — dependency analysis from the
+issue bodies is enough. Do not over-engineer planning.
 
 ## Step 3 — Assign branches
 

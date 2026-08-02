@@ -24,7 +24,6 @@
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
 import { execSync } from "node:child_process";
-import { join } from "node:path";
 import { z } from "zod";
 
 const REPO_ROOT = execSync("git rev-parse --show-toplevel", {
@@ -101,11 +100,17 @@ const agentEnv = {
 };
 
 // Host skill directories, mounted read-only into every sandbox so agents can
-// read the exact SKILL.md files used on the host. This replaces the old
-// `.sandcastle/skills` copy (which was gitignored and never populated).
-// Graphify graph data is gitignored too, so it is bind-mounted read-only
-// alongside the skills — sandbox agents query it for architecture awareness
-// (graphify query/path/explain). See `mounts` on each docker() call.
+// read the exact SKILL.md files the host uses. This replaces the old
+// `.sandcastle/skills` copy (which was gitignored and never populated). The
+// full skill catalog (~/.agents/skills on this host) is exposed to every
+// agent, who picks the right skills per issue (see the prompt files).
+//
+// The mount stays READ-ONLY on purpose: for domains the local catalog does
+// not cover, agents use the find-skills skill in fallback mode — they READ
+// external skills via `npx skills use <owner/repo@skill>` (streams the full
+// SKILL.md to stdout, no install) instead of `skills add` (which would try
+// to write into this mount and fail). See the SKILLS sections in
+// implement-prompt.md / review-prompt.md / planner-instructions.md.
 //
 // NOTE: do NOT add mount host paths that don't exist on the host — sandcastle
 // 0.12 validates every mount via resolveUserMounts() and THROWS
@@ -127,11 +132,6 @@ const sandboxMounts = [
     sandboxPath: `${SANDBOX_HOME_DIR}/.agents/skills`,
     readonly: true,
   },
-  {
-    hostPath: join(REPO_ROOT, "graphify-out"),
-    sandboxPath: `${SANDBOX_REPO_DIR}/graphify-out`,
-    readonly: true,
-  },
 ];
 
 // Shortcut for the claudeCode provider with our shared env.
@@ -140,19 +140,12 @@ const sandboxMounts = [
 const cc = (model: string) =>
   sandcastle.claudeCode(model, { env: agentEnv, effort: "max" });
 
-// Docker provider that always mounts the host skills + graph data read-only.
+// Docker provider that always mounts the host skills read-only.
 const sandboxWithSkills = () => docker({ mounts: sandboxMounts });
 
 // ---------------------------------------------------------------------------
 // Main loop
 // ---------------------------------------------------------------------------
-
-// Refresh the host knowledge graph before the first iteration so agents read
-// a graph that reflects the current code (e.g. after a manual merge or the
-// previous sandcastle run). AST-only, no API cost; same call as the post-merge
-// refresh inside the loop.
-const preGraphUpdate = sh("graphify update .", REPO_ROOT);
-console.log(`[graphify] ${preGraphUpdate || "graph up to date"}`);
 
 for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
@@ -265,7 +258,6 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
             cwd: REPO_ROOT,
             promptArgs: {
               BRANCH: issue.branch,
-              TARGET_BRANCH: baseBranch,
             },
           });
 
@@ -345,11 +337,6 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   });
 
   console.log("\nBranches merged.");
-
-  // Refresh the host knowledge graph so the next iteration's agents read a
-  // graph that reflects the merged code. AST-only, no API cost.
-  const graphUpdate = sh("graphify update .", REPO_ROOT);
-  console.log(`[graphify] ${graphUpdate || "graph up to date"}`);
 }
 
 console.log("\nAll done.");

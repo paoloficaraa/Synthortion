@@ -28,12 +28,6 @@ RUN apt-get update && apt-get install -y \
   python3-pip \
   && rm -rf /var/lib/apt/lists/*
 
-# graphify CLI + MCP extra (knowledge graph) — used by sandbox agents for
-# architecture awareness via the graphify tools and MCP server against
-# graphify-out/graph.json. The [mcp] extra provides graphify.serve.
-RUN pip3 install --break-system-packages --no-cache-dir "graphifyy[mcp]" \
-  && rm -rf /root/.cache/pip
-
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
   | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -55,33 +49,10 @@ USER ${AGENT_UID}:${AGENT_GID}
 # Install Claude Code CLI
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
-# Install the graphify skill for Claude Code — README install is two steps:
-#   pip install graphifyy && graphify install
-# The pip step above (as root) provides the CLI at /usr/local/bin/graphify;
-# this second step runs as the agent user so the skill lands in
-# ~/.claude/skills/graphify/SKILL.md and is registered in ~/.claude/CLAUDE.md.
-# Sandbox agents are Claude Code, so this is what makes the `/graphify`
-# skill (query/path/explain) discoverable inside every sandbox.
-RUN graphify install --platform claude
-
 # Add Claude to PATH
 ENV PATH="/home/agent/.local/bin:$PATH"
 
 WORKDIR /home/agent
-
-# Register the graphify MCP server (user scope, survives across worktrees):
-# sandbox agents get query_graph/get_node/get_neighbors/shortest_path/… as
-# always-available tools. The graph file itself is bind-mounted read-only at
-# runtime; the server hot-reloads when graphify-out/graph.json changes.
-# NOTE: the image ships `python3` (no `python` symlink) — must use python3.
-RUN claude mcp add graphify -s user -- python3 -m graphify.serve /home/agent/workspace/graphify-out/graph.json
-
-# Always-on nudge hook (no strict mode): registers a PreToolUse hook that
-# reminds Claude Code to query the graph before Bash grep/rg/find and
-# Read/Glob calls, and writes the graphify section to /home/agent/CLAUDE.md.
-# It fires only when a graphify-out/graph.json exists in the current
-# directory (i.e. inside a sandbox worktree).
-RUN graphify claude install
 
 # In worktree sandbox mode, Sandcastle bind-mounts the git worktree at /home/agent/workspace
 # and overrides the working directory to /home/agent/workspace at container start.
