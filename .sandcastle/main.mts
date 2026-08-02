@@ -147,6 +147,13 @@ const sandboxWithSkills = () => docker({ mounts: sandboxMounts });
 // Main loop
 // ---------------------------------------------------------------------------
 
+// Refresh the host knowledge graph before the first iteration so agents read
+// a graph that reflects the current code (e.g. after a manual merge or the
+// previous sandcastle run). AST-only, no API cost; same call as the post-merge
+// refresh inside the loop.
+const preGraphUpdate = sh("graphify update .", REPO_ROOT);
+console.log(`[graphify] ${preGraphUpdate || "graph up to date"}`);
+
 for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
 
