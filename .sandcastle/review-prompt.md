@@ -7,12 +7,17 @@ Fetch and read the outputs of:
 - `git diff {{TARGET_BRANCH}}...{{BRANCH}}`
 - `git log {{TARGET_BRANCH}}..{{BRANCH}} --oneline`
 
+# GRAPHIFY (architecture awareness)
+A knowledge graph is mounted read-only at `graphify-out/` and the `graphify`
+CLI is installed. Use `graphify query "<concept from the diff>"` and
+`graphify path "<changed module>" "<related module>"` to check whether the
+change affects other parts of the codebase it should stay consistent with.
+
 # SKILLS
 
-1. Read `.sandcastle/skills/SKILLS.md` with the Read tool.
-2. Load `.sandcastle/skills/code-review/SKILL.md` (always).
-3. If the diff touches the webview (`ui/`), also load
-   `.sandcastle/skills/impeccable/SKILL.md`.
+1. Load `~/.agents/skills/code-review/SKILL.md` (always).
+2. If the diff touches the webview (`ui/`), also load
+   `~/.agents/skills/impeccable/SKILL.md`.
 
 # CHECK
 - Unnecessary complexity/nesting, redundant code, unclear names, nested

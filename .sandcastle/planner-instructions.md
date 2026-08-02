@@ -23,6 +23,11 @@ For the fetched issues: issue B is BLOCKED by A if B needs code/APIs A
 introduces, or B touches overlapping files (merge conflicts), or B depends on
 a decision A establishes. An issue is UNBLOCKED if no other issue blocks it.
 
+A knowledge graph is mounted read-only at `graphify-out/` and the `graphify`
+CLI is installed. Use `graphify query "<module>"` or `graphify explain
+"<concept>"` when you need to understand which files/modules an issue really
+touches — this makes the blocked/unblocked decision much more accurate.
+
 ## Step 3 — Assign branches
 
 For every unblocked issue assign branch `sandcastle/issue-{id}` (exact

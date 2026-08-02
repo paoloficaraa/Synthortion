@@ -76,10 +76,9 @@ const hooks = {
 // Copy node_modules from the host into the worktree before each sandbox
 // starts. Avoids a full npm install from scratch; the hook above handles
 // platform-specific binaries and any packages added since the last copy.
-// .sandcastle/skills is gitignored (not in the git worktree) but the
-// implementer/reviewer/merger agents read skills from there — so we copy it
-// alongside node_modules.
-const copyToWorktree = ["node_modules", ".sandcastle/skills"];
+// Skills are NOT copied here — they are bind-mounted read-only from the host
+// by sandboxMounts below.
+const copyToWorktree = ["node_modules"];
 
 // Agent env: shrink Claude Code's system prompt (skill/agent listings are
 // large). This keeps total input below the threshold where Claude Code's CCR
@@ -90,11 +89,38 @@ const agentEnv = {
   CLAUDE_CODE_DISABLE_BUNDLED_SKILLS: "1",
 };
 
+// Host skill directories, mounted read-only into every sandbox so agents can
+// read the exact SKILL.md files used on the host. This replaces the old
+// `.sandcastle/skills` copy (which was gitignored and never populated).
+// Graphify graph data is gitignored too, so it is bind-mounted read-only
+// alongside the skills — sandbox agents query it for architecture awareness
+// (graphify query/path/explain). See `mounts` on each docker() call.
+const sandboxMounts = [
+  {
+    hostPath: "~/.agents/skills",
+    sandboxPath: "~/.agents/skills",
+    readonly: true,
+  },
+  {
+    hostPath: "~/.config/opencode/skills",
+    sandboxPath: "~/.config/opencode/skills",
+    readonly: true,
+  },
+  {
+    hostPath: "graphify-out",
+    sandboxPath: "graphify-out",
+    readonly: true,
+  },
+];
+
 // Shortcut for the claudeCode provider with our shared env.
 // effort: "max" forces maximum reasoning effort (model_reasoning_effort=max)
 // on every agent — planner, implementer, reviewer and merger.
 const cc = (model: string) =>
   sandcastle.claudeCode(model, { env: agentEnv, effort: "max" });
+
+// Docker provider that always mounts the host skills + graph data read-only.
+const sandboxWithSkills = () => docker({ mounts: sandboxMounts });
 
 // ---------------------------------------------------------------------------
 // Main loop
@@ -114,7 +140,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // -------------------------------------------------------------------------
   const plan = await sandcastle.run({
     hooks,
-    sandbox: docker(),
+    sandbox: sandboxWithSkills(),
     name: "planner",
     // One iteration is enough: the planner just needs to read and reason,
     // not write code. (Structured output requires maxIterations: 1.)
@@ -175,7 +201,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     issues.map(async (issue) => {
       const sandbox = await sandcastle.createSandbox({
         branch: issue.branch,
-        sandbox: docker(),
+        sandbox: sandboxWithSkills(),
         hooks,
         copyToWorktree,
       });
@@ -272,7 +298,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // -------------------------------------------------------------------------
   await sandcastle.run({
     hooks,
-    sandbox: docker(),
+    sandbox: sandboxWithSkills(),
     name: "merger",
     maxIterations: 1,
     agent: cc("auto/fast"),
@@ -286,6 +312,11 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   });
 
   console.log("\nBranches merged.");
+
+  // Refresh the host knowledge graph so the next iteration's agents read a
+  // graph that reflects the merged code. AST-only, no API cost.
+  const graphUpdate = sh("graphify update .");
+  console.log(`[graphify] ${graphUpdate || "graph up to date"}`);
 }
 
 console.log("\nAll done.");

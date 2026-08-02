@@ -13,10 +13,17 @@ Rules:
 
 ## Sandcastle skills
 
-`.sandcastle/` orchestrates parallel agent pipelines. Every sandbox mounts
-`~/.agents/skills` and `~/.config/opencode/skills` readonly. Agents use
-`caveman` (wenyan-ultra, implementer), `find-skills` (auto-discover
-task-specific skill), and whatever skill `find-skills` selects.
+`.sandcastle/` orchestrates parallel agent pipelines. Every sandbox bind-mounts
+`~/.agents/skills`, `~/.config/opencode/skills` and `graphify-out/` readonly
+(via `sandboxMounts` in `.sandcastle/main.mts`), so agents read the exact
+`SKILL.md` files the host uses and query the repo's knowledge graph with the
+`graphify` CLI installed in the Docker image. The implementer always loads
+`tdd` + `implement` and runs `graphify query` before exploring code; the
+reviewer always loads `code-review` (plus `impeccable` when the diff touches
+`ui/`) and uses `graphify query`/`path` to check cross-module impact; the
+planner uses `graphify explain` when resolving issue dependencies. After
+merges, `.sandcastle/main.mts` runs `graphify update .` on the host to keep
+the graph current.
 
 ## Agent skills
 

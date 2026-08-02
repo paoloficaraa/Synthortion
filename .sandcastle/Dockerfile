@@ -24,7 +24,14 @@ RUN apt-get update && apt-get install -y \
   libcurl4-openssl-dev \
   libgtk-3-dev \
   libwebkit2gtk-4.1-dev \
+  python3 \
+  python3-pip \
   && rm -rf /var/lib/apt/lists/*
+
+# graphify CLI (knowledge graph) — used by sandbox agents for architecture
+# awareness via `graphify query/path/explain` against graphify-out/graph.json.
+RUN pip3 install --break-system-packages --no-cache-dir graphifyy \
+  && rm -rf /root/.cache/pip
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
