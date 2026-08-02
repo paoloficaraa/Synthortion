@@ -9,22 +9,22 @@ Recent commits:
 {{RECENT_COMMITS}}
 </recent-commits>
 
-# GRAPH-IFY (architecture awareness)
+# KNOWLEDGE GRAPH (architecture awareness)
 The repo has a knowledge graph mounted read-only at `graphify-out/` and the
-`graphify` CLI is installed in the sandbox. Before exploring the code, run
-`graphify query "<your question about the code>"` (e.g. "WebView UI", "DSP
-pipeline", "parameter state") and `graphify explain "<concept>"` to get a
-scoped subgraph of the relevant modules and their cross-file relationships.
-Use this as your map before you start editing — it is much cheaper than
-reading the whole repo.
+`graphify` tools/skill are installed in the sandbox. Before exploring the
+code, use the graphify tools to ask natural-language questions about the
+parts you will touch (e.g. "WebView UI", "DSP pipeline", "parameter state")
+and the concepts you need — they return a scoped subgraph of the relevant
+modules and their cross-file relationships. Use it as your map before you
+start editing — it is much cheaper than reading the whole repo.
 
 # SKILLS
 
 1. Fetch the issue with `gh issue view {{TASK_ID}}` FIRST — you need its
    **labels** to pick the right skills.
-2. Skills are mounted read-only from the host at `~/.agents/skills` and
-   `~/.config/opencode/skills`. List them, read the `SKILL.md` of the ones that
-   match the issue's labels/title, and apply them.
+2. Skills are mounted read-only from the host at `~/.agents/skills`. List
+   them, read the `SKILL.md` of the ones that match the issue's labels/title,
+   and apply them.
 3. Always load `tdd` (`~/.agents/skills/tdd/SKILL.md`) and `implement`
    (`~/.agents/skills/implement/SKILL.md`) for implementation work.
 

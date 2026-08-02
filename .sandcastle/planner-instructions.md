@@ -23,10 +23,18 @@ For the fetched issues: issue B is BLOCKED by A if B needs code/APIs A
 introduces, or B touches overlapping files (merge conflicts), or B depends on
 a decision A establishes. An issue is UNBLOCKED if no other issue blocks it.
 
-A knowledge graph is mounted read-only at `graphify-out/` and the `graphify`
-CLI is installed. Use `graphify query "<module>"` or `graphify explain
-"<concept>"` when you need to understand which files/modules an issue really
-touches — this makes the blocked/unblocked decision much more accurate.
+A knowledge graph of the repo is mounted read-only at `graphify-out/` and the
+`graphify` tools/skill are installed in the sandbox. When you need to
+understand which files/modules an issue really touches, use the graphify
+tools: ask a natural-language question about the code (e.g. "what does the EQ
+curve UI touch?") and they return a scoped subgraph — this makes the
+blocked/unblocked decision much more accurate.
+
+IMPORTANT: never pass issue IDs, ticket numbers (T01, T02, …) or issue
+numbers to graphify — it knows nothing about GitHub issues; blocking
+relationships come from the issue bodies you fetch with `gh issue view`.
+If graphify returns no matches, fall back to reasoning about the issue
+bodies yourself.
 
 ## Step 3 — Assign branches
 

@@ -9,9 +9,11 @@ Fetch and read the outputs of:
 
 # GRAPHIFY (architecture awareness)
 A knowledge graph is mounted read-only at `graphify-out/` and the `graphify`
-CLI is installed. Use `graphify query "<concept from the diff>"` and
-`graphify path "<changed module>" "<related module>"` to check whether the
-change affects other parts of the codebase it should stay consistent with.
+tools/skill are installed in the sandbox. Use them to ask natural-language
+questions about concepts in the diff and about the modules the change
+touches — they return scoped subgraphs showing cross-module relationships, so
+you can check whether the change affects other parts of the codebase it
+should stay consistent with.
 
 # SKILLS
 
