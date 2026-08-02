@@ -26,13 +26,19 @@ import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
 import { execSync } from "node:child_process";
 import { z } from "zod";
 
-// Run a command on the HOST and return its stdout.
+const REPO_ROOT = execSync("git rev-parse --show-toplevel", {
+  encoding: "utf8",
+}).trim();
+process.chdir(REPO_ROOT);
 
-function sh(cmd: string): string {
+const SHELL = process.platform === "win32" ? undefined : "bash";
+
+function sh(cmd: string, cwd?: string): string {
   try {
     return execSync(cmd, {
       encoding: "utf8",
-      shell: "bash",
+      cwd: cwd ?? REPO_ROOT,
+      shell: SHELL,
       maxBuffer: 16 * 1024 * 1024,
     }).trim();
   } catch (error) {
@@ -40,8 +46,7 @@ function sh(cmd: string): string {
   }
 }
 
-// Branch that feature branches are cut from and merged back into.
-const baseBranch = sh("git branch --show-current") || "main";
+const baseBranch = sh("git branch --show-current", REPO_ROOT) || "main";
 
 // The planner emits its plan as JSON inside <plan> tags; Output.object extracts
 // and validates it against this schema. We use Zod here, but any Standard
@@ -62,11 +67,12 @@ const planSchema = z.object({
 const MAX_ITERATIONS = 10;
 
 // Hooks run inside the sandbox before the agent starts each iteration.
-// NOTE: do NOT run `npm install` here — it is the corruption vector we hit:
-// planner and merger run in HEAD mode (host repo mounted read-write), so an
-// npm install executed inside the container rewrote the HOST node_modules
-// with Linux binaries (e.g. @esbuild/linux-x64, breaking host `tsx` on
-// Windows). Implementer worktrees get node_modules via copyToWorktree below;
+// NOTE: do NOT run `npm install` here, not even for `ui/` — it is the
+// corruption vector we hit: planner and merger run in HEAD mode (host repo
+// mounted read-write), so an npm install executed inside the container
+// rewrites the HOST node_modules (root or ui/) with Linux binaries (e.g.
+// @esbuild/linux-x64), breaking host `tsx` or `vite` on Windows.
+// Implementer worktrees get node_modules via copyToWorktree below;
 // the git submodule hook stays so fresh worktrees get JUCE.
 const hooks = {
   sandbox: {
@@ -147,6 +153,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     hooks,
     sandbox: sandboxWithSkills(),
     name: "planner",
+    cwd: REPO_ROOT,
     // One iteration is enough: the planner just needs to read and reason,
     // not write code. (Structured output requires maxIterations: 1.)
     maxIterations: 1,
@@ -209,6 +216,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         sandbox: sandboxWithSkills(),
         hooks,
         copyToWorktree,
+        cwd: REPO_ROOT,
       });
 
       try {
@@ -221,11 +229,12 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           // thought_signature" whenever it calls a tool.)
           agent: cc("auto/coding"),
           promptFile: "./.sandcastle/implement-prompt.md",
+          cwd: REPO_ROOT,
           promptArgs: {
             TASK_ID: issue.id,
             ISSUE_TITLE: issue.title,
             BRANCH: issue.branch,
-            RECENT_COMMITS: sh("git log -n 5 --oneline"),
+            RECENT_COMMITS: sh("git log -n 5 --oneline", REPO_ROOT),
           },
         });
 
@@ -236,6 +245,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
             maxIterations: 1,
             agent: cc("auto/smart"),
             promptFile: "./.sandcastle/review-prompt.md",
+            cwd: REPO_ROOT,
             promptArgs: {
               BRANCH: issue.branch,
               TARGET_BRANCH: baseBranch,
@@ -308,6 +318,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     maxIterations: 1,
     agent: cc("auto/fast"),
     promptFile: "./.sandcastle/merge-prompt.md",
+    cwd: REPO_ROOT,
     promptArgs: {
       // A markdown list of branch names, one per line.
       BRANCHES: completedBranches.map((b) => `- ${b}`).join("\n"),
@@ -320,7 +331,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 
   // Refresh the host knowledge graph so the next iteration's agents read a
   // graph that reflects the merged code. AST-only, no API cost.
-  const graphUpdate = sh("graphify update .");
+  const graphUpdate = sh("graphify update .", REPO_ROOT);
   console.log(`[graphify] ${graphUpdate || "graph up to date"}`);
 }
 
