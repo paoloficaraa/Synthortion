@@ -28,9 +28,10 @@ RUN apt-get update && apt-get install -y \
   python3-pip \
   && rm -rf /var/lib/apt/lists/*
 
-# graphify CLI (knowledge graph) — used by sandbox agents for architecture
-# awareness via `graphify query/path/explain` against graphify-out/graph.json.
-RUN pip3 install --break-system-packages --no-cache-dir graphifyy \
+# graphify CLI + MCP extra (knowledge graph) — used by sandbox agents for
+# architecture awareness via the graphify tools and MCP server against
+# graphify-out/graph.json. The [mcp] extra provides graphify.serve.
+RUN pip3 install --break-system-packages --no-cache-dir "graphifyy[mcp]" \
   && rm -rf /root/.cache/pip
 
 # Install GitHub CLI
@@ -67,6 +68,19 @@ RUN graphify install --platform claude
 ENV PATH="/home/agent/.local/bin:$PATH"
 
 WORKDIR /home/agent
+
+# Register the graphify MCP server (user scope, survives across worktrees):
+# sandbox agents get query_graph/get_node/get_neighbors/shortest_path/… as
+# always-available tools. The graph file itself is bind-mounted read-only at
+# runtime; the server hot-reloads when graphify-out/graph.json changes.
+RUN claude mcp add graphify -s user -- python -m graphify.serve /home/agent/workspace/graphify-out/graph.json
+
+# Always-on nudge hook (no strict mode): registers a PreToolUse hook that
+# reminds Claude Code to query the graph before Bash grep/rg/find and
+# Read/Glob calls, and writes the graphify section to /home/agent/CLAUDE.md.
+# It fires only when a graphify-out/graph.json exists in the current
+# directory (i.e. inside a sandbox worktree).
+RUN graphify claude install
 
 # In worktree sandbox mode, Sandcastle bind-mounts the git worktree at /home/agent/workspace
 # and overrides the working directory to /home/agent/workspace at container start.
