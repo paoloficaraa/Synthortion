@@ -73,7 +73,8 @@ WORKDIR /home/agent
 # sandbox agents get query_graph/get_node/get_neighbors/shortest_path/… as
 # always-available tools. The graph file itself is bind-mounted read-only at
 # runtime; the server hot-reloads when graphify-out/graph.json changes.
-RUN claude mcp add graphify -s user -- python -m graphify.serve /home/agent/workspace/graphify-out/graph.json
+# NOTE: the image ships `python3` (no `python` symlink) — must use python3.
+RUN claude mcp add graphify -s user -- python3 -m graphify.serve /home/agent/workspace/graphify-out/graph.json
 
 # Always-on nudge hook (no strict mode): registers a PreToolUse hook that
 # reminds Claude Code to query the graph before Bash grep/rg/find and
