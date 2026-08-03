@@ -16,7 +16,7 @@ function App() {
     <div className="flex items-start justify-center min-h-screen py-8">
       <VstLayout
         leftColumn={
-          <GainMeter label="IN" active>
+          <GainMeter label="IN" active delay={50}>
             <Knob
               label="TRIM"
               value={inputGain}
@@ -29,7 +29,7 @@ function App() {
           </GainMeter>
         }
         rightColumn={
-          <GainMeter label="OUT" active>
+          <GainMeter label="OUT" active delay={260}>
             <Knob
               label="TRIM"
               value={outputGain}

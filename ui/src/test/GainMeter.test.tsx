@@ -51,6 +51,13 @@ describe('GainMeter', () => {
 
       expect(screen.getByRole('button', { name: 'TRIM' })).toBeInTheDocument()
     })
+
+    it('applies the prototype entrance delay to the meter column', () => {
+      const { container } = render(<GainMeter label="IN" active={false} delay={50} />)
+
+      const column = container.querySelector('.animate-vst-enter') as HTMLElement
+      expect(column).toHaveStyle({ animationDelay: '50ms' })
+    })
   })
 
   describe('canvas draw loop', () => {
