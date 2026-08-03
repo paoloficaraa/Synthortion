@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import App from '../App'
 import { createMockCanvasContext } from './mockCanvasContext'
+import { createMockDspBridge } from '../lib/dspBridge'
 
 /**
  * The App hosts two live GainMeters. jsdom has no 2D canvas context, so stub
@@ -101,5 +102,125 @@ describe('App', () => {
     expect(outTrim).toHaveAttribute('aria-valuetext', '+10')
     expect(screen.getByText('+10')).toBeInTheDocument()
     expect(inTrim).toHaveAttribute('aria-valuetext', '0')
+  })
+
+  it('renders the Matrix Faceplate control rows (DRV, BCR, DLY, CHR)', () => {
+    render(<App />)
+
+    expect(screen.getByText('DRV')).toBeInTheDocument()
+    expect(screen.getByText('BCR')).toBeInTheDocument()
+    expect(screen.getByText('DLY')).toBeInTheDocument()
+    expect(screen.getByText('CHR')).toBeInTheDocument()
+
+    expect(screen.getByRole('slider', { name: 'Drive' })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Bitcrush' })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Mix' })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Time' })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Fbk' })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Chorus' })).toBeInTheDocument()
+  })
+
+  it('renders the faceplate controls at the prototype default state', () => {
+    render(<App />)
+
+    expect(screen.getByRole('slider', { name: 'Drive' })).toHaveAttribute(
+      'aria-valuenow',
+      '40'
+    )
+    expect(screen.getByRole('slider', { name: 'Bitcrush' })).toHaveAttribute(
+      'aria-valuenow',
+      '12'
+    )
+    expect(screen.getByRole('slider', { name: 'Mix' })).toHaveAttribute(
+      'aria-valuenow',
+      '30'
+    )
+    expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
+      'aria-valuenow',
+      '250'
+    )
+    expect(screen.getByRole('slider', { name: 'Fbk' })).toHaveAttribute(
+      'aria-valuenow',
+      '50'
+    )
+    expect(screen.getByRole('slider', { name: 'Chorus' })).toHaveAttribute(
+      'aria-valuenow',
+      '75'
+    )
+  })
+
+  it('does not notify the DSP bridge on initial mount', () => {
+    const bridge = createMockDspBridge()
+    render(<App dspBridge={bridge} />)
+
+    expect(bridge.calls).toEqual([])
+  })
+
+  it('mutates App state and notifies the DSP bridge on drive knob drag', () => {
+    const bridge = createMockDspBridge()
+    render(<App dspBridge={bridge} />)
+
+    const drive = screen.getByRole('slider', { name: 'Drive' })
+    // dy = 200 - 180 = 20 → value = 40 + 20 * 0.5 * (100/100) = 50
+    fireEvent.pointerDown(drive, { clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(drive, { clientY: 180, pointerId: 1 })
+    fireEvent.pointerUp(drive, { pointerId: 1 })
+
+    expect(drive).toHaveAttribute('aria-valuenow', '50')
+    expect(drive).toHaveAttribute('aria-valuetext', '50%')
+    expect(bridge.calls).toContainEqual({ parameterId: 'drive', value: 50 })
+  })
+
+  it('forwards the bitcrush knob drag to the DSP bridge', () => {
+    const bridge = createMockDspBridge()
+    render(<App dspBridge={bridge} />)
+
+    const bitcrush = screen.getByRole('slider', { name: 'Bitcrush' })
+    // min 2, max 24; dy = 20 → value = 12 + 20 * 0.5 * (22/100) = 14.2 → "14B"
+    fireEvent.pointerDown(bitcrush, { clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(bitcrush, { clientY: 180, pointerId: 1 })
+    fireEvent.pointerUp(bitcrush, { pointerId: 1 })
+
+    expect(bitcrush).toHaveAttribute('aria-valuetext', '14B')
+    expect(bridge.calls).toContainEqual({ parameterId: 'bitcrush', value: 14.2 })
+  })
+
+  it('forwards a drive route toggle flip to the DSP bridge', () => {
+    const bridge = createMockDspBridge()
+    render(<App dspBridge={bridge} />)
+
+    const post = screen.getByRole('button', { name: 'POST' })
+    expect(post).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(post)
+
+    expect(post).toHaveAttribute('aria-pressed', 'true')
+    expect(bridge.calls).toContainEqual({ parameterId: 'driveRoute', value: 'POST' })
+  })
+
+  it('forwards the engine bypass toggle to the DSP bridge', () => {
+    const bridge = createMockDspBridge()
+    render(<App dspBridge={bridge} />)
+
+    const bypass = screen.getByRole('button', { name: 'Disable main DSP' })
+    expect(bypass).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(bypass)
+
+    expect(bypass).toHaveAttribute('aria-pressed', 'false')
+    expect(bridge.calls).toContainEqual({ parameterId: 'engineActive', value: false })
+  })
+
+  it('forwards the chorus WIDE toggle to the DSP bridge', () => {
+    const bridge = createMockDspBridge()
+    render(<App dspBridge={bridge} />)
+
+    const wide = screen.getByRole('button', { name: 'WIDE' })
+    expect(wide).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(wide)
+
+    expect(wide).toHaveAttribute('aria-pressed', 'true')
+    expect(bridge.calls).toContainEqual({ parameterId: 'chorusWide', value: true })
   })
 })

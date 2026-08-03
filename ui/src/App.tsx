@@ -1,57 +1,103 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { VstLayout } from './components/VstLayout'
 import { GainMeter } from './components/GainMeter'
 import { Knob } from './components/Knob'
+import { MatrixFaceplate } from './components/MatrixFaceplate'
+import { initialState, type PluginState } from './lib/pluginState'
+import { noopDspBridge, type DspBridge } from './lib/dspBridge'
+
+interface AppProps {
+  /** Integration seam for the future C++ DSP bridge. */
+  dspBridge?: DspBridge
+}
 
 /** Format a TRIM value in dB, prefixing positive values with a "+". */
 function formatTrimValue(value: number): string {
   return value > 0 ? `+${Math.round(value)}` : `${Math.round(value)}`
 }
 
-function App() {
-  const [inputGain, setInputGain] = useState(0)
-  const [outputGain, setOutputGain] = useState(0)
+/**
+ * App — single top-level state boundary for the whole plugin.
+ *
+ * Every parameter the faceplate exposes lives here as controlled props and is
+ * pushed to the injected DSP bridge on change. Child components keep no
+ * silent state, so binding the real C++ backend is a matter of swapping the
+ * bridge.
+ */
+function App({ dspBridge = noopDspBridge }: AppProps) {
+  const [state, setState] = useState<PluginState>(initialState)
+  const prevStateRef = useRef<PluginState>(initialState)
+
+  // Push changed parameters to the bridge. The initial mount is skipped so
+  // the bridge only records user-driven mutations.
+  useEffect(() => {
+    const prev = prevStateRef.current
+    prevStateRef.current = state
+    for (const key of Object.keys(state) as Array<keyof PluginState>) {
+      if (state[key] !== prev[key]) {
+        dspBridge.setParameter(key, state[key])
+      }
+    }
+  }, [state, dspBridge])
+
+  const update = (patch: Partial<PluginState>) => {
+    setState((prev) => ({ ...prev, ...patch }))
+  }
 
   return (
     <div className="flex items-start justify-center min-h-screen py-8">
       <VstLayout
         leftColumn={
-          <GainMeter label="IN" active delay={50}>
+          <GainMeter label="IN" active={state.engineActive} delay={50}>
             <Knob
               label="TRIM"
-              value={inputGain}
+              value={state.inputGain}
               min={-24}
               max={24}
-              displayValue={formatTrimValue(inputGain)}
+              displayValue={formatTrimValue(state.inputGain)}
               size="small"
-              onChange={setInputGain}
+              onChange={(value) => update({ inputGain: value })}
             />
           </GainMeter>
         }
         rightColumn={
-          <GainMeter label="OUT" active delay={260}>
+          <GainMeter label="OUT" active={state.engineActive} delay={260}>
             <Knob
               label="TRIM"
-              value={outputGain}
+              value={state.outputGain}
               min={-24}
               max={24}
-              displayValue={formatTrimValue(outputGain)}
+              displayValue={formatTrimValue(state.outputGain)}
               size="small"
-              onChange={setOutputGain}
+              onChange={(value) => update({ outputGain: value })}
             />
           </GainMeter>
         }
       >
         <main className="flex-1 flex flex-col bg-bg border-t border-[#222]">
-          <header className="h-[64px] bg-bg border-b border-border flex items-center justify-center px-8 shrink-0">
-            <h1 className="font-display text-[16px] text-fg display-tracked mt-1 select-none">
-              SYNTHORTION
-            </h1>
+          <header className="h-[64px] bg-bg border-b border-border flex items-center justify-between px-8 shrink-0">
+            <div className="flex items-center gap-5 relative z-10">
+              <button
+                type="button"
+                onClick={() => update({ engineActive: !state.engineActive })}
+                aria-pressed={state.engineActive}
+                aria-label={
+                  state.engineActive ? 'Disable main DSP' : 'Enable main DSP'
+                }
+                title="Bypass"
+                className={`w-3.5 h-3.5 rounded-[1px] border border-border outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg transition-colors ${
+                  state.engineActive
+                    ? 'bg-fg border-fg shadow-[0_0_8px_rgba(255,255,255,0.7)]'
+                    : 'bg-[#1a1a1a]'
+                }`}
+              />
+              <h1 className="font-display text-[16px] text-fg display-tracked mt-1 select-none">
+                SYNTHORTION
+              </h1>
+            </div>
           </header>
           <div className="flex-1 flex items-center justify-center p-8">
-            <p className="font-body text-muted uppercase-tracked">
-              Vintage Industrial VST Interface
-            </p>
+            <MatrixFaceplate state={state} onChange={update} />
           </div>
         </main>
       </VstLayout>

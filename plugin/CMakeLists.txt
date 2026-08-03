@@ -10,12 +10,6 @@ juce_add_plugin(Synthortion
     COPY_PLUGIN_AFTER_BUILD TRUE
 )
 
-juce_add_binary_data(SynthortionResources
-    SOURCES
-        resources/OFL-BebasNeue.txt
-        resources/OFL-Montserrat.txt
-)
-
 target_sources(Synthortion
 PRIVATE
     src/PluginProcessor.cpp
@@ -33,7 +27,6 @@ PRIVATE
 
 target_link_libraries(Synthortion
 PRIVATE
-    SynthortionResources
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_gui_extra
@@ -92,7 +85,6 @@ PRIVATE
 
 target_link_libraries(SynthortionTests
 PRIVATE
-    SynthortionResources
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_gui_extra
