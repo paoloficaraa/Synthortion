@@ -1,7 +1,12 @@
+import { useState } from 'react'
 import { VstLayout } from './components/VstLayout'
 import { GainMeter } from './components/GainMeter'
 import { Knob } from './components/Knob'
-import { useState } from 'react'
+
+/** Format a TRIM value in dB, prefixing positive values with a "+". */
+function formatTrimValue(value: number): string {
+  return value > 0 ? `+${Math.round(value)}` : `${Math.round(value)}`
+}
 
 function App() {
   const [inputGain, setInputGain] = useState(0)
@@ -11,26 +16,26 @@ function App() {
     <div className="flex items-start justify-center min-h-screen py-8">
       <VstLayout
         leftColumn={
-          <GainMeter label="IN" active={true}>
+          <GainMeter label="IN" active>
             <Knob
               label="TRIM"
               value={inputGain}
               min={-24}
               max={24}
-              displayValue={inputGain > 0 ? `+${Math.round(inputGain)}` : `${Math.round(inputGain)}`}
+              displayValue={formatTrimValue(inputGain)}
               size="small"
               onChange={setInputGain}
             />
           </GainMeter>
         }
         rightColumn={
-          <GainMeter label="OUT" active={true}>
+          <GainMeter label="OUT" active>
             <Knob
               label="TRIM"
               value={outputGain}
               min={-24}
               max={24}
-              displayValue={outputGain > 0 ? `+${Math.round(outputGain)}` : `${Math.round(outputGain)}`}
+              displayValue={formatTrimValue(outputGain)}
               size="small"
               onChange={setOutputGain}
             />

@@ -75,7 +75,7 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
 
   return (
     <div
-      className={`w-full flex flex-col items-center animate-vst-enter`}
+      className="w-full flex flex-col items-center animate-vst-enter"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="font-display text-[8px] text-[#666] uppercase-tracked mb-5">
@@ -103,5 +103,3 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
     </div>
   )
 }
-
-export default GainMeter

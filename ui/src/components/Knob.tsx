@@ -34,7 +34,6 @@ export function Knob({
   onChange,
   size = 'default',
 }: KnobProps) {
-  const knobRef = useRef<HTMLDivElement>(null)
   const isDragging = useRef(false)
   const [isDraggingState, setIsDraggingState] = useState(false)
   const startY = useRef(0)
@@ -45,7 +44,7 @@ export function Knob({
     setIsDraggingState(true)
     startY.current = e.clientY
     startVal.current = value
-    ;(e.target as HTMLDivElement).setPointerCapture(e.pointerId)
+    e.currentTarget.setPointerCapture(e.pointerId)
   }
 
   const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
@@ -60,7 +59,7 @@ export function Knob({
   const handlePointerUp = (e: PointerEvent<HTMLDivElement>) => {
     isDragging.current = false
     setIsDraggingState(false)
-    ;(e.target as HTMLDivElement).releasePointerCapture(e.pointerId)
+    e.currentTarget.releasePointerCapture(e.pointerId)
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -94,6 +93,8 @@ export function Knob({
   const radius = size === 'small' ? 14 : 22
   const viewBoxSize = size === 'small' ? 40 : 64
   const center = viewBoxSize / 2
+  const innerRadius = radius - (size === 'small' ? 5 : 7)
+  const indicatorTip = radius + (size === 'small' ? 1 : 2)
   const pct = (value - min) / (max - min)
   const angle = -135 + pct * 270
 
@@ -105,7 +106,6 @@ export function Knob({
   return (
     <div className="flex flex-col items-center gap-1.5">
       <div
-        ref={knobRef}
         role="slider"
         tabIndex={0}
         aria-label={label}
@@ -157,7 +157,7 @@ export function Knob({
           <circle
             cx={center}
             cy={center}
-            r={radius - (size === 'small' ? 5 : 7)}
+            r={innerRadius}
             fill="#111"
             stroke="#222"
             strokeWidth="1"
@@ -166,9 +166,9 @@ export function Knob({
           <g transform={`rotate(${angle} ${center} ${center})`}>
             <line
               x1={center}
-              y1={center - (radius - (size === 'small' ? 5 : 7))}
+              y1={center - innerRadius}
               x2={center}
-              y2={center - (radius - (size === 'small' ? -1 : -2))}
+              y2={center - indicatorTip}
               stroke="var(--fg)"
               strokeWidth={size === 'small' ? '1.5' : '2'}
               strokeLinecap="round"
@@ -196,5 +196,3 @@ export function Knob({
     </div>
   )
 }
-
-export default Knob

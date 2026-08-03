@@ -9,6 +9,25 @@ interface VstLayoutProps {
   rightColumn?: ReactNode
 }
 
+interface MeterRailProps {
+  /** Which side of the rail faces the center hub */
+  side: 'left' | 'right'
+  /** Rail content (typically a GainMeter) */
+  children?: ReactNode
+}
+
+/** Fixed-width meter rail that flanks the center hub. */
+function MeterRail({ side, children }: MeterRailProps) {
+  const borderClass = side === 'left' ? 'border-r' : 'border-l'
+  return (
+    <div
+      className={`w-[40px] shrink-0 bg-[#050505] flex flex-col items-center py-6 ${borderClass} border-[#222] z-10 relative shadow-[inset_0_0_12px_rgba(0,0,0,0.8)]`}
+    >
+      {children}
+    </div>
+  )
+}
+
 /**
  * VstLayout - 3-column glass frame shell for VST plugin UI
  *
@@ -23,9 +42,7 @@ export function VstLayout({ leftColumn, children, rightColumn }: VstLayoutProps)
   return (
     <div className="vst-container flex flex-row mx-auto max-w-full relative noise-overlay">
       {/* Left meter rail */}
-      <div className="w-[40px] shrink-0 bg-[#050505] flex flex-col items-center py-6 border-r border-[#222] z-10 relative shadow-[inset_0_0_12px_rgba(0,0,0,0.8)]">
-        {leftColumn}
-      </div>
+      <MeterRail side="left">{leftColumn}</MeterRail>
 
       {/* Center hub */}
       <div className="flex flex-col flex-1 min-w-0">
@@ -33,11 +50,7 @@ export function VstLayout({ leftColumn, children, rightColumn }: VstLayoutProps)
       </div>
 
       {/* Right meter rail */}
-      <div className="w-[40px] shrink-0 bg-[#050505] flex flex-col items-center py-6 border-l border-[#222] z-10 relative shadow-[inset_0_0_12px_rgba(0,0,0,0.8)]">
-        {rightColumn}
-      </div>
+      <MeterRail side="right">{rightColumn}</MeterRail>
     </div>
   )
 }
-
-export default VstLayout

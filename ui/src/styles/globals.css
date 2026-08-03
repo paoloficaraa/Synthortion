@@ -15,9 +15,6 @@
   --font-display: 'Akira Expanded', Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Space Mono', ui-monospace, monospace;
-
-  /* Noise Overlay */
-  --noise-opacity: 0.025;
 }
 
 /* Reset and Base Styles */
