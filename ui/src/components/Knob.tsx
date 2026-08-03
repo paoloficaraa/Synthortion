@@ -44,7 +44,11 @@ export function Knob({
     setIsDraggingState(true)
     startY.current = e.clientY
     startVal.current = value
-    e.currentTarget.setPointerCapture(e.pointerId)
+    // jsdom and some embedders lack pointer capture; guard so tests/harnesses
+    // can exercise drag math without a real pointer session.
+    if (e.currentTarget.setPointerCapture) {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    }
   }
 
   const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
@@ -56,10 +60,12 @@ export function Knob({
     onChange(newValue)
   }
 
-  const handlePointerUp = (e: PointerEvent<HTMLDivElement>) => {
+  const endDrag = (e: PointerEvent<HTMLDivElement>) => {
     isDragging.current = false
     setIsDraggingState(false)
-    e.currentTarget.releasePointerCapture(e.pointerId)
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -109,6 +115,7 @@ export function Knob({
         role="slider"
         tabIndex={0}
         aria-label={label}
+        aria-orientation="vertical"
         aria-valuemin={min}
         aria-valuemax={max}
         aria-valuenow={Math.round(value)}
@@ -119,7 +126,8 @@ export function Knob({
         style={{ width: viewBoxSize, height: viewBoxSize }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
         onKeyDown={handleKeyDown}
       >
         <svg
