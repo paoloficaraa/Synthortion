@@ -1,21 +1,18 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import App from '../App'
+import { createMockCanvasContext } from './mockCanvasContext'
 
 /**
  * The App hosts two live GainMeters. jsdom has no 2D canvas context, so stub
  * it with a recording-free context to exercise the draw path without console
  * noise. Fake timers keep the meter animation loop quiescent between frames.
  */
-function createMockContext() {
-  return { fillStyle: '', fillRect: vi.fn() } as unknown as CanvasRenderingContext2D
-}
-
 describe('App', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
-      createMockContext()
+      createMockCanvasContext()
     )
   })
 
