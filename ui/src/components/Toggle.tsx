@@ -38,7 +38,7 @@ export function Toggle({ label, options, value, onChange }: ToggleProps) {
             type="button"
             aria-pressed={isActive}
             onClick={() => onChange(option.value)}
-            className={`flex-1 border font-mono text-[9px] py-1.5 uppercase transition-all duration-75 ease-out active:scale-[0.96] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-fg ${
+            className={`flex-1 border font-mono text-[9px] py-1.5 uppercase transition-all duration-75 ease-out active:scale-[0.96] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
               isActive
                 ? 'bg-fg text-bg border-fg shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]'
                 : 'bg-transparent border-border text-muted hover:bg-fg hover:text-bg hover:border-fg'

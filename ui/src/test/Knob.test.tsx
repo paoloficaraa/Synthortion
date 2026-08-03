@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ComponentProps } from 'react'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { Knob } from '../components/Knob'
@@ -10,7 +10,7 @@ import { Knob } from '../components/Knob'
  */
 function renderKnob(
   initial: number,
-  props: Partial<React.ComponentProps<typeof Knob>> = {}
+  props: Partial<ComponentProps<typeof Knob>> = {}
 ) {
   const onChange = vi.fn()
 

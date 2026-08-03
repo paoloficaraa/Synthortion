@@ -60,7 +60,7 @@ export function Knob({
     onChange(newValue)
   }
 
-  const endDrag = (e: PointerEvent<HTMLDivElement>) => {
+  const handlePointerEnd = (e: PointerEvent<HTMLDivElement>) => {
     isDragging.current = false
     setIsDraggingState(false)
     if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
@@ -126,8 +126,8 @@ export function Knob({
         style={{ width: viewBoxSize, height: viewBoxSize }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
         onKeyDown={handleKeyDown}
       >
         <svg
