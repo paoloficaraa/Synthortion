@@ -9,6 +9,7 @@ export function FftFloor() {
   return (
     <mesh rotation-x={-Math.PI / 2} position={[0, -0.03, 0]} receiveShadow>
       <planeGeometry args={[24, 12]} />
+      {/* Material colors can't resolve CSS vars — #0a0a0a mirrors --elev-1. */}
       <meshStandardMaterial color="#0a0a0a" roughness={1} metalness={0} />
     </mesh>
   )

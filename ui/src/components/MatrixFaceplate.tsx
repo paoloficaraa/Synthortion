@@ -28,10 +28,10 @@ function SectionFrame({
 }) {
   return (
     <section
-      className={`p-6 pb-6 flex flex-col items-center justify-between relative group hover:bg-[#050505] transition-colors ${className ?? ''}`}
+      className={`p-6 pb-6 flex flex-col items-center justify-between relative group hover:bg-elev-0 transition-colors ${className ?? ''}`}
     >
       <div
-        className="absolute top-4 left-4 text-[#555] font-display text-[9px] uppercase-tracked"
+        className="absolute top-4 left-4 text-ink-2 font-display text-[9px] uppercase-tracked"
         aria-hidden="true"
       >
         {code}
@@ -112,7 +112,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
       </SectionFrame>
 
       {/* DLY — dual-column delay: Mix knob + Time/Fbk small knobs + timebase tie */}
-      <SectionFrame code="DLY" className="col-span-2 shadow-[inset_1px_0_0_0_#222]">
+      <SectionFrame code="DLY" className="col-span-2 shadow-[inset_1px_0_0_0_var(--elev-6)]">
         <div className="flex-1 flex flex-col items-center justify-center w-full mt-2">
           <Knob
             label="Mix"
@@ -154,7 +154,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
       </SectionFrame>
 
       {/* CHR — Chorus with WIDE on/off toggle */}
-      <SectionFrame code="CHR" className="shadow-[inset_1px_0_0_0_#222]">
+      <SectionFrame code="CHR" className="shadow-[inset_1px_0_0_0_var(--elev-6)]">
         <div className="flex-1 flex flex-col justify-center items-center mt-6 w-full">
           <Knob
             label="Chorus"

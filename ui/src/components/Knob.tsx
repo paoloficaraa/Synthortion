@@ -167,8 +167,8 @@ export function Knob({
             cx={center}
             cy={center}
             r={innerRadius}
-            fill="#111"
-            stroke="#222"
+            fill="var(--elev-3)"
+            stroke="var(--elev-6)"
             strokeWidth="1"
           />
           {/* Indicator line */}

@@ -71,6 +71,7 @@ export function FftBars({ signal, active }: FftBarsProps) {
           receiveShadow
         >
           <boxGeometry args={[barWidth, BASE_HEIGHT, BAR_DEPTH]} />
+          {/* Material colors can't resolve CSS vars — #f6f6f6 mirrors --fg. */}
           <meshStandardMaterial color="#f6f6f6" roughness={1} metalness={0.08} flatShading />
         </mesh>
       ))}

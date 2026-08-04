@@ -33,7 +33,7 @@ export function SystemBoot() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: reduceMotion ? 0 : 0.25 }}
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-[#030303] cursor-pointer outline-none"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-void cursor-pointer outline-none"
     >
       <span className="font-display text-[28px] text-fg uppercase-tracked select-none">
         SYNTHORTION
@@ -41,7 +41,7 @@ export function SystemBoot() {
       <span className="font-mono text-[11px] text-muted uppercase-tracked select-none">
         SYSTEM BOOT ... OK
       </span>
-      <span className="font-mono text-[9px] text-[#555] uppercase-tracked select-none">
+      <span className="font-mono text-[9px] text-ink-2 uppercase-tracked select-none">
         CLICK TO SKIP
       </span>
     </motion.button>

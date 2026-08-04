@@ -60,7 +60,7 @@ function createParticleState() {
     positionAttr: new THREE.BufferAttribute(positions, 3),
     scaleAttr: new THREE.BufferAttribute(scales, 1),
     uniforms: {
-      uColor: { value: new THREE.Color('#c7c3ba') },
+      uColor: { value: new THREE.Color('#c7c3ba') }, // mirrors --accent
       uOpacity: { value: 0.55 },
       uSize: { value: 0.9 },
     },

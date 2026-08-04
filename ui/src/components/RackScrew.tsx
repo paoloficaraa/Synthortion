@@ -17,8 +17,7 @@ export function RackScrew({ className }: RackScrewProps) {
       aria-hidden="true"
       className={`absolute w-[13px] h-[13px] rounded-full pointer-events-none ${className}`}
       style={{
-        background:
-          'radial-gradient(circle at 38% 34%, #3a3a3a 0%, #1a1a1a 45%, #0c0c0c 100%)',
+        background: 'var(--gradient-metal)',
         border: '1px solid #000',
         boxShadow:
           'inset 0 1px 1px rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.9)',
@@ -28,7 +27,7 @@ export function RackScrew({ className }: RackScrewProps) {
         className="absolute inset-[3px] rounded-full"
         style={{
           background:
-            'linear-gradient(135deg, #000 0%, #000 42%, #555 50%, #000 58%, #000 100%)',
+            'linear-gradient(135deg, #000 0%, #000 42%, var(--ink-2) 50%, #000 58%, #000 100%)',
         }}
       />
     </div>

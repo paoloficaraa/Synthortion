@@ -38,8 +38,8 @@ describe('App', () => {
     const leftRail = container.querySelector('.border-r')
     const rightRail = container.querySelector('.border-l')
 
-    expect(leftRail).toHaveClass('border-[#222]')
-    expect(rightRail).toHaveClass('border-[#222]')
+    expect(leftRail).toHaveClass('border-elev-6')
+    expect(rightRail).toHaveClass('border-elev-6')
     expect(leftRail).toContainElement(screen.getByText('IN'))
     expect(rightRail).toContainElement(screen.getByText('OUT'))
   })

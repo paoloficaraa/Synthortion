@@ -42,6 +42,7 @@ export function FftVisualizer({ active, signal }: FftVisualizerProps) {
         dpr={[1, 2]}
         gl={{ antialias: false, powerPreference: 'high-performance' }}
       >
+        {/* R3F background can't resolve CSS vars — #0f0e0e mirrors --bg. */}
         <color attach="background" args={['#0f0e0e']} />
         <PerspectiveCamera makeDefault position={[0, 2.6, 9]} fov={40} />
         <ambientLight intensity={0.18} />

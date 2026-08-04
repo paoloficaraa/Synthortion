@@ -2,14 +2,58 @@
 
 /* Vintage Industrial Design Tokens */
 :root {
-  /* Brand Palette */
-  --bg: #0f0e0e;
-  --surface: #121212;
+  /*
+   * Elevation scale — a monotone off-black ramp for hardware depth. Each step
+   * maps to a real surface in the vintage-industrial chrome, from the deepest
+   * recessed wells up to the most prominent borders.
+   */
+  --elev-0: #050505; /* recessed wells (LCD readout, meter rails) */
+  --elev-1: #0a0a0a; /* sunken troughs (FFT floor, meter void) */
+  --elev-2: #0f0e0e; /* base panel */
+  --elev-3: #111111; /* knob well */
+  --elev-4: #121212; /* raised surface */
+  --elev-5: #1a1a1a; /* elevated tracks (inactive LED, switch body) */
+  --elev-6: #222222; /* hairline edges / inset dividers */
+  --elev-7: #333333; /* prominent borders */
+
+  /* App backdrop — darker than the panel, frames the chassis. */
+  --void: #030303;
+
+  /*
+   * Neutral ink ramp — intermediate grays for text and hairline hierarchy.
+   * Higher values read as more prominent; everything steps up to `--fg`.
+   */
+  --ink-1: #444444; /* dim text (meter scale marks) */
+  --ink-2: #555555; /* low-priority labels (section codes, skip hint) */
+  --ink-3: #666666; /* secondary labels (meter legends) */
+  --ink-4: #888888; /* muted text */
+  --ink-5: #a0a0a0; /* elevated muted (hover hints) */
+
+  /*
+   * Brand Palette — DESIGN.md-compatible tokens. Values are unchanged; the
+   * neutral ones now resolve against the ramps above so the palette stays a
+   * single source of truth.
+   */
+  --bg: var(--elev-2);
+  --surface: var(--elev-4);
   --fg: #f6f6f6;
-  --muted: #888888;
-  --border: #333333;
+  --muted: var(--ink-4);
+  --border: var(--elev-7);
   --accent: #c7c3ba;
   --danger: #ff4444;
+
+  /*
+   * Gradients — machined-metal and recessed-well surfaces that give
+   * components the "expensive" hardware feel. Consume via the Tailwind
+   * `bg-gradient-*` utilities or `background: var(--gradient-*)`.
+   */
+  --gradient-panel: linear-gradient(180deg, var(--elev-5) 0%, var(--elev-2) 100%);
+  --gradient-well: linear-gradient(180deg, var(--elev-0) 0%, var(--elev-1) 100%);
+  --gradient-metal: radial-gradient(circle at 38% 34%, #3a3a3a 0%, #1a1a1a 45%, #0c0c0c 100%);
+  --gradient-accent: linear-gradient(135deg, #c7c3ba 0%, #8a867e 100%);
+  --gradient-danger: linear-gradient(135deg, #ff4444 0%, #b32323 100%);
+  --gradient-glow: radial-gradient(circle at 50% 50%, rgba(246, 246, 246, 0.85) 0%, rgba(199, 195, 186, 0.35) 40%, transparent 70%);
+  --gradient-bezel: linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
 
   /*
    * Contrast note (T06): the `--accent` (#c7c3ba) active value arc sits on
@@ -40,7 +84,7 @@ html {
 
 body {
   margin: 0;
-  background-color: #030303;
+  background-color: var(--void);
   color: var(--fg);
   font-family: var(--font-body);
   min-height: 100vh;
@@ -117,6 +161,7 @@ body {
 
 /* Tailwind Theme Extensions */
 @theme {
+  /* Brand palette (legacy tokens) */
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-fg: var(--fg);
@@ -124,4 +169,33 @@ body {
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-danger: var(--danger);
+
+  /* Elevation ramp utilities (bg-elev-0 … bg-elev-7) */
+  --color-elev-0: var(--elev-0);
+  --color-elev-1: var(--elev-1);
+  --color-elev-2: var(--elev-2);
+  --color-elev-3: var(--elev-3);
+  --color-elev-4: var(--elev-4);
+  --color-elev-5: var(--elev-5);
+  --color-elev-6: var(--elev-6);
+  --color-elev-7: var(--elev-7);
+
+  /* App backdrop utility (bg-void) */
+  --color-void: var(--void);
+
+  /* Ink ramp utilities (text-ink-1 … text-ink-5) */
+  --color-ink-1: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-ink-5: var(--ink-5);
+
+  /* Gradient utilities (bg-gradient-panel, bg-gradient-well, …) */
+  --background-image-gradient-panel: var(--gradient-panel);
+  --background-image-gradient-well: var(--gradient-well);
+  --background-image-gradient-metal: var(--gradient-metal);
+  --background-image-gradient-accent: var(--gradient-accent);
+  --background-image-gradient-danger: var(--gradient-danger);
+  --background-image-gradient-glow: var(--gradient-glow);
+  --background-image-gradient-bezel: var(--gradient-bezel);
 }
