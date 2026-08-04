@@ -43,8 +43,8 @@ export function Toggle({ label, options, value, onChange }: ToggleProps) {
             whileTap={{ scale: 0.96 }}
             whileHover={
               isActive
-                ? { backgroundColor: 'var(--fg)', color: 'var(--bg)', borderColor: 'var(--fg)' }
-                : undefined
+                ? undefined
+                : { backgroundColor: 'var(--fg)', color: 'var(--bg)', borderColor: 'var(--fg)' }
             }
             className={`flex-1 border font-mono text-[9px] py-1.5 uppercase outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
               isActive

@@ -30,7 +30,7 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
           title="Bypass"
           whileHover={{ scale: 1.15 }}
           whileTap={{ scale: 0.85 }}
-          className="w-3.5 h-3.5 rounded-[1px] border border-border outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+          className="w-3.5 h-3.5 rounded-[1px] border border-border outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg transition-colors"
           style={{
             backgroundColor: engineActive ? 'var(--fg)' : '#1a1a1a',
             borderColor: engineActive ? 'var(--fg)' : undefined,
@@ -57,22 +57,17 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        <motion.button
-          type="button"
-          whileHover={{ backgroundColor: 'var(--fg)', color: 'var(--bg)' }}
-          whileTap={{ scale: 0.94 }}
-          className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
-        >
-          SAVE
-        </motion.button>
-        <motion.button
-          type="button"
-          whileHover={{ backgroundColor: 'var(--fg)', color: 'var(--bg)' }}
-          whileTap={{ scale: 0.94 }}
-          className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
-        >
-          LOAD
-        </motion.button>
+        {['SAVE', 'LOAD'].map((label) => (
+          <motion.button
+            key={label}
+            type="button"
+            whileHover={{ backgroundColor: 'var(--fg)', color: 'var(--bg)' }}
+            whileTap={{ scale: 0.94 }}
+            className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+          >
+            {label}
+          </motion.button>
+        ))}
       </div>
     </header>
   )
