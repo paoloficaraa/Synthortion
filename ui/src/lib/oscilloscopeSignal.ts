@@ -4,8 +4,8 @@
  * Replaces the prototype's structural-noise FFT generator with a pure,
  * renderer-independent waveform source for the 2D canvas oscilloscope. The
  * signal is a stack of detuned sinusoids (a musical-style tone) advanced one
- * frame at a time by an injectable phase step — no WebAudio or DSP backend,
- * matching the issue's out-of-scope note.
+ * frame at a time by a fixed phase step — no WebAudio or DSP backend, matching
+ * the issue's out-of-scope note.
  */
 
 /** Number of time-domain samples per frame — the trace resolution. */
