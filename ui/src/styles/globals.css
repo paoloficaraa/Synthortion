@@ -10,6 +10,9 @@
   --border: #333333;
   --accent: #c7c3ba;
   --danger: #ff4444;
+  --primary: #5d6d7e;
+  --secondary: #a0522d;
+  --highlight: #e0e0e0;
 
   /*
    * Contrast note (T06): the `--accent` (#c7c3ba) active value arc sits on
@@ -61,7 +64,13 @@ body {
   letter-spacing: -0.02em;
 }
 
-/* Noise Overlay Texture */
+/* Gradient Utilities */
+.gradient-surface {
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+}
+.gradient-accent {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--primary) 100%);
+}
 .noise-overlay::after {
   content: '';
   position: absolute;
@@ -124,4 +133,7 @@ body {
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-danger: var(--danger);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-highlight: var(--highlight);
 }
