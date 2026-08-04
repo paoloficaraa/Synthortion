@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import App from '../App'
 import { createMockCanvasContext } from './mockCanvasContext'
@@ -240,5 +240,39 @@ describe('App', () => {
 
     expect(wide).toHaveAttribute('aria-pressed', 'true')
     expect(bridge.calls).toContainEqual({ parameterId: 'chorusWide', value: true })
+  })
+
+  it('renders the T06 header chrome: brand, preset LCD and SAVE/LOAD', () => {
+    render(<App />)
+
+    expect(screen.getByRole('heading', { name: 'SYNTHORTION' })).toBeInTheDocument()
+    expect(screen.getByText('INIT_STATE_01')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'SAVE' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'LOAD' })).toBeInTheDocument()
+  })
+
+  it('mounts four decorative corner rack screws', () => {
+    const { container } = render(<App />)
+
+    expect(container.querySelectorAll('[data-testid="rack-screw"]')).toHaveLength(
+      4
+    )
+  })
+
+  it('plays the SYSTEM_BOOT overlay on mount and auto-dismisses it', () => {
+    render(<App />)
+
+    expect(
+      screen.getByTestId('system-boot-overlay')
+    ).toBeInTheDocument()
+
+    // Boot sequence auto-dismisses after its fixed pause.
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+
+    expect(
+      screen.queryByTestId('system-boot-overlay')
+    ).not.toBeInTheDocument()
   })
 })

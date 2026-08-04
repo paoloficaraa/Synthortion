@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { MotionConfig } from 'framer-motion'
 import { VstLayout } from './components/VstLayout'
+import { Header } from './components/Header'
+import { SystemBoot } from './components/SystemBoot'
 import { GainMeter } from './components/GainMeter'
 import { Knob } from './components/Knob'
 import { MatrixFaceplate } from './components/MatrixFaceplate'
@@ -46,64 +49,50 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
   }
 
   return (
-    <div className="flex items-start justify-center min-h-screen py-8">
-      <VstLayout
-        leftColumn={
-          <GainMeter label="IN" active={state.engineActive} delay={50}>
-            <Knob
-              label="TRIM"
-              value={state.inputGain}
-              min={-24}
-              max={24}
-              displayValue={formatTrimValue(state.inputGain)}
-              size="small"
-              onChange={(value) => update({ inputGain: value })}
-            />
-          </GainMeter>
-        }
-        rightColumn={
-          <GainMeter label="OUT" active={state.engineActive} delay={260}>
-            <Knob
-              label="TRIM"
-              value={state.outputGain}
-              min={-24}
-              max={24}
-              displayValue={formatTrimValue(state.outputGain)}
-              size="small"
-              onChange={(value) => update({ outputGain: value })}
-            />
-          </GainMeter>
-        }
-      >
-        <main className="flex-1 flex flex-col bg-bg border-t border-[#222]">
-          <header className="h-[64px] bg-bg border-b border-border flex items-center justify-between px-8 shrink-0">
-            <div className="flex items-center gap-5 relative z-10">
-              <button
-                type="button"
-                onClick={() => update({ engineActive: !state.engineActive })}
-                aria-pressed={state.engineActive}
-                aria-label={
-                  state.engineActive ? 'Disable main DSP' : 'Enable main DSP'
-                }
-                title="Bypass"
-                className={`w-3.5 h-3.5 rounded-[1px] border border-border outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg transition-colors ${
-                  state.engineActive
-                    ? 'bg-fg border-fg shadow-[0_0_8px_rgba(255,255,255,0.7)]'
-                    : 'bg-[#1a1a1a]'
-                }`}
+    <MotionConfig reducedMotion="user">
+      <div className="flex items-start justify-center min-h-screen py-8">
+        <VstLayout
+          leftColumn={
+            <GainMeter label="IN" active={state.engineActive} delay={50}>
+              <Knob
+                label="TRIM"
+                value={state.inputGain}
+                min={-24}
+                max={24}
+                displayValue={formatTrimValue(state.inputGain)}
+                size="small"
+                onChange={(value) => update({ inputGain: value })}
               />
-              <h1 className="font-display text-[16px] text-fg display-tracked mt-1 select-none">
-                SYNTHORTION
-              </h1>
+            </GainMeter>
+          }
+          rightColumn={
+            <GainMeter label="OUT" active={state.engineActive} delay={260}>
+              <Knob
+                label="TRIM"
+                value={state.outputGain}
+                min={-24}
+                max={24}
+                displayValue={formatTrimValue(state.outputGain)}
+                size="small"
+                onChange={(value) => update({ outputGain: value })}
+              />
+            </GainMeter>
+          }
+        >
+          <main className="flex-1 flex flex-col bg-bg border-t border-[#222]">
+            <Header
+              engineActive={state.engineActive}
+              onToggleBypass={(active) => update({ engineActive: active })}
+            />
+            <FftVisualizer active={state.engineActive} />
+            <div className="flex-1 flex items-center justify-center p-8">
+              <MatrixFaceplate state={state} onChange={update} />
             </div>
-          </header>
-          <FftVisualizer active={state.engineActive} />
-          <div className="flex-1 flex items-center justify-center p-8">
-            <MatrixFaceplate state={state} onChange={update} />
-          </div>
-        </main>
-      </VstLayout>
-    </div>
+          </main>
+        </VstLayout>
+      </div>
+      <SystemBoot />
+    </MotionConfig>
   )
 }
 

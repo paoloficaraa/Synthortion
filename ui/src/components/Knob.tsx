@@ -1,4 +1,5 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { motion } from 'framer-motion'
 
 interface KnobProps {
   /** Label displayed below the knob */
@@ -111,7 +112,7 @@ export function Knob({
 
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <div
+      <motion.div
         role="slider"
         tabIndex={0}
         aria-label={label}
@@ -120,10 +121,10 @@ export function Knob({
         aria-valuemax={max}
         aria-valuenow={Math.round(value)}
         aria-valuetext={displayValue}
-        className={`relative cursor-ns-resize group rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg transition-transform duration-[140ms] ease-out ${
-          isDraggingState ? 'scale-[1.05]' : 'scale-100'
-        } flex items-center justify-center`}
+        className="relative cursor-ns-resize group rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg flex items-center justify-center"
         style={{ width: viewBoxSize, height: viewBoxSize }}
+        animate={{ scale: isDraggingState ? 1.05 : 1 }}
+        transition={{ duration: 0.14, ease: 'easeOut' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
@@ -183,7 +184,7 @@ export function Knob({
             />
           </g>
         </svg>
-      </div>
+      </motion.div>
       <div className="flex flex-col items-center mt-1">
         <span
           className={`font-mono text-fg uppercase-tracked select-none ${

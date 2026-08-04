@@ -53,4 +53,16 @@ describe('VstLayout', () => {
     const vstContainer = container.querySelector('.vst-container')
     expect(vstContainer).toHaveClass('flex-row')
   })
+
+  it('renders four corner rack screws', () => {
+    const { container } = render(
+      <VstLayout>
+        <div>Content</div>
+      </VstLayout>
+    )
+
+    expect(container.querySelectorAll('[data-testid="rack-screw"]')).toHaveLength(
+      4
+    )
+  })
 })

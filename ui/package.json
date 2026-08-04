@@ -15,6 +15,7 @@
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.7.0",
     "@tailwindcss/vite": "^4.3.3",
+    "framer-motion": "^12.43.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tailwindcss": "^4.3.3",
