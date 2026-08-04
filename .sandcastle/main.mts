@@ -66,6 +66,11 @@ const planSchema = z.object({
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
 const MAX_ITERATIONS = 10;
 
+// Reviewer watchdog: if a review stalls for longer than this (rate-limit
+// backoff, hung sub-agent, silent agent), fail it and proceed to merge with
+// the implementer's commits instead of holding the whole loop hostage.
+const REVIEW_TIMEOUT_MIN = 30;
+
 // Hooks run inside the sandbox before the agent starts each iteration.
 // NOTE: do NOT run `npm install` here, not even for `ui/` — it is the
 // corruption vector we hit: planner and merger run in HEAD mode (host repo
@@ -250,23 +255,38 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 
         // Only review if the implementer produced commits
         if (implement.commits.length > 0) {
-          const review = await sandbox.run({
-            name: "reviewer",
-            maxIterations: 1,
-            agent: cc("auto/smart"),
-            promptFile: "./.sandcastle/review-prompt.md",
-            cwd: REPO_ROOT,
-            promptArgs: {
-              BRANCH: issue.branch,
-            },
-          });
+          try {
+            const review = await sandbox.run({
+              name: "reviewer",
+              maxIterations: 1,
+              // Fail the run if the agent goes silent for 5 minutes
+              // (rate-limit backoff, hung MCP, stuck subprocess).
+              idleTimeoutSeconds: 300,
+              // Wall-clock watchdog: abort (kills the in-flight agent
+              // subprocess) if the review stalls beyond REVIEW_TIMEOUT_MIN.
+              // A stalled review must not hold the whole loop hostage — the
+              // merge phase waits on Promise.allSettled.
+              signal: AbortSignal.timeout(REVIEW_TIMEOUT_MIN * 60 * 1000),
+              agent: cc("auto/smart"),
+              promptFile: "./.sandcastle/review-prompt.md",
+              cwd: REPO_ROOT,
+              promptArgs: {
+                BRANCH: issue.branch,
+              },
+            });
 
-          // Merge commits from both runs so the merge phase sees all of them.
-          // Each sandbox.run() only returns commits from its own run.
-          return {
-            ...review,
-            commits: [...implement.commits, ...review.commits],
-          };
+            // Merge commits from both runs so the merge phase sees all of them.
+            // Each sandbox.run() only returns commits from its own run.
+            return {
+              ...review,
+              commits: [...implement.commits, ...review.commits],
+            };
+          } catch (err) {
+            console.error(
+              `  ⚠ review for issue ${issue.id} failed (${String(err)}). ` +
+                "Proceeding to merge with implementer commits only.",
+            );
+          }
         }
 
         return implement;

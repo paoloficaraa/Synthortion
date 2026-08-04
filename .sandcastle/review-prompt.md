@@ -9,10 +9,6 @@ Fetch and read the outputs of:
 
 # EXPLORING THE CHANGE
 
-Fetch and read the outputs of:
-- `git diff {{TARGET_BRANCH}}...{{BRANCH}}`
-- `git log {{TARGET_BRANCH}}..{{BRANCH}} --oneline`
-
 To check whether the change affects other parts of the codebase, follow the
 imports of the changed files and read the callers yourself — there is no
 knowledge graph. Keep the blast-radius check focused on the actual symbols
@@ -68,4 +64,6 @@ cmake --build build --target SynthortionTests
 ./build/plugin/SynthortionTests
 
 If already clean, do nothing. Never change behaviour — only how.
+Do NOT close the issue or modify GitHub state — the merger closes issues
+after the branch is merged. Reviewers only review and commit on the branch.
 Output <promise>COMPLETE</promise>.

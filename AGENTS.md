@@ -14,16 +14,25 @@ Rules:
 ## Sandcastle skills
 
 `.sandcastle/` orchestrates parallel agent pipelines. Every sandbox bind-mounts
-`~/.agents/skills`, `~/.config/opencode/skills` and `graphify-out/` readonly
-(via `sandboxMounts` in `.sandcastle/main.mts`), so agents read the exact
-`SKILL.md` files the host uses and query the repo's knowledge graph with the
-`graphify` CLI installed in the Docker image. The implementer always loads
-`tdd` + `implement` and runs `graphify query` before exploring code; the
-reviewer always loads `code-review` (plus `impeccable` when the diff touches
-`ui/`) and uses `graphify query`/`path` to check cross-module impact; the
-planner uses `graphify explain` when resolving issue dependencies. After
-merges, `.sandcastle/main.mts` runs `graphify update .` on the host to keep
-the graph current.
+`~/.agents/skills` readonly (via `sandboxMounts` in `.sandcastle/main.mts`), so
+agents read the exact `SKILL.md` files the host uses. The knowledge graph is
+HOST-ONLY: `graphify` is not installed in the Docker image and `graphify-out/`
+is not mounted into sandboxes (removed in commit 502cd44), so sandbox agents
+map the repo with `ls`/`find` and import-following instead of graph queries
+(see implement-prompt.md / review-prompt.md).
+
+The skill contract per agent:
+- **implementer** — MUST load `tdd` + `implement` first (Step 0 in
+  implement-prompt.md), plus context-specific skills from the catalog map;
+  must NEVER close issues (the merger closes them after merging); must signal
+  COMPLETE as soon as the work is done and verified.
+- **reviewer** — always loads `code-review` (plus `impeccable` when the diff
+  touches `ui/`); runs under an idle + wall-clock watchdog so a stalled
+  review cannot hold the loop hostage.
+- **planner** — follows `.sandcastle/planner-instructions.md`; no graphify.
+
+After merges, run `graphify update .` on the host to keep the local graph
+current — the pipeline does not do this automatically.
 
 ## Agent skills
 

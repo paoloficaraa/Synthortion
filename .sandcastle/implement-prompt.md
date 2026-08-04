@@ -9,69 +9,67 @@ Recent commits:
 {{RECENT_COMMITS}}
 </recent-commits>
 
-# EXPLORING THE CODE
+# STEP 0 — LOAD SKILLS (MANDATORY, FIRST)
 
-There is no knowledge graph. Before editing, map the parts you will touch
-yourself:
-- `ls`/`find` to see the directory shape, then read the relevant files.
-- Start from the entry points named in the issue (e.g. `ui/src/App.tsx`,
-  `plugin/`, `lib/`) and follow imports.
-- Keep a mental (or scratch) note of what calls what — it is cheaper than
-  reading the whole repo.
+Do this BEFORE exploring the code or running any git command. The only
+command allowed before Step 0 is `gh issue view {{TASK_ID}}` (you need the
+issue body to pick context-specific skills).
+
+1. `ls ~/.agents/skills/` to see the installed catalog.
+2. Read `~/.agents/skills/tdd/SKILL.md` and
+   `~/.agents/skills/implement/SKILL.md` — always required for
+   implementation work.
+3. Read any context-specific skills from the map in SKILLS below that match
+   the issue (labels/title/body). Not every skill applies — pick what
+   genuinely helps.
+4. In your FIRST message, list the skills you loaded and the key rules you
+   will apply from each. This makes skill usage visible in the log and
+   forces you to internalize the guidance before touching code.
+
+Do NOT skip Step 0 even when the branch already looks implemented — you
+still need the skills to judge the existing work.
 
 # SKILLS
 
 The full host skill catalog is mounted read-only at `~/.agents/skills`.
-These are the exact same skills the host uses. Pick the right ones in two
-stages. Start by fetching the issue: `gh issue view {{TASK_ID}}` FIRST — you
-need its **labels**, title and body to judge what skills apply.
+These are the exact same skills the host uses. Pick the right ones from this
+map (label/title/body-driven):
 
-## Stage 1 — Select from the local catalog (always)
+- **always load for code work**: `tdd`, `implement`
+- **C++ / DSP / JUCE plugin core**: `code-review`, `codebase-design`,
+  `diagnosing-bugs`, `prototype`, `resolving-merge-conflicts`
+- **React / webview UI (`ui/`)**: `frontend-design`, `impeccable`,
+  `ui-ux-pro-max`, `webapp-testing`, `web-design-guidelines`,
+  `canvas-design`, `vercel-composition-patterns`,
+  `vercel-react-best-practices`, `vercel-react-view-transitions`,
+  `web-artifacts-builder`
+- **docs / specs / writing**: `doc-coauthoring`, `research`,
+  `writing-guidelines`, `domain-modeling`, `ubiquitous-language`
+- **deploy**: `deploy-to-vercel`, `vercel-cli-with-tokens`,
+  `vercel-optimize`
+- **other**: `diagnosing-bugs`, `mcp-builder`, `pdf`, `docx`, `xlsx`,
+  `pptx`, `slack-gif-creator`, `skill-creator`, `find-skills`
 
-1. `ls ~/.agents/skills/` to see what's installed, then read the `SKILL.md`
-   of the ones that match the issue context (labels/title/body). A non-
-   exhaustive map of the catalog:
-   - **always load for code work**: `tdd`, `implement`
-   - **C++ / DSP / JUCE plugin core**: `code-review`, `codebase-design`,
-     `diagnosing-bugs`, `prototype`, `resolving-merge-conflicts`
-   - **React / webview UI (`ui/`)**: `frontend-design`, `impeccable`,
-     `ui-ux-pro-max`, `webapp-testing`, `web-design-guidelines`,
-     `canvas-design`, `vercel-composition-patterns`,
-     `vercel-react-best-practices`, `vercel-react-view-transitions`,
-     `web-artifacts-builder`
-   - **docs / specs / writing**: `doc-coauthoring`, `research`,
-     `writing-guidelines`, `domain-modeling`, `ubiquitous-language`
-   - **deploy**: `deploy-to-vercel`, `vercel-cli-with-tokens`,
-     `vercel-optimize`
-   - **other**: `diagnosing-bugs`, `mcp-builder`, `pdf`, `docx`, `xlsx`,
-     `pptx`, `slack-gif-creator`, `skill-creator`, `find-skills`
-   Not every skill applies to every issue — pick what genuinely helps and
-   load only those SKILL.md files. Do not load all of them blindly.
-2. Always load `tdd` (`~/.agents/skills/tdd/SKILL.md`) and `implement`
-   (`~/.agents/skills/implement/SKILL.md`) for implementation work, on top
-   of any context-specific skills you picked.
+Not every skill applies to every issue — pick what genuinely helps and load
+only those SKILL.md files. Do not load all of them blindly.
 
-## Stage 2 — Find external skills when the catalog is insufficient (optional)
+## External skills (fallback only)
 
-If, after Stage 1, a domain the issue needs is NOT covered by the local
-catalog (e.g. an issue asks for Vercel deploy but no Vercel skill is
-installed, or it asks for a domain the map above doesn't list), use the
-`find-skills` skill as a FALLBACK to discover and READ an external skill —
-WITHOUT installing it (the host catalog is read-only by design).
+If, after the catalog, a domain the issue needs is NOT covered (e.g. a Vercel
+deploy with no Vercel skill installed), use `find-skills` to READ an external
+skill WITHOUT installing (the host catalog is read-only by design):
 
-1. Read `~/.agents/skills/find-skills/SKILL.md` for the workflow.
-2. Search the public registry non-interactively:
+1. Read `~/.agents/skills/find-skills/SKILL.md`.
+2. Search non-interactively:
    ```bash
    echo "" | npx skills find "<domain keywords>" | sed 's/\x1b\[[0-9;]*m//g'
    ```
    (`skills find` opens a TUI on a tty, but with stdin closed it prints the
    ranked text results to stdout instead; `sed` strips ANSI colour codes.)
-3. Vet candidates the way find-skills prescribes: prefer install count
-   ≥1K and authoritative sources (`vercel-labs`, `anthropics`, `microsoft`,
-   official orgs). Skip anything sketchy (<100 installs, unknown author).
-4. READ the chosen skill's instructions WITHOUT installing. `skills use`
-   streams the full `SKILL.md` to stdout — add `-g -y` style non-interactive
-   flags are not needed; just pipe to a file you Read:
+3. Vet candidates: prefer install count ≥1K and authoritative sources
+   (`vercel-labs`, `anthropics`, `microsoft`, official orgs). Skip anything
+   sketchy (<100 installs, unknown author).
+4. READ the chosen skill's instructions WITHOUT installing:
    ```bash
    npx skills use <owner/repo@skill> > /tmp/skill.md 2>/dev/null
    # then open /tmp/skill.md with the Read tool
@@ -83,9 +81,19 @@ WITHOUT installing it (the host catalog is read-only by design).
 
 ## Apply
 
-3. (continuing the numbering) Apply the loaded skills' instructions to your
-   work — both local (Stage 1) and, if used, the external one (Stage 2).
-   They are not a checklist — they are guidance for better implementation.
+Apply the loaded skills' instructions to your work — both local (Step 0) and,
+if used, the external one. They are not a checklist — they are guidance for
+better implementation.
+
+# EXPLORING THE CODE
+
+There is no knowledge graph in the sandbox. Before editing, map the parts
+you will touch yourself:
+- `ls`/`find` to see the directory shape, then read the relevant files.
+- Start from the entry points named in the issue (e.g. `ui/src/App.tsx`,
+  `plugin/`, `lib/`) and follow imports.
+- Keep a mental (or scratch) note of what calls what — it is cheaper than
+  reading the whole repo.
 
 # RULES
 1. Explore the repo, then work TDD: RED (one failing test) → GREEN (implement) → REFACTOR.
@@ -96,6 +104,15 @@ WITHOUT installing it (the host catalog is read-only by design).
    ./build/plugin/SynthortionTests
 4. Commit message: `RALPH:` prefix, task completed + PRD reference, key
    decisions, files changed, blockers/notes. Concise.
-5. If not complete, comment on the issue with progress. Do NOT close it.
+5. NEVER run `gh issue close` or any other `gh issue ...` write command.
+   Closing issues is the merger's job, AFTER the branch is merged. If you
+   need to record progress, comment on the issue instead:
+   `gh issue comment {{TASK_ID}} --body "..."`
+6. STOP CONDITION: once the implementation is complete and verified (tests,
+   build, lint, dev-server as applicable), signal
+   <promise>COMPLETE</promise> immediately. Do NOT re-verify the same checks
+   across multiple iterations and do NOT keep exploring once every acceptance
+   criterion is green. If the branch already contains the full implementation,
+   verify ONCE, report it, and signal COMPLETE.
 
 Once complete, output <promise>COMPLETE</promise>.
