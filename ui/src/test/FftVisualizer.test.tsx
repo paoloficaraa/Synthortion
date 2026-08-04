@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { FftVisualizer } from '../components/FftVisualizer'
-import { createTimeSignal } from '../lib/timeSignal'
+import { createOscilloscopeSignal } from '../lib/oscilloscopeSignal'
 
-describe('FftVisualizer (2D Oscilloscope)', () => {
+describe('FftVisualizer', () => {
   it('preserves the prototype frequency labels', () => {
     render(<FftVisualizer active />)
 
@@ -13,7 +13,7 @@ describe('FftVisualizer (2D Oscilloscope)', () => {
     expect(screen.getByText('20kHz')).toBeInTheDocument()
   })
 
-  it('mounts an HTML canvas (no WebGL)', () => {
+  it('mounts a 2D canvas on the dark #0f0e0e backdrop', () => {
     const { container } = render(<FftVisualizer active />)
 
     expect(container.querySelector('canvas')).toBeInTheDocument()
@@ -34,7 +34,7 @@ describe('FftVisualizer (2D Oscilloscope)', () => {
   })
 
   it('accepts an injected signal so tests can feed mock frames', () => {
-    const signal = createTimeSignal(() => 0.5)
+    const signal = createOscilloscopeSignal(() => 0.5)
     const { container } = render(<FftVisualizer active signal={signal} />)
 
     expect(container.querySelector('canvas')).toBeInTheDocument()

@@ -1,14 +1,32 @@
 import '@testing-library/jest-dom'
-import { vi } from 'vitest'
 
 /**
- * jsdom's canvas 2D context is only a partial stub — the oscilloscope draw
- * loop would crash if it actually ran. Stub `requestAnimationFrame` to a
- * no-op so the canvas visual stays untested by design (the signal generator
- * that drives it is tested directly at the module seam).
+ * jsdom does not implement a real 2D rendering context, so any component that
+ * calls `canvas.getContext('2d')` would log "Not implemented" and bail. Stub
+ * the context with a Proxy that absorbs every method call and property write,
+ * letting the oscilloscope's draw path run (harmlessly) in tests without the
+ * canvas package.
  */
-vi.stubGlobal('requestAnimationFrame', (): number => 0)
-vi.stubGlobal('cancelAnimationFrame', (): void => {})
+function createCanvas2DContext(): CanvasRenderingContext2D {
+  const noop = (): void => undefined
+  return new Proxy({} as Record<string | symbol, unknown>, {
+    get(target, prop) {
+      if (prop in target) return target[prop]
+      return noop
+    },
+    set(target, prop, value) {
+      target[prop] = value
+      return true
+    },
+  }) as unknown as CanvasRenderingContext2D
+}
+
+HTMLCanvasElement.prototype.getContext = ((contextId: string) => {
+  if (contextId === '2d') {
+    return createCanvas2DContext() as unknown as CanvasRenderingContext2D
+  }
+  return null
+}) as typeof HTMLCanvasElement.prototype.getContext
 
 /**
  * jsdom has no `window.matchMedia`, which Framer Motion's `useReducedMotion`
