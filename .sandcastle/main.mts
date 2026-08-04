@@ -360,3 +360,4 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 }
 
 console.log("\nAll done.");
+process.exit(0);
