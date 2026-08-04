@@ -23,7 +23,7 @@ function MeterRail({ side, children }: MeterRailProps) {
   const borderClass = side === 'left' ? 'border-r' : 'border-l'
   return (
     <div
-      className={`w-[40px] shrink-0 bg-[#050505] flex flex-col items-center py-6 ${borderClass} border-[#222] z-10 relative shadow-[inset_0_0_12px_rgba(0,0,0,0.8)]`}
+      className={`w-[40px] shrink-0 bg-elev-0 bg-gradient-well flex flex-col items-center py-6 ${borderClass} border-elev-6 z-10 relative shadow-[inset_0_0_12px_rgba(0,0,0,0.8)]`}
     >
       {children}
     </div>

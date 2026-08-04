@@ -32,7 +32,7 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
           whileTap={{ scale: 0.85 }}
           className="w-3.5 h-3.5 rounded-[1px] border border-border outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg transition-colors"
           style={{
-            backgroundColor: engineActive ? 'var(--fg)' : '#1a1a1a',
+            backgroundColor: engineActive ? 'var(--fg)' : 'var(--elev-5)',
             borderColor: engineActive ? 'var(--fg)' : undefined,
             boxShadow: engineActive
               ? '0 0 8px rgba(255,255,255,0.7)'
@@ -51,7 +51,7 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
         >
           Preset
         </span>
-        <div className="min-w-[132px] px-3 py-1.5 bg-[#050505] border border-border font-mono text-[11px] text-fg uppercase-tracked select-none shadow-[inset_0_1px_3px_rgba(0,0,0,0.9)]">
+        <div className="min-w-[132px] px-3 py-1.5 bg-elev-0 bg-gradient-well border border-border font-mono text-[11px] text-fg uppercase-tracked select-none shadow-[inset_0_1px_3px_rgba(0,0,0,0.9)]">
           {PRESET_NAME}
         </div>
       </div>

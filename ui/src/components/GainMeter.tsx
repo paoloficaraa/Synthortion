@@ -31,6 +31,8 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
     let raf: number
 
     const draw = () => {
+      // Canvas fillStyle cannot resolve CSS custom properties, so these stay
+      // literal hex equivalents of the --void / --elev-1 / --muted tokens.
       ctx.fillStyle = '#020202'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
@@ -78,12 +80,12 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
       className="w-full flex flex-col items-center animate-vst-enter"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="font-display text-[8px] text-[#666] uppercase-tracked mb-5">
+      <div className="font-display text-[8px] text-ink-3 uppercase-tracked mb-5">
         {label}
       </div>
-      <div className="font-mono text-[7px] text-[#444] mb-2 font-bold leading-none">0</div>
+      <div className="font-mono text-[7px] text-ink-1 mb-2 font-bold leading-none">0</div>
       <div className="flex-1 w-full flex justify-center z-10 shrink min-h-0">
-        <div className="w-[6px] h-full" style={{ boxShadow: '0 0 0 1px #222' }}>
+        <div className="w-[6px] h-full" style={{ boxShadow: '0 0 0 1px var(--elev-6)' }}>
           <canvas
             ref={canvasRef}
             width={12}
@@ -92,7 +94,7 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
           />
         </div>
       </div>
-      <div className="font-mono text-[7px] text-[#444] mt-2 font-bold leading-none">
+      <div className="font-mono text-[7px] text-ink-1 mt-2 font-bold leading-none">
         -INF
       </div>
       {children && (

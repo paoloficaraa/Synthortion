@@ -79,7 +79,7 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
             </GainMeter>
           }
         >
-          <main className="flex-1 flex flex-col bg-bg border-t border-[#222]">
+          <main className="flex-1 flex flex-col bg-bg border-t border-elev-6">
             <Header
               engineActive={state.engineActive}
               onToggleBypass={(active) => update({ engineActive: active })}
