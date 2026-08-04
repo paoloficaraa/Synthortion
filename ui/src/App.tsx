@@ -3,6 +3,7 @@ import { VstLayout } from './components/VstLayout'
 import { GainMeter } from './components/GainMeter'
 import { Knob } from './components/Knob'
 import { MatrixFaceplate } from './components/MatrixFaceplate'
+import { FftVisualizer } from './components/FftVisualizer'
 import { initialState, type PluginState } from './lib/pluginState'
 import { noopDspBridge, type DspBridge } from './lib/dspBridge'
 
@@ -96,6 +97,7 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
               </h1>
             </div>
           </header>
+          <FftVisualizer active={state.engineActive} />
           <div className="flex-1 flex items-center justify-center p-8">
             <MatrixFaceplate state={state} onChange={update} />
           </div>

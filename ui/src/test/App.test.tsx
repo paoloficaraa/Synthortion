@@ -211,6 +211,24 @@ describe('App', () => {
     expect(bridge.calls).toContainEqual({ parameterId: 'engineActive', value: false })
   })
 
+  it('renders the FFT visualizer above the faceplate, toggling with the engine', () => {
+    render(<App />)
+
+    expect(screen.getByTestId('fft-visualizer')).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+    expect(screen.getByText('20Hz')).toBeInTheDocument()
+
+    const bypass = screen.getByRole('button', { name: 'Disable main DSP' })
+    fireEvent.click(bypass)
+
+    expect(screen.getByTestId('fft-visualizer')).toHaveAttribute(
+      'data-active',
+      'false'
+    )
+  })
+
   it('forwards the chorus WIDE toggle to the DSP bridge', () => {
     const bridge = createMockDspBridge()
     render(<App dspBridge={bridge} />)
