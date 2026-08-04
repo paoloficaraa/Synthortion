@@ -11,6 +11,15 @@
   --accent: #c7c3ba;
   --danger: #ff4444;
 
+  /*
+   * Contrast note (T06): the `--accent` (#c7c3ba) active value arc sits on
+   * `--bg` (#0f0e0e). Relative luminance is 0.547 vs 0.005, giving a contrast
+   * ratio of ~10.96:1 — well above WCAG AA 4.5:1 for normal text and the
+   * 3:1 non-text-contrast threshold. No adjustment needed; the warm grey was
+   * chosen over pure white to keep the vintage hardware feel without
+   * sacrificing accessibility.
+   */
+
   /* Typography */
   --font-display: 'Akira Expanded', Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, sans-serif;

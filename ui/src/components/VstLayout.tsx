@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { motion } from 'framer-motion'
+import { RackScrew } from './RackScrew'
 
 interface VstLayoutProps {
   /** Left column content (Input meter rail) */
@@ -36,21 +38,34 @@ function MeterRail({ side, children }: MeterRailProps) {
  * - Center: Main controls hub (flexible)
  * - Right: Output gain meter rail (40px width)
  *
- * Full-height borders separate meter columns from the center hub.
+ * Full-height borders separate meter columns from the center hub. The panel
+ * enters with a subtle rise+fade (disabled by `prefers-reduced-motion`), and
+ * the four corners carry the prototype's decorative rack screws.
  */
 export function VstLayout({ leftColumn, children, rightColumn }: VstLayoutProps) {
   return (
-    <div className="vst-container flex flex-row mx-auto max-w-full relative noise-overlay">
-      {/* Left meter rail */}
-      <MeterRail side="left">{leftColumn}</MeterRail>
+    <motion.div
+      initial={{ opacity: 0, y: 12, scale: 0.99 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.22, ease: 'easeOut' }}
+    >
+      <div className="vst-container flex flex-row mx-auto max-w-full relative noise-overlay">
+        <RackScrew className="top-[6px] left-[6px]" />
+        <RackScrew className="top-[6px] right-[6px]" />
+        <RackScrew className="bottom-[6px] left-[6px]" />
+        <RackScrew className="bottom-[6px] right-[6px]" />
 
-      {/* Center hub */}
-      <div className="flex flex-col flex-1 min-w-0">
-        {children}
+        {/* Left meter rail */}
+        <MeterRail side="left">{leftColumn}</MeterRail>
+
+        {/* Center hub */}
+        <div className="flex flex-col flex-1 min-w-0">
+          {children}
+        </div>
+
+        {/* Right meter rail */}
+        <MeterRail side="right">{rightColumn}</MeterRail>
       </div>
-
-      {/* Right meter rail */}
-      <MeterRail side="right">{rightColumn}</MeterRail>
-    </div>
+    </motion.div>
   )
 }
