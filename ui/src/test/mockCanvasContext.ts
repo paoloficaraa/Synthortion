@@ -10,7 +10,8 @@ export interface CanvasFillOp {
 /**
  * Builds a fake 2D canvas context for jsdom, which has no real canvas backing.
  *
- * GainMeter's draw loop only touches `fillStyle` and `fillRect`. Pass an `ops`
+ * GainMeter's draw loop only touches `fillStyle` and `fillRect`; the
+ * oscilloscope (FftVisualizer) additionally strokes a polyline. Pass an `ops`
  * array to record every fillRect together with the fillStyle active at call
  * time so tests can assert on the rendered segments; omit it for a
  * recording-free stub used only to exercise the draw path.
@@ -24,8 +25,16 @@ export function createMockCanvasContext(ops?: CanvasFillOp[]): CanvasRenderingCo
     set fillStyle(value: string) {
       fillStyle = value
     },
+    strokeStyle: '',
+    lineWidth: 1,
+    lineCap: 'round',
     fillRect: vi.fn((...args: number[]) => {
       if (ops) ops.push({ style: fillStyle, args })
     }),
+    setTransform: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    stroke: vi.fn(),
   } as unknown as CanvasRenderingContext2D
 }

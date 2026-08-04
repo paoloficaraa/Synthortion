@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { FftVisualizer } from '../components/FftVisualizer'
-import { createFftSignal } from '../lib/fftSignal'
+import { createOscilloscopeSignal } from '../lib/oscilloscopeSignal'
 
 describe('FftVisualizer', () => {
   it('preserves the prototype frequency labels', () => {
@@ -13,7 +13,7 @@ describe('FftVisualizer', () => {
     expect(screen.getByText('20kHz')).toBeInTheDocument()
   })
 
-  it('mounts a WebGL canvas on the dark #0f0e0e backdrop', () => {
+  it('mounts a 2D canvas on the dark #0f0e0e backdrop', () => {
     const { container } = render(<FftVisualizer active />)
 
     expect(container.querySelector('canvas')).toBeInTheDocument()
@@ -34,13 +34,13 @@ describe('FftVisualizer', () => {
   })
 
   it('accepts an injected signal so tests can feed mock frames', () => {
-    const signal = createFftSignal(() => 0.5)
+    const signal = createOscilloscopeSignal(() => 0.5)
     const { container } = render(<FftVisualizer active signal={signal} />)
 
     expect(container.querySelector('canvas')).toBeInTheDocument()
   })
 
-  it('keeps the FFT band full-width above the faceplate', () => {
+  it('keeps the oscilloscope band full-width above the faceplate', () => {
     const { container } = render(<FftVisualizer active />)
 
     const viz = container.querySelector('[data-testid="fft-visualizer"]')

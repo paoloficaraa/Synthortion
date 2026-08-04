@@ -1,24 +1,32 @@
-import { createElement } from 'react'
 import '@testing-library/jest-dom'
-import { vi } from 'vitest'
 
 /**
- * R3F's <Canvas> needs a real WebGL context, which jsdom does not provide.
- *
- * Stub the reconciler and frame hook so FftVisualizer (and anything that
- * embeds it, e.g. App) can render its DOM chrome — frequency labels, canvas
- * mount, active state — without a GL context. The GL scene itself is untested
- * by design (see the spec's testing decisions); the signal generator that
- * drives it is tested directly at the module seam.
+ * jsdom does not implement a real 2D rendering context, so any component that
+ * calls `canvas.getContext('2d')` would log "Not implemented" and bail. Stub
+ * the context with a Proxy that absorbs every method call and property write,
+ * letting the oscilloscope's draw path run (harmlessly) in tests without the
+ * canvas package.
  */
-vi.mock('@react-three/fiber', () => ({
-  Canvas: () => createElement('canvas', { 'data-testid': 'r3f-canvas' }),
-  useFrame: () => {},
-}))
+function createCanvas2DContext(): CanvasRenderingContext2D {
+  const noop = (): void => undefined
+  return new Proxy({} as Record<string | symbol, unknown>, {
+    get(target, prop) {
+      if (prop in target) return target[prop]
+      return noop
+    },
+    set(target, prop, value) {
+      target[prop] = value
+      return true
+    },
+  }) as unknown as CanvasRenderingContext2D
+}
 
-vi.mock('@react-three/drei', () => ({
-  PerspectiveCamera: () => null,
-}))
+HTMLCanvasElement.prototype.getContext = ((contextId: string) => {
+  if (contextId === '2d') {
+    return createCanvas2DContext() as unknown as CanvasRenderingContext2D
+  }
+  return null
+}) as typeof HTMLCanvasElement.prototype.getContext
 
 /**
  * jsdom has no `window.matchMedia`, which Framer Motion's `useReducedMotion`
