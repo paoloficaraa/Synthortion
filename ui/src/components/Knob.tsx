@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useId, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { motion } from 'framer-motion'
 
 interface KnobProps {
@@ -110,6 +110,10 @@ export function Knob({
   const strokeDashoffset = C - Math.max(0.001, pct * maxArcLength)
   const bgStrokeDashoffset = C - maxArcLength
 
+  // Unique per-instance id for the cap gradient (useId output is stripped of
+  // its marker chars so the `url(#…)` fragment reference stays URL-safe).
+  const capGradientId = `knob-cap-${useId().replace(/[«»:]/g, '')}`
+
   return (
     <div className="flex flex-col items-center gap-1.5">
       <motion.div
@@ -135,6 +139,15 @@ export function Knob({
           className="absolute inset-0 w-full h-full"
           viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
         >
+          {/* Machined-metal cap fill — mirrors --gradient-metal */}
+          <defs>
+            <radialGradient id={capGradientId} cx="38%" cy="34%" r="75%">
+              <stop offset="0%" stopColor="#3a3a3a" />
+              <stop offset="45%" stopColor="#1a1a1a" />
+              <stop offset="100%" stopColor="#0c0c0c" />
+            </radialGradient>
+          </defs>
+
           {/* Background arc */}
           <circle
             cx={center}
@@ -162,14 +175,15 @@ export function Knob({
             strokeLinecap="round"
             className="transition-all duration-75"
           />
-          {/* Inner circle */}
+          {/* Inner circle — machined cap, raised off the faceplate */}
           <circle
             cx={center}
             cy={center}
             r={innerRadius}
-            fill="var(--elev-3)"
+            fill={`url(#${capGradientId})`}
             stroke="var(--elev-6)"
             strokeWidth="1"
+            style={{ filter: 'drop-shadow(0 2px 2px rgba(0, 0, 0, 0.8))' }}
           />
           {/* Indicator line */}
           <g transform={`rotate(${angle} ${center} ${center})`}>

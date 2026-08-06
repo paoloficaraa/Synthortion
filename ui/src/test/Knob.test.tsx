@@ -205,4 +205,42 @@ describe('Knob', () => {
       )
     })
   })
+
+  describe('machined cap', () => {
+    it('fills the knob cap with the machined-metal gradient', () => {
+      render(
+        <Knob
+          label="Drive"
+          value={50}
+          min={0}
+          max={100}
+          displayValue="50%"
+          onChange={() => {}}
+        />
+      )
+
+      const gradient = document.querySelector('radialGradient')
+      expect(gradient).not.toBeNull()
+
+      // The radial stops mirror --gradient-metal in globals.css.
+      const stops = Array.from(document.querySelectorAll('radialGradient stop'))
+      expect(stops.map((stop) => stop.getAttribute('offset'))).toEqual([
+        '0%',
+        '45%',
+        '100%',
+      ])
+      expect(stops.map((stop) => stop.getAttribute('stop-color'))).toEqual([
+        '#3a3a3a',
+        '#1a1a1a',
+        '#0c0c0c',
+      ])
+
+      // The inner cap circle references the same gradient by id.
+      const capCircle = Array.from(document.querySelectorAll('circle')).find(
+        (circle) => circle.getAttribute('fill')?.startsWith('url(#')
+      )
+      expect(capCircle).toBeDefined()
+      expect(capCircle?.getAttribute('fill')).toBe(`url(#${gradient?.id})`)
+    })
+  })
 })

@@ -63,7 +63,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
   } = state
 
   return (
-    <div className="grid grid-cols-5 divide-x divide-border w-full">
+    <div className="grid grid-cols-5 divide-x divide-border w-full shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
       {/* DRV — Drive with PRE/POST route toggle */}
       <SectionFrame code="DRV">
         <div className="flex-1 flex flex-col justify-center items-center mt-6 w-full">

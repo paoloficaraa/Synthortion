@@ -1,5 +1,17 @@
 import { useRef, useEffect, type ReactNode } from 'react'
 
+/**
+ * Canvas palette — token-equivalent hex for the meter draw loop. The 2D API
+ * cannot read CSS custom properties, so these literals stay in step with the
+ * design tokens in `globals.css` (--void, --elev-1, --ink-4, --fg). Keep them
+ * in lock-step with the tokens; the meter backdrop deliberately matches
+ * `--void` so it reads as the same recessed well as the app chassis.
+ */
+const METER_VOID = '#030303' // --void: meter track backdrop
+const METER_WELL = '#0a0a0a' // --elev-1: unfilled segment blocks
+const METER_LEVEL = '#888888' // --ink-4: active signal blocks
+const METER_PEAK = '#f6f6f6' // --fg: top-of-scale peak blocks
+
 interface GainMeterProps {
   /** Label displayed above the meter */
   label: string
@@ -31,9 +43,7 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
     let raf: number
 
     const draw = () => {
-      // Canvas fillStyle cannot resolve CSS custom properties, so these stay
-      // literal hex equivalents of the --void / --elev-1 / --muted tokens.
-      ctx.fillStyle = '#020202'
+      ctx.fillStyle = METER_VOID
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
       if (active) {
@@ -53,9 +63,9 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
         const isPeak = i >= blocks - 3
 
         if (isFilled) {
-          ctx.fillStyle = isPeak ? '#ffffff' : '#888888'
+          ctx.fillStyle = isPeak ? METER_PEAK : METER_LEVEL
         } else {
-          ctx.fillStyle = '#0a0a0a'
+          ctx.fillStyle = METER_WELL
         }
 
         ctx.fillRect(0, y + 2, canvas.width, Math.max(2, blockH - 4))
@@ -64,7 +74,7 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
       if (active || levelRef.current > 0.01) {
         raf = requestAnimationFrame(draw)
       } else {
-        ctx.fillStyle = '#020202'
+        ctx.fillStyle = METER_VOID
         ctx.fillRect(0, 0, canvas.width, canvas.height)
       }
     }
@@ -85,7 +95,13 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
       </div>
       <div className="font-mono text-[7px] text-ink-1 mb-2 font-bold leading-none">0</div>
       <div className="flex-1 w-full flex justify-center z-10 shrink min-h-0">
-        <div className="w-[6px] h-full" style={{ boxShadow: '0 0 0 1px var(--elev-6)' }}>
+        <div
+          className="w-[6px] h-full bg-elev-0"
+          style={{
+            boxShadow:
+              'inset 0 0 4px rgba(0,0,0,0.8), 0 0 0 1px var(--elev-6)',
+          }}
+        >
           <canvas
             ref={canvasRef}
             width={12}

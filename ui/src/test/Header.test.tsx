@@ -26,4 +26,14 @@ describe('Header', () => {
 
     expect(onToggleBypass).toHaveBeenCalledWith(false)
   })
+
+  it('machines the chrome strip with the panel gradient', () => {
+    const { container } = render(<Header engineActive onToggleBypass={() => {}} />)
+
+    const header = container.querySelector('header') as HTMLElement
+    expect(header).toHaveClass('bg-gradient-panel')
+
+    const lcd = container.querySelector('.bg-gradient-well') as HTMLElement
+    expect(lcd).toBeInTheDocument()
+  })
 })

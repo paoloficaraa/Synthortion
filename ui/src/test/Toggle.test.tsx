@@ -64,6 +64,16 @@ describe('Toggle', () => {
     expect(screen.getByRole('group', { name: 'Drive route' })).toBeInTheDocument()
   })
 
+  it('sets the segment row in a recessed hardware track', () => {
+    const { container } = render(
+      <Toggle label="Drive route" options={prePost} value="PRE" onChange={() => {}} />
+    )
+
+    const group = container.querySelector('[role="group"]') as HTMLElement
+    expect(group).toHaveClass('bg-elev-1')
+    expect(group).toHaveClass('shadow-[inset_0_1px_2px_rgba(0,0,0,0.6)]')
+  })
+
   it('supports a single-option on/off segment (WIDE)', () => {
     const onChange = vi.fn()
     render(

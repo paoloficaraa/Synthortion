@@ -73,7 +73,7 @@ describe('GainMeter', () => {
       // Background clear + 32 blocks + final decay-to-zero clear.
       expect(ops).toHaveLength(BLOCK_COUNT + 2)
       expect(ops[0]).toEqual({
-        style: '#020202',
+        style: '#030303',
         args: [0, 0, CANVAS_WIDTH, CANVAS_HEIGHT],
       })
 
@@ -88,7 +88,7 @@ describe('GainMeter', () => {
       }
 
       expect(ops[BLOCK_COUNT + 1]).toEqual({
-        style: '#020202',
+        style: '#030303',
         args: [0, 0, CANVAS_WIDTH, CANVAS_HEIGHT],
       })
     })
@@ -128,7 +128,7 @@ describe('GainMeter', () => {
 
       // Active meter draws immediately: background + 4 grey + 28 void.
       expect(ops[0]).toEqual({
-        style: '#020202',
+        style: '#030303',
         args: [0, 0, CANVAS_WIDTH, CANVAS_HEIGHT],
       })
 
@@ -157,7 +157,7 @@ describe('GainMeter', () => {
         })
       }
 
-      expect(ops.some((op) => op.style === '#ffffff')).toBe(true)
+      expect(ops.some((op) => op.style === '#f6f6f6')).toBe(true)
     })
 
     it('continues animating each frame while active', () => {

@@ -31,7 +31,11 @@ interface ToggleProps {
  */
 export function Toggle({ label, options, value, onChange }: ToggleProps) {
   return (
-    <div role="group" aria-label={label} className="w-full flex gap-1">
+    <div
+      role="group"
+      aria-label={label}
+      className="w-full flex gap-1 bg-elev-1 p-[2px] rounded-[2px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.6)]"
+    >
       {options.map((option) => {
         const isActive = option.value === value
         return (

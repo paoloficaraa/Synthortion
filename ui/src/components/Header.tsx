@@ -20,7 +20,7 @@ const PRESET_NAME = 'INIT_STATE_01'
  */
 export function Header({ engineActive, onToggleBypass }: HeaderProps) {
   return (
-    <header className="h-[64px] bg-bg border-b border-border flex items-center justify-between px-8 shrink-0 relative z-10">
+    <header className="h-[64px] bg-bg bg-gradient-panel border-b border-border flex items-center justify-between px-8 shrink-0 relative z-10 shadow-[inset_0_-6px_8px_-6px_rgba(0,0,0,0.8)]">
       <div className="flex items-center gap-5">
         <motion.button
           type="button"
@@ -51,7 +51,7 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
         >
           Preset
         </span>
-        <div className="min-w-[132px] px-3 py-1.5 bg-elev-0 bg-gradient-well border border-border font-mono text-[11px] text-fg uppercase-tracked select-none shadow-[inset_0_1px_3px_rgba(0,0,0,0.9)]">
+        <div className="min-w-[132px] px-3 py-1.5 bg-elev-0 bg-gradient-well border border-border font-mono text-[11px] text-fg uppercase-tracked select-none shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),inset_0_1px_3px_rgba(0,0,0,0.9)]">
           {PRESET_NAME}
         </div>
       </div>
@@ -61,8 +61,12 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
           <motion.button
             key={label}
             type="button"
-            whileHover={{ backgroundColor: 'var(--fg)', color: 'var(--bg)' }}
-            whileTap={{ scale: 0.94 }}
+            whileHover={{
+              backgroundColor: 'var(--fg)',
+              color: 'var(--bg)',
+              borderColor: 'var(--fg)',
+            }}
+            whileTap={{ scale: 0.94, backgroundColor: 'var(--fg)', color: 'var(--bg)' }}
             className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
           >
             {label}
