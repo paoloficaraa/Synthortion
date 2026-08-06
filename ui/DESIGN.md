@@ -51,7 +51,7 @@ Strong black-and-white with **shades only where needed** (subtle surface separat
 
 Three self-hosted voices (no CDN dependency — the WebView may be offline):
 
-- **Display:** Akira Expanded — weights 800, 900 — fallbacks: Impact, Haettenschweiler, sans-serif. Reserved for the SYNTHORTION wordmark and section codes only.
+- **Display:** Akira Expanded — weights 800, 900 — fallbacks: Haettenschweiler, Arial Narrow Bold, sans-serif (Impact removed: Akira is always loaded, never a silent fallback). Reserved for the SYNTHORTION wordmark and section codes only.
 - **UI mono:** JetBrains Mono — weights 400, 700 — labels, values, readouts.
 - **ASCII/VGA:** a bitmap terminal font (Px437 IBM VGA 8x16 or VT323) — all ASCII surfaces, at integer multiples of the font's pixel grid, `font-smooth: none`, `line-height: 1`.
 
