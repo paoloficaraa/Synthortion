@@ -36,10 +36,7 @@ export function SystemBoot() {
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-void cursor-pointer outline-none"
     >
       {/* Soft radial atmosphere behind the boot text */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: 'var(--gradient-glow)', opacity: 0.12 }}
-      />
+      <div className="absolute inset-0 pointer-events-none bg-gradient-glow opacity-[0.12]" />
       <span className="font-display text-[28px] text-fg uppercase-tracked select-none relative z-10">
         SYNTHORTION
       </span>

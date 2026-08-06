@@ -56,15 +56,6 @@
   --gradient-bezel: linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
 
   /*
-   * Shadow ramp — three reusable depths that give controls physical presence.
-   * `lift` raises a control off the panel, `raised` models a machined button
-   * with a top highlight, and `well` sinks a surface into the chassis.
-   */
-  --shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 6px rgba(0, 0, 0, 0.5);
-  --shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-well: inset 0 1px 3px rgba(0, 0, 0, 0.75);
-
-  /*
    * Contrast note (T06): the `--accent` (#c7c3ba) active value arc sits on
    * `--bg` (#0f0e0e). Relative luminance is 0.547 vs 0.005, giving a contrast
    * ratio of ~10.96:1 — well above WCAG AA 4.5:1 for normal text and the
@@ -208,8 +199,15 @@ body {
   --background-image-gradient-glow: var(--gradient-glow);
   --background-image-gradient-bezel: var(--gradient-bezel);
 
-  /* Shadow utilities (shadow-lift, shadow-raised, shadow-well) */
-  --shadow-lift: var(--shadow-lift);
-  --shadow-raised: var(--shadow-raised);
-  --shadow-well: var(--shadow-well);
+  /*
+   * Shadow ramp — three reusable depths that give controls physical presence.
+   * `lift` raises a control off the panel, `raised` models a machined button
+   * with a top highlight, and `well` sinks a surface into the chassis.
+   * Defined once here rather than in :root: the utility namespace (`--shadow-*`)
+   * is the token name, so a :root copy plus this mapping would be a
+   * self-referential cycle.
+   */
+  --shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 6px rgba(0, 0, 0, 0.5);
+  --shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-well: inset 0 1px 3px rgba(0, 0, 0, 0.75);
 }

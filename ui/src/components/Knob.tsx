@@ -39,6 +39,9 @@ export function Knob({
   const [isDraggingState, setIsDraggingState] = useState(false)
   const startY = useRef(0)
   const startVal = useRef(0)
+  // Unique id per knob so the machined-face gradient never collides across the
+  // eight on-panel instances (SVG url(#) fragments resolve to the first match).
+  const faceGradientId = `knob-face-${useId().replace(/:/g, '')}`
 
   const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     isDragging.current = true
@@ -109,10 +112,6 @@ export function Knob({
   const maxArcLength = C * 0.75
   const strokeDashoffset = C - Math.max(0.001, pct * maxArcLength)
   const bgStrokeDashoffset = C - maxArcLength
-
-  // Unique id per knob so the machined-face gradient never collides across the
-  // eight on-panel instances (SVG url(#) fragments resolve to the first match).
-  const faceGradientId = `knob-face-${useId().replace(/:/g, '')}`
 
   return (
     <div className="flex flex-col items-center gap-1.5">

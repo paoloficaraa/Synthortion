@@ -32,7 +32,8 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
 
     const draw = () => {
       // Canvas fillStyle cannot resolve CSS custom properties, so these stay
-      // literal hex equivalents of the --void / --elev-1 / --muted / --fg tokens.
+      // literal hex equivalents of the --elev-1 / --muted / --fg tokens (the
+      // base clear is a hair darker than --void).
       ctx.fillStyle = '#020202'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
