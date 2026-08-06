@@ -239,6 +239,12 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         const implement = await sandbox.run({
           name: "implementer",
           maxIterations: 100,
+          // Fail the run if the agent goes silent for 5 minutes
+          // (rate-limit backoff, hung MCP, stuck subprocess). Same
+          // watchdog as the reviewer below: an implementer that ends
+          // its turn without the <promise>COMPLETE</promise> signal
+          // must not burn up to 100 iterations in a question loop.
+          idleTimeoutSeconds: 300,
           // auto/coding: verified to work with Bash tool calls on this
           // Omniroute. (gemini/gemini-3.1-flash-lite errors with "missing
           // thought_signature" whenever it calls a tool.)
@@ -305,14 +311,22 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     }
   }
 
-  // Only pass branches that actually produced commits to the merge phase.
-  // An agent that ran successfully but made no commits has nothing to merge.
+  // Pass to the merge phase any branch that has commits not yet on the
+  // base branch — either produced by this run or carried over from a
+  // previous run (e.g. after a restart, when the work was already
+  // implemented and committed earlier but never merged). A branch that
+  // ran but has nothing new on top of the base has nothing to merge.
+  const branchHasCommits = (branch: string): boolean => {
+    const count = sh(`git rev-list --count ${baseBranch}..${branch}`);
+    return /^\d+$/.test(count) && count !== "0";
+  };
   const completedIssues = settled
     .map((outcome, i) => ({ outcome, issue: issues[i]! }))
     .filter(
       (entry) =>
         entry.outcome.status === "fulfilled" &&
-        entry.outcome.value.commits.length > 0,
+        (entry.outcome.value.commits.length > 0 ||
+          branchHasCommits(entry.issue.branch)),
     )
     .map((entry) => entry.issue);
 
@@ -326,8 +340,8 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   }
 
   if (completedBranches.length === 0) {
-    // All agents ran but none made commits — nothing to merge this cycle.
-    console.log("No commits produced. Nothing to merge.");
+    // All agents ran but no branch has commits to merge this cycle.
+    console.log("No branches with commits to merge. Nothing to merge.");
     continue;
   }
 

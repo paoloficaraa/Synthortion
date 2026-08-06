@@ -114,5 +114,11 @@ you will touch yourself:
    across multiple iterations and do NOT keep exploring once every acceptance
    criterion is green. If the branch already contains the full implementation,
    verify ONCE, report it, and signal COMPLETE.
+7. NO INTERACTIVE USER: this sandbox is fully autonomous — nobody will ever
+   answer a question or grant permission. NEVER end your turn with "want me
+   to...?" or "shall I...?". Pushing branches, opening PRs, and closing
+   issues are NOT your job (the merger does that after review), so never
+   wait for permission to do them or ask about them. When your work is done
+   and verified, the ONLY correct way to end is <promise>COMPLETE</promise>.
 
 Once complete, output <promise>COMPLETE</promise>.
