@@ -7,7 +7,7 @@ import { GainMeter } from './components/GainMeter'
 import { Knob } from './components/Knob'
 import { MatrixFaceplate } from './components/MatrixFaceplate'
 import { FftVisualizer } from './components/FftVisualizer'
-import { initialState, type PluginState } from './lib/pluginState'
+import { initialState, diffPluginState, type PluginState } from './lib/pluginState'
 import { noopDspBridge, type DspBridge } from './lib/dspBridge'
 
 interface AppProps {
@@ -33,14 +33,13 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
   const prevStateRef = useRef<PluginState>(initialState)
 
   // Push changed parameters to the bridge. The initial mount is skipped so
-  // the bridge only records user-driven mutations.
+  // the bridge only records user-driven mutations. The diff — including the
+  // four per-module power flags — is the state→bridge boundary contract.
   useEffect(() => {
     const prev = prevStateRef.current
     prevStateRef.current = state
-    for (const key of Object.keys(state) as Array<keyof PluginState>) {
-      if (state[key] !== prev[key]) {
-        dspBridge.setParameter(key, state[key])
-      }
+    for (const call of diffPluginState(prev, state)) {
+      dspBridge.setParameter(call.parameterId, call.value)
     }
   }, [state, dspBridge])
 

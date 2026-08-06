@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import App from '../App'
 import { createMockCanvasContext } from './mockCanvasContext'
 import { createMockDspBridge } from '../lib/dspBridge'
+import { initialState, diffPluginState } from '../lib/pluginState'
 
 /**
  * The App hosts two live GainMeters. jsdom has no 2D canvas context, so stub
@@ -154,6 +155,24 @@ describe('App', () => {
     render(<App dspBridge={bridge} />)
 
     expect(bridge.calls).toEqual([])
+  })
+
+  it('covers all four module power flags at the App bridge boundary', () => {
+    const bridge = createMockDspBridge()
+    render(<App dspBridge={bridge} />)
+
+    // The power flags are part of the boundary state; on mount they default
+    // on and must stay silent (zero bridge calls preserved).
+    expect(bridge.calls).toEqual([])
+
+    // Flipping any power flag notifies the bridge as { parameterId, value },
+    // exactly like every other parameter — the App boundary diff owns this
+    // contract for all four modules.
+    const flags = ['driveOn', 'bitcrushOn', 'delayOn', 'chorusOn'] as const
+    for (const flag of flags) {
+      const calls = diffPluginState(initialState, { ...initialState, [flag]: false })
+      expect(calls).toContainEqual({ parameterId: flag, value: false })
+    }
   })
 
   it('mutates App state and notifies the DSP bridge on drive knob drag', () => {
