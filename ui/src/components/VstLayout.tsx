@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import { RackScrew } from './RackScrew'
+import { CornerBracket } from './CornerBracket'
 
 interface VstLayoutProps {
   /** Left column content (Input meter rail) */
@@ -40,7 +40,7 @@ function MeterRail({ side, children }: MeterRailProps) {
  *
  * Full-height borders separate meter columns from the center hub. The panel
  * enters with a subtle rise+fade (disabled by `prefers-reduced-motion`), and
- * the four corners carry the prototype's decorative rack screws.
+ * the four corners carry the ASCII box-drawing corner brackets.
  */
 export function VstLayout({ leftColumn, children, rightColumn }: VstLayoutProps) {
   return (
@@ -50,10 +50,10 @@ export function VstLayout({ leftColumn, children, rightColumn }: VstLayoutProps)
       transition={{ duration: 0.22, ease: 'easeOut' }}
     >
       <div className="vst-container flex flex-row mx-auto max-w-full relative noise-overlay">
-        <RackScrew className="top-[6px] left-[6px]" />
-        <RackScrew className="top-[6px] right-[6px]" />
-        <RackScrew className="bottom-[6px] left-[6px]" />
-        <RackScrew className="bottom-[6px] right-[6px]" />
+        <CornerBracket position="tl" />
+        <CornerBracket position="tr" />
+        <CornerBracket position="bl" />
+        <CornerBracket position="br" />
 
         {/* Left meter rail */}
         <MeterRail side="left">{leftColumn}</MeterRail>

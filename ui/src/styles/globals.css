@@ -1,5 +1,39 @@
 @import 'tailwindcss';
 
+/* Self-hosted Font Faces — zero CDN dependency (the WebView may be offline).
+   Files vendored in ui/public/fonts; see fonts/README.md for sources. */
+@font-face {
+  font-family: 'Akira Expanded';
+  src: url('/fonts/AkiraExpanded-SuperBold.woff2') format('woff2');
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Px437 IBM VGA 8x16';
+  src: url('/fonts/Px437_IBM_VGA_8x16.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Vintage Industrial Design Tokens */
 :root {
   /*
@@ -65,9 +99,10 @@
    */
 
   /* Typography */
-  --font-display: 'Akira Expanded', Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
-  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Akira Expanded', Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+  --font-body: 'JetBrains Mono', 'Space Mono', ui-monospace, monospace;
   --font-mono: 'JetBrains Mono', 'Space Mono', ui-monospace, monospace;
+  --font-ascii: 'Px437 IBM VGA 8x16', 'JetBrains Mono', ui-monospace, monospace;
 }
 
 /* Reset and Base Styles */
@@ -95,6 +130,7 @@ body {
 .font-display { font-family: var(--font-display); }
 .font-body { font-family: var(--font-body); }
 .font-mono { font-family: var(--font-mono); }
+.font-ascii { font-family: var(--font-ascii); font-smooth: never; -webkit-font-smoothing: none; }
 
 .uppercase-tracked {
   text-transform: uppercase;
@@ -133,6 +169,31 @@ body {
   user-select: none;
   position: relative;
   overflow: hidden;
+}
+
+/* Static CRT Scanline Overlay — a single pseudo-element carrying a dual
+   gradient (repeating scanline grid + vertical phosphor falloff). Never
+   animated; inert to pointer events. */
+.vst-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0px,
+      rgba(0, 0, 0, 0) 2px,
+      rgba(0, 0, 0, 0.16) 2px,
+      rgba(0, 0, 0, 0.16) 3px
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.02) 0%,
+      rgba(0, 0, 0, 0) 30%,
+      rgba(0, 0, 0, 0.18) 100%
+    );
 }
 
 /* Entrance Animation */

@@ -251,10 +251,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'LOAD' })).toBeInTheDocument()
   })
 
-  it('mounts four decorative corner rack screws', () => {
+  it('mounts four box-drawing corner brackets on the chassis', () => {
     const { container } = render(<App />)
 
-    expect(container.querySelectorAll('[data-testid="rack-screw"]')).toHaveLength(
+    expect(container.querySelectorAll('[data-testid="corner-bracket"]')).toHaveLength(
       4
     )
   })

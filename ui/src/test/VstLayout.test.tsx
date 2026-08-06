@@ -54,15 +54,20 @@ describe('VstLayout', () => {
     expect(vstContainer).toHaveClass('flex-row')
   })
 
-  it('renders four corner rack screws', () => {
+  it('renders four box-drawing corner brackets in the ASCII face', () => {
     const { container } = render(
       <VstLayout>
         <div>Content</div>
       </VstLayout>
     )
 
-    expect(container.querySelectorAll('[data-testid="rack-screw"]')).toHaveLength(
-      4
-    )
+    const brackets = container.querySelectorAll('[data-testid="corner-bracket"]')
+    expect(brackets).toHaveLength(4)
+    expect([...brackets].map((b) => b.textContent)).toEqual([
+      '┌',
+      '┐',
+      '└',
+      '┘',
+    ])
   })
 })
