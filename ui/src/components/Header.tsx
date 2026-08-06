@@ -11,6 +11,12 @@ interface HeaderProps {
 const PRESET_NAME = 'INIT_STATE_01'
 
 /**
+ * SAVE/LOAD inverted fill — fill and text swap places. Shared by the hover
+ * and tap variants so the pressed state stays in step with the hover state.
+ */
+const INVERTED_FILL = { backgroundColor: 'var(--fg)', color: 'var(--bg)' } as const
+
+/**
  * Header — the "Glitch Brutalism" chrome strip.
  *
  * Brand on the left beside the bypass LED, the embedded preset LCD readout in
@@ -61,12 +67,8 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
           <motion.button
             key={label}
             type="button"
-            whileHover={{
-              backgroundColor: 'var(--fg)',
-              color: 'var(--bg)',
-              borderColor: 'var(--fg)',
-            }}
-            whileTap={{ scale: 0.94, backgroundColor: 'var(--fg)', color: 'var(--bg)' }}
+            whileHover={{ ...INVERTED_FILL, borderColor: 'var(--fg)' }}
+            whileTap={{ scale: 0.94, ...INVERTED_FILL }}
             className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
           >
             {label}

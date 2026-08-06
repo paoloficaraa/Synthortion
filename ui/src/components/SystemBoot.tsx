@@ -37,8 +37,7 @@ export function SystemBoot() {
     >
       <div
         aria-hidden="true"
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[420px] h-[420px] rounded-full pointer-events-none"
-        style={{ background: 'var(--gradient-glow)', opacity: 0.14 }}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[420px] h-[420px] rounded-full pointer-events-none bg-gradient-glow opacity-[0.14]"
       />
       <span className="font-display text-[28px] text-fg uppercase-tracked select-none">
         SYNTHORTION
