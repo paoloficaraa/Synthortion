@@ -175,7 +175,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // auto/smart: verified to work with Bash tool calls on this Omniroute.
     // (auto/best-reasoning resolves to ambiguous model ids -> "400 Ambiguous
     // model", and non-Claude backends cannot resolve CCR placeholders.)
-    agent: cc("auto/reasoning"),
+    agent: cc("auto/best-reasoning"),
     promptFile: "./.sandcastle/plan-prompt.md",
     // NOTE: we deliberately do NOT inject the issue list or long instructions
     // into the prompt. Claude Code's CCR feature replaces injected content
@@ -242,7 +242,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           // auto/coding: verified to work with Bash tool calls on this
           // Omniroute. (gemini/gemini-3.1-flash-lite errors with "missing
           // thought_signature" whenever it calls a tool.)
-          agent: cc("auto/coding"),
+          agent: cc("auto/best-coding"),
           promptFile: "./.sandcastle/implement-prompt.md",
           cwd: REPO_ROOT,
           promptArgs: {
@@ -267,7 +267,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
               // A stalled review must not hold the whole loop hostage — the
               // merge phase waits on Promise.allSettled.
               signal: AbortSignal.timeout(REVIEW_TIMEOUT_MIN * 60 * 1000),
-              agent: cc("auto/smart"),
+              agent: cc("auto/reasoning"),
               promptFile: "./.sandcastle/review-prompt.md",
               cwd: REPO_ROOT,
               promptArgs: {
@@ -345,7 +345,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     sandbox: sandboxWithSkills(),
     name: "merger",
     maxIterations: 1,
-    agent: cc("auto/fast"),
+    agent: cc("auto/smart"),
     promptFile: "./.sandcastle/merge-prompt.md",
     cwd: REPO_ROOT,
     promptArgs: {
