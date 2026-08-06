@@ -15,7 +15,7 @@ interface GainMeterProps {
  * GainMeter - 32-segment volume meter with brutalist aesthetic
  *
  * Renders a vertical meter bar with segmented blocks.
- * Peak levels shown in white, normal levels in gray.
+ * Peak levels shown in the foreground ink, normal levels in gray.
  */
 export function GainMeter({ label, active, delay = 0, children }: GainMeterProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -32,7 +32,7 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
 
     const draw = () => {
       // Canvas fillStyle cannot resolve CSS custom properties, so these stay
-      // literal hex equivalents of the --void / --elev-1 / --muted tokens.
+      // literal hex equivalents of the --void / --elev-1 / --muted / --fg tokens.
       ctx.fillStyle = '#020202'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
@@ -53,7 +53,7 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
         const isPeak = i >= blocks - 3
 
         if (isFilled) {
-          ctx.fillStyle = isPeak ? '#ffffff' : '#888888'
+          ctx.fillStyle = isPeak ? '#f6f6f6' : '#888888'
         } else {
           ctx.fillStyle = '#0a0a0a'
         }
@@ -85,7 +85,10 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
       </div>
       <div className="font-mono text-[7px] text-ink-1 mb-2 font-bold leading-none">0</div>
       <div className="flex-1 w-full flex justify-center z-10 shrink min-h-0">
-        <div className="w-[6px] h-full" style={{ boxShadow: '0 0 0 1px var(--elev-6)' }}>
+        <div
+          className="w-[6px] h-full"
+          style={{ boxShadow: 'var(--shadow-well), 0 0 0 1px var(--elev-6)' }}
+        >
           <canvas
             ref={canvasRef}
             width={12}

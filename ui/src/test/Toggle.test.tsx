@@ -64,6 +64,19 @@ describe('Toggle', () => {
     expect(screen.getByRole('group', { name: 'Drive route' })).toBeInTheDocument()
   })
 
+  it('sits the segments in a recessed gradient well', () => {
+    render(
+      <Toggle label="Drive route" options={prePost} value="PRE" onChange={() => {}} />
+    )
+
+    const group = screen.getByRole('group', { name: 'Drive route' })
+    expect(group).toHaveClass('bg-gradient-well', 'shadow-well')
+    // Active segment carries the accent sheen over the inverted foreground.
+    expect(screen.getByRole('button', { name: 'PRE' })).toHaveClass(
+      'bg-gradient-accent'
+    )
+  })
+
   it('supports a single-option on/off segment (WIDE)', () => {
     const onChange = vi.fn()
     render(

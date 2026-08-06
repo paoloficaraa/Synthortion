@@ -58,6 +58,16 @@ describe('GainMeter', () => {
       const column = container.querySelector('.animate-vst-enter') as HTMLElement
       expect(column).toHaveStyle({ animationDelay: '50ms' })
     })
+
+    it('frames the meter in a recessed well bezel', () => {
+      render(<GainMeter label="IN" active={false} />)
+
+      const rail = (document.querySelector('canvas') as HTMLCanvasElement)
+        ?.parentElement
+      expect(rail).toHaveStyle({
+        boxShadow: 'var(--shadow-well), 0 0 0 1px var(--elev-6)',
+      })
+    })
   })
 
   describe('canvas draw loop', () => {
@@ -140,7 +150,7 @@ describe('GainMeter', () => {
       expect(voidCount).toBe(BLOCK_COUNT - 4)
     })
 
-    it('lights peak segments white when the level reaches the top of the scale', () => {
+    it('lights peak segments in the foreground ink at the top of the scale', () => {
       // Force the 5% "spike" branch: first call ≤ 0.05 selects rawTarget = rnd * 0.99.
       let call = 0
       vi.spyOn(Math, 'random').mockImplementation(() => {
@@ -157,7 +167,7 @@ describe('GainMeter', () => {
         })
       }
 
-      expect(ops.some((op) => op.style === '#ffffff')).toBe(true)
+      expect(ops.some((op) => op.style === '#f6f6f6')).toBe(true)
     })
 
     it('continues animating each frame while active', () => {
