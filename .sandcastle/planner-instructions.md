@@ -8,7 +8,7 @@ Run this EXACT command with the Bash tool (nothing is pre-injected into your
 prompt — you MUST fetch it yourself):
 
 ```
-gh issue list --state open --label ready-for-agent --limit 100 --json number,title,labels
+gh issue list --state open --label ready-for-agent --limit 100 --json number,title,labels,body
 ```
 
 Read the JSON output. It looks like:
@@ -19,8 +19,7 @@ Read the JSON output. It looks like:
 
 ## Step 2 — Build a dependency graph
 
-For the fetched issues: fetch each issue body with `gh issue view <id> --json
-body`. Issue B is BLOCKED by A if B needs code/APIs A introduces, or B touches
+The JSON output includes `body` for each issue. Read the bodies directly from that single response (do NOT run `gh issue view` separately — one call avoids pushing the context over the 32MB limit). Issue B is BLOCKED by A if B needs code/APIs A introduces, or B touches
 overlapping files (merge conflicts), or B depends on a decision A
 establishes, or its body explicitly lists A (or T0x id) as a blocker. An
 issue is UNBLOCKED if no other issue blocks it.
