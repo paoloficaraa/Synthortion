@@ -31,7 +31,7 @@ function SectionFrame({
       className={`p-6 pb-6 flex flex-col items-center justify-between relative group hover:bg-elev-0 transition-colors ${className ?? ''}`}
     >
       <div
-        className="absolute top-4 left-4 text-ink-2 font-display text-[9px] uppercase-tracked"
+        className="absolute top-4 left-4 bg-elev-1 px-1.5 py-0.5 rounded-[2px] text-ink-3 font-display text-[9px] uppercase-tracked shadow-well"
         aria-hidden="true"
       >
         {code}

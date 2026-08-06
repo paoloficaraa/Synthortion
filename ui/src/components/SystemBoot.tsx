@@ -35,17 +35,15 @@ export function SystemBoot() {
       transition={{ duration: reduceMotion ? 0 : 0.25 }}
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-void cursor-pointer outline-none"
     >
-      <div
-        aria-hidden="true"
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[420px] h-[420px] rounded-full pointer-events-none bg-gradient-glow opacity-[0.14]"
-      />
-      <span className="font-display text-[28px] text-fg uppercase-tracked select-none">
+      {/* Soft radial atmosphere behind the boot text */}
+      <div className="absolute inset-0 pointer-events-none bg-gradient-glow opacity-[0.12]" />
+      <span className="font-display text-[28px] text-fg uppercase-tracked select-none relative z-10">
         SYNTHORTION
       </span>
-      <span className="font-mono text-[11px] text-muted uppercase-tracked select-none">
+      <span className="font-mono text-[11px] text-muted uppercase-tracked select-none relative z-10">
         SYSTEM BOOT ... OK
       </span>
-      <span className="font-mono text-[9px] text-ink-2 uppercase-tracked select-none">
+      <span className="font-mono text-[9px] text-ink-2 uppercase-tracked select-none relative z-10">
         CLICK TO SKIP
       </span>
     </motion.button>

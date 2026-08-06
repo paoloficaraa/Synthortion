@@ -11,12 +11,6 @@ interface HeaderProps {
 const PRESET_NAME = 'INIT_STATE_01'
 
 /**
- * SAVE/LOAD inverted fill — fill and text swap places. Shared by the hover
- * and tap variants so the pressed state stays in step with the hover state.
- */
-const INVERTED_FILL = { backgroundColor: 'var(--fg)', color: 'var(--bg)' } as const
-
-/**
  * Header — the "Glitch Brutalism" chrome strip.
  *
  * Brand on the left beside the bypass LED, the embedded preset LCD readout in
@@ -36,13 +30,13 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
           title="Bypass"
           whileHover={{ scale: 1.15 }}
           whileTap={{ scale: 0.85 }}
-          className="w-3.5 h-3.5 rounded-[1px] border border-border outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg transition-colors"
+          className="w-3.5 h-3.5 rounded-[1px] border border-border outline-none shadow-well focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg transition-colors"
           style={{
             backgroundColor: engineActive ? 'var(--fg)' : 'var(--elev-5)',
             borderColor: engineActive ? 'var(--fg)' : undefined,
             boxShadow: engineActive
               ? '0 0 8px rgba(255,255,255,0.7)'
-              : 'none',
+              : undefined,
           }}
         />
         <h1 className="font-display text-[16px] text-fg display-tracked mt-1 select-none">
@@ -67,9 +61,9 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
           <motion.button
             key={label}
             type="button"
-            whileHover={{ ...INVERTED_FILL, borderColor: 'var(--fg)' }}
-            whileTap={{ scale: 0.94, ...INVERTED_FILL }}
-            className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+            whileHover={{ background: 'var(--gradient-accent)', color: 'var(--bg)', borderColor: 'var(--fg)' }}
+            whileTap={{ scale: 0.94 }}
+            className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted bg-gradient-panel shadow-raised outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
           >
             {label}
           </motion.button>

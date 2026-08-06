@@ -39,6 +39,9 @@ export function Knob({
   const [isDraggingState, setIsDraggingState] = useState(false)
   const startY = useRef(0)
   const startVal = useRef(0)
+  // Unique id per knob so the machined-face gradient never collides across the
+  // eight on-panel instances (SVG url(#) fragments resolve to the first match).
+  const faceGradientId = `knob-face-${useId().replace(/:/g, '')}`
 
   const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     isDragging.current = true
@@ -110,10 +113,6 @@ export function Knob({
   const strokeDashoffset = C - Math.max(0.001, pct * maxArcLength)
   const bgStrokeDashoffset = C - maxArcLength
 
-  // Unique per-instance id for the cap gradient (useId output is stripped of
-  // its marker chars so the `url(#…)` fragment reference stays URL-safe).
-  const capGradientId = `knob-cap-${useId().replace(/[«»:]/g, '')}`
-
   return (
     <div className="flex flex-col items-center gap-1.5">
       <motion.div
@@ -125,7 +124,7 @@ export function Knob({
         aria-valuemax={max}
         aria-valuenow={Math.round(value)}
         aria-valuetext={displayValue}
-        className="relative cursor-ns-resize group rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg flex items-center justify-center"
+        className="relative cursor-ns-resize group rounded-full shadow-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg flex items-center justify-center"
         style={{ width: viewBoxSize, height: viewBoxSize }}
         animate={{ scale: isDraggingState ? 1.05 : 1 }}
         transition={{ duration: 0.14, ease: 'easeOut' }}
@@ -139,15 +138,21 @@ export function Knob({
           className="absolute inset-0 w-full h-full"
           viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
         >
-          {/* Machined-metal cap fill — mirrors --gradient-metal */}
           <defs>
-            <radialGradient id={capGradientId} cx="38%" cy="34%" r="75%">
+            {/* Machined metal face — mirrors the --gradient-metal token (SVG
+                cannot read CSS custom properties, so the stops are literal). */}
+            <radialGradient
+              id={faceGradientId}
+              gradientUnits="objectBoundingBox"
+              cx="38%"
+              cy="34%"
+              r="75%"
+            >
               <stop offset="0%" stopColor="#3a3a3a" />
               <stop offset="45%" stopColor="#1a1a1a" />
               <stop offset="100%" stopColor="#0c0c0c" />
             </radialGradient>
           </defs>
-
           {/* Background arc */}
           <circle
             cx={center}
@@ -158,6 +163,20 @@ export function Knob({
             strokeWidth={size === 'small' ? '2' : '3'}
             strokeDasharray={C}
             strokeDashoffset={bgStrokeDashoffset}
+            transform={`rotate(135 ${center} ${center})`}
+            strokeLinecap="round"
+          />
+          {/* Soft glow under the active arc — a wide low-opacity accent stroke
+              (the FftVisualizer double-stroke trick, no shadowBlur cost). */}
+          <circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="none"
+            stroke="rgba(199, 195, 186, 0.22)"
+            strokeWidth={size === 'small' ? '5' : '7'}
+            strokeDasharray={C}
+            strokeDashoffset={strokeDashoffset}
             transform={`rotate(135 ${center} ${center})`}
             strokeLinecap="round"
           />
@@ -175,12 +194,12 @@ export function Knob({
             strokeLinecap="round"
             className="transition-all duration-75"
           />
-          {/* Inner circle — machined cap, raised off the faceplate */}
+          {/* Inner circle — the machined knob face, raised off the faceplate */}
           <circle
             cx={center}
             cy={center}
             r={innerRadius}
-            fill={`url(#${capGradientId})`}
+            fill={`url(#${faceGradientId})`}
             stroke="var(--elev-6)"
             strokeWidth="1"
             style={{ filter: 'drop-shadow(0 2px 2px rgba(0, 0, 0, 0.8))' }}

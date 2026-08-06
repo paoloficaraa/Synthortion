@@ -139,6 +139,63 @@ describe('Knob', () => {
     })
   })
 
+  describe('machined face', () => {
+    it('renders a unique metal radial gradient for the knob face', () => {
+      const { rerender } = render(
+        <Knob
+          label="Drive"
+          value={42}
+          min={0}
+          max={100}
+          displayValue="42%"
+          onChange={() => {}}
+        />
+      )
+
+      const gradients = Array.from(document.querySelectorAll('radialGradient'))
+      expect(gradients).toHaveLength(1)
+      const id = gradients[0]?.getAttribute('id')
+      expect(id).toMatch(/^knob-face-/)
+      // The face fill references that gradient by id.
+      expect(
+        Array.from(document.querySelectorAll('circle')).find(
+          (circle) => circle.getAttribute('fill') === `url(#${id})`
+        )
+      ).toBeTruthy()
+
+      const stops = Array.from(
+        gradients[0]?.querySelectorAll('stop') ?? []
+      ).map((stop) => stop.getAttribute('stop-color'))
+      expect(stops).toEqual(['#3a3a3a', '#1a1a1a', '#0c0c0c'])
+
+      // Two knobs render two distinct gradient ids (no SVG id collisions).
+      rerender(
+        <div>
+          <Knob
+            label="Drive"
+            value={42}
+            min={0}
+            max={100}
+            displayValue="42%"
+            onChange={() => {}}
+          />
+          <Knob
+            label="Mix"
+            value={10}
+            min={0}
+            max={100}
+            displayValue="10%"
+            onChange={() => {}}
+          />
+        </div>
+      )
+      const ids = Array.from(
+        document.querySelectorAll('radialGradient')
+      ).map((g) => g.getAttribute('id'))
+      expect(new Set(ids).size).toBe(2)
+    })
+  })
+
   describe('polar arc math', () => {
     const radius = 22
     const C = 2 * Math.PI * radius
