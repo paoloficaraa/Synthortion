@@ -103,6 +103,17 @@ describe('applyGlitch', () => {
     const out = applyGlitch(rows, 0.1, () => 1)
     expect(out).toEqual(rows)
   })
+
+  it('drops out entire rows at full intensity', () => {
+    const rows = ['abcd', 'efgh', 'ijkl']
+    // First random draw (drop-out gate, < 0.15) trips for every row → all
+    // rows blank out before corruption/displacement ever run.
+    const result = applyGlitch(rows, 1.0, () => 0.01)
+    expect(result).toHaveLength(3)
+    for (const row of result) {
+      expect(row).toBe(' '.repeat(4))
+    }
+  })
 })
 
 /* ------------------------------------------------------------------ */

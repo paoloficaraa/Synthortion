@@ -18,9 +18,9 @@ const CORRUPT_CHARS = '▓▒░█@#'
 
 /**
  * Apply glitch corruption to braille trace rows.
- * Mutations: character corruption and row displacement — both proportional to
- * `intensity` (0–1). The graticule is a separate string and is never passed
- * here, so the frame and labels stay crisp.
+ * Mutations: character corruption, row displacement, and row drop-out — all
+ * proportional to `intensity` (0–1). The graticule is a separate string and
+ * is never passed here, so the frame and labels stay crisp.
  */
 export function applyGlitch(
   rows: string[],
@@ -29,8 +29,14 @@ export function applyGlitch(
 ): string[] {
   if (intensity <= 0) return rows
 
+  // 0. Drop-out — blank entire rows at high intensity.
+  const droppedOut = rows.map((row) => {
+    if (random() < intensity * 0.15) return ' '.repeat(row.length)
+    return row
+  })
+
   // 1. Character corruption — replace random braille chars with glitch glyphs.
-  const corrupted = rows.map((row) => {
+  const corrupted = droppedOut.map((row) => {
     const chars = [...row]
     for (let i = 0; i < chars.length; i++) {
       if (chars[i] === ' ') continue
