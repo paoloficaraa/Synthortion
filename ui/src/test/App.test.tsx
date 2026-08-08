@@ -4,6 +4,29 @@ import App from '../App'
 import { createMockCanvasContext } from './mockCanvasContext'
 import { createMockDspBridge } from '../lib/dspBridge'
 import { initialState, diffPluginState } from '../lib/pluginState'
+import { createGlitchPulser, type GlitchPulser } from '../lib/glitchPulser'
+
+/**
+ * The App owns a glitch pulser created on first render. Replace the factory
+ * with a recording mock so the pulse-on-parameter-change contract is testable
+ * without observing the internal ref.
+ */
+const createGlitchPulserMock = vi.mocked(createGlitchPulser)
+vi.mock('../lib/glitchPulser', () => ({
+  createGlitchPulser: vi.fn(() => ({
+    pulse: vi.fn(),
+    step: vi.fn(() => 0),
+    get intensity() {
+      return 0
+    },
+  })),
+}))
+
+/** The pulser instance App created on first render. */
+function appPulser(): GlitchPulser & { pulse: ReturnType<typeof vi.fn> } {
+  const instance = createGlitchPulserMock.mock.results[0]?.value
+  return instance as GlitchPulser & { pulse: ReturnType<typeof vi.fn> }
+}
 
 /**
  * The App hosts two live GainMeters. jsdom has no 2D canvas context, so stub
@@ -13,6 +36,7 @@ import { initialState, diffPluginState } from '../lib/pluginState'
 describe('App', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    createGlitchPulserMock.mockClear()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
       createMockCanvasContext()
     )
@@ -231,13 +255,13 @@ describe('App', () => {
   })
 
   it('renders the FFT visualizer above the faceplate, toggling with the engine', () => {
-    render(<App />)
+    const { container } = render(<App />)
 
-    expect(screen.getByTestId('fft-visualizer')).toHaveAttribute(
-      'data-active',
-      'true'
-    )
-    expect(screen.getByText('20Hz')).toBeInTheDocument()
+    const viz = screen.getByTestId('fft-visualizer')
+    expect(viz).toHaveAttribute('data-active', 'true')
+    // The braille scope is a canvas-backed band; the graticule labels live on
+    // the canvas (buildGraticule), not in DOM text.
+    expect(container.querySelector('canvas')).toBeInTheDocument()
 
     const bypass = screen.getByRole('button', { name: 'Disable main DSP' })
     fireEvent.click(bypass)
@@ -246,6 +270,32 @@ describe('App', () => {
       'data-active',
       'false'
     )
+  })
+
+  it('pulses the glitch pulser on a knob drag, proportional to the delta', () => {
+    render(<App />)
+    const pulser = appPulser()
+
+    const drive = screen.getByRole('slider', { name: 'Drive' })
+    // dy = 200 - 180 = 20 → value = 40 + 20 * 0.5 * (100/100) = 50
+    fireEvent.pointerDown(drive, { clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(drive, { clientY: 180, pointerId: 1 })
+    fireEvent.pointerUp(drive, { pointerId: 1 })
+
+    // |50 - 40| / 100 = 0.1
+    expect(pulser.pulse).toHaveBeenCalledWith(0.1)
+  })
+
+  it('pulses the glitch pulser at full intensity on a non-numeric change', () => {
+    render(<App />)
+    const pulser = appPulser()
+    pulser.pulse.mockClear()
+
+    const bypass = screen.getByRole('button', { name: 'Disable main DSP' })
+    fireEvent.click(bypass)
+
+    // engineActive flips false → boolean change → full-intensity burst
+    expect(pulser.pulse).toHaveBeenCalledWith(1)
   })
 
   it('forwards the chorus WIDE toggle to the DSP bridge', () => {
