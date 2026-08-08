@@ -19,7 +19,7 @@ describe('GainMeter', () => {
     ops = []
     vi.useFakeTimers()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
-      createMockCanvasContext(ops)
+      createMockCanvasContext({ ops })
     )
   })
 

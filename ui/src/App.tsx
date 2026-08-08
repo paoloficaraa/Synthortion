@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MotionConfig } from 'framer-motion'
 import { VstLayout } from './components/VstLayout'
 import { Header } from './components/Header'
@@ -9,6 +9,7 @@ import { MatrixFaceplate } from './components/MatrixFaceplate'
 import { FftVisualizer } from './components/FftVisualizer'
 import { initialState, diffPluginState, type PluginState } from './lib/pluginState'
 import { noopDspBridge, type DspBridge } from './lib/dspBridge'
+import { createGlitchPulser } from './lib/glitchPulser'
 
 interface AppProps {
   /** Integration seam for the future C++ DSP bridge. */
@@ -31,17 +32,29 @@ function formatTrimValue(value: number): string {
 function App({ dspBridge = noopDspBridge }: AppProps) {
   const [state, setState] = useState<PluginState>(initialState)
   const prevStateRef = useRef<PluginState>(initialState)
+  // Stable for the component's lifetime — created once, mutated by pulse()
+  // from the effect below, read by the visualizer as a prop.
+  const pulser = useMemo(() => createGlitchPulser(), [])
 
-  // Push changed parameters to the bridge. The initial mount is skipped so
-  // the bridge only records user-driven mutations. The diff — including the
-  // four per-module power flags — is the state→bridge boundary contract.
+  // Push changed parameters to the bridge and pulse the glitch pulser
+  // proportionally to the value delta. The initial mount is skipped.
   useEffect(() => {
     const prev = prevStateRef.current
     prevStateRef.current = state
     for (const call of diffPluginState(prev, state)) {
       dspBridge.setParameter(call.parameterId, call.value)
+
+      // Pulse the glitch pulser with |Δvalue| / 100.
+      // Boolean/string changes produce a full-intensity burst.
+      const prevVal = prev[call.parameterId as keyof PluginState]
+      const newVal = call.value
+      const delta =
+        typeof prevVal === 'number' && typeof newVal === 'number'
+          ? Math.abs(newVal - prevVal) / 100
+          : 1.0
+      pulser.pulse(Math.min(1, delta))
     }
-  }, [state, dspBridge])
+  }, [state, dspBridge, pulser])
 
   const update = (patch: Partial<PluginState>) => {
     setState((prev) => ({ ...prev, ...patch }))
@@ -83,7 +96,7 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
               engineActive={state.engineActive}
               onToggleBypass={(active) => update({ engineActive: active })}
             />
-            <FftVisualizer active={state.engineActive} />
+            <FftVisualizer active={state.engineActive} glitch={pulser} />
             <div className="flex-1 flex items-center justify-center p-8">
               <MatrixFaceplate state={state} onChange={update} />
             </div>

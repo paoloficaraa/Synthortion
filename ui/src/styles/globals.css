@@ -34,6 +34,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Braille Terminal';
+  src: url('/fonts/BrailleTerminal-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Vintage Industrial Design Tokens */
 :root {
   /*
@@ -103,6 +111,7 @@
   --font-body: 'JetBrains Mono', 'Space Mono', ui-monospace, monospace;
   --font-mono: 'JetBrains Mono', 'Space Mono', ui-monospace, monospace;
   --font-ascii: 'Px437 IBM VGA 8x16', 'JetBrains Mono', ui-monospace, monospace;
+  --font-braille: 'Braille Terminal', monospace;
 }
 
 /* Reset and Base Styles */

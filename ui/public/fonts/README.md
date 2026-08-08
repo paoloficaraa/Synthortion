@@ -9,6 +9,7 @@ dependency (it may be offline). Each family is declared via `@font-face` in
 | Display | Akira Expanded (Super Bold, 800–900) | `AkiraExpanded-SuperBold.woff2` | Foundry demo font — free for evaluation/personal use; obtain a commercial license for distribution |
 | UI mono | JetBrains Mono (Regular 400, Bold 700) | `JetBrainsMono-Regular.woff2`, `JetBrainsMono-Bold.woff2` | [SIL Open Font License 1.1](https://openfontlicense.org) |
 | ASCII / VGA | Px437 IBM VGA 8x16 | `Px437_IBM_VGA_8x16.ttf` | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) — by VileR, [The Ultimate Oldschool PC Font Pack](https://int10h.org/oldschool-pc-fonts/) |
+| Braille scope | Braille Terminal | `BrailleTerminal-Regular.ttf` | Programmatically generated square-pixel braille for the oscilloscope scope; 2×4 dot grid per cell, 0.5em advance, 1.0em line height — tiles with Px437 at same font-size |
 
 ## Sources
 
