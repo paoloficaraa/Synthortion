@@ -129,7 +129,8 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             value={drive}
             min={0}
             max={100}
-            displayValue={driveOn ? `${Math.round(drive)}%` : '--'}
+            displayValue={`${Math.round(drive)}%`}
+            enabled={driveOn}
             onChange={(value) => onChange({ drive: value })}
           />
         </div>
@@ -158,7 +159,8 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             value={bitcrush}
             min={2}
             max={24}
-            displayValue={bitcrushOn ? `${Math.round(bitcrush)}B` : '--'}
+            displayValue={`${Math.round(bitcrush)}B`}
+            enabled={bitcrushOn}
             onChange={(value) => onChange({ bitcrush: value })}
           />
         </div>
@@ -185,7 +187,8 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             value={delayMix}
             min={0}
             max={100}
-            displayValue={delayOn ? `${Math.round(delayMix)}%` : '--'}
+            displayValue={`${Math.round(delayMix)}%`}
+            enabled={delayOn}
             onChange={(value) => onChange({ delayMix: value })}
           />
           <div className="flex gap-10 mt-6">
@@ -194,8 +197,9 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
               value={delayTime}
               min={0}
               max={1000}
-              displayValue={delayOn ? `${Math.round(delayTime)}` : '--'}
+              displayValue={`${Math.round(delayTime)}`}
               size="small"
+              enabled={delayOn}
               onChange={(value) => onChange({ delayTime: value })}
             />
             <Knob
@@ -203,8 +207,9 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
               value={delayFbk}
               min={0}
               max={100}
-              displayValue={delayOn ? `${Math.round(delayFbk)}%` : '--'}
+              displayValue={`${Math.round(delayFbk)}%`}
               size="small"
+              enabled={delayOn}
               onChange={(value) => onChange({ delayFbk: value })}
             />
           </div>
@@ -232,7 +237,8 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             value={chorus}
             min={0}
             max={100}
-            displayValue={chorusOn ? `${Math.round(chorus)}%` : '--'}
+            displayValue={`${Math.round(chorus)}%`}
+            enabled={chorusOn}
             onChange={(value) => onChange({ chorus: value })}
           />
         </div>

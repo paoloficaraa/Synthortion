@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { motion } from 'framer-motion'
 
 interface KnobProps {
@@ -10,21 +10,38 @@ interface KnobProps {
   min?: number
   /** Maximum value */
   max?: number
-  /** Formatted display value */
+  /** Formatted display value (shown while enabled) */
   displayValue: string
   /** Change handler */
   onChange: (value: number) => void
   /** Size variant */
   size?: 'default' | 'small'
+  /**
+   * Whether the control is enabled (module powered). `false` renders a dimmed
+   * track with a `--` readout and makes the control inert, ready for the
+   * module power wiring from T04.
+   */
+  enabled?: boolean
 }
 
+/** Pointer cells in the block track — 9 renders the canonical `[====+----]`. */
+const TRACK_CELLS = 9
+
+/** Drag sensitivity in value-range percent per CSS pixel (on a 0..100 range). */
+const DRAG_SENSITIVITY = 0.5
+
+/** Shift held during drag scales normal sensitivity by this (fine step, ×0.1). */
+const FINE_STEP_FACTOR = 0.1
+
 /**
- * Knob - Rotary control with SVG polar trajectory
+ * Knob — horizontal ASCII block control with live numeric readout.
  *
- * Supports:
- * - Vertical mouse drag tracking
- * - Keyboard navigation (Arrow keys, Home/End)
- * - Focus-visible ring for accessibility
+ * Replaces the rotary knob face: the value renders as a `[====+----]` track
+ * (filled `=`, pointer `+`, empty `-`) in the VGA voice with a mono readout
+ * beneath. The drag gesture stays vertical and the whole track width is a hit
+ * area; Shift held during drag applies a fine step (×0.1 of normal) so wide
+ * ranges stay reachable. Keyboard navigation (arrows, Home/End) is unchanged.
+ * When `enabled` is false the track is dimmed and the readout shows `--`.
  */
 export function Knob({
   label,
@@ -34,16 +51,15 @@ export function Knob({
   displayValue,
   onChange,
   size = 'default',
+  enabled = true,
 }: KnobProps) {
   const isDragging = useRef(false)
   const [isDraggingState, setIsDraggingState] = useState(false)
   const startY = useRef(0)
   const startVal = useRef(0)
-  // Unique id per knob so the machined-face gradient never collides across the
-  // eight on-panel instances (SVG url(#) fragments resolve to the first match).
-  const faceGradientId = `knob-face-${useId().replace(/:/g, '')}`
 
   const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (!enabled) return
     isDragging.current = true
     setIsDraggingState(true)
     startY.current = e.clientY
@@ -58,7 +74,8 @@ export function Knob({
   const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!isDragging.current) return
     const dy = startY.current - e.clientY
-    const sensitivity = 0.5
+    const sensitivity =
+      DRAG_SENSITIVITY * (e.shiftKey ? FINE_STEP_FACTOR : 1)
     let newValue = startVal.current + dy * sensitivity * ((max - min) / 100)
     newValue = Math.max(min, Math.min(max, newValue))
     onChange(newValue)
@@ -73,6 +90,7 @@ export function Knob({
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!enabled) return
     const step = (max - min) / 100
     const largeStep = (max - min) / 10
     let newValue = value
@@ -100,32 +118,31 @@ export function Knob({
     onChange(newValue)
   }
 
-  const radius = size === 'small' ? 14 : 22
-  const viewBoxSize = size === 'small' ? 40 : 64
-  const center = viewBoxSize / 2
-  const innerRadius = radius - (size === 'small' ? 5 : 7)
-  const indicatorTip = radius + (size === 'small' ? 1 : 2)
-  const pct = (value - min) / (max - min)
-  const angle = -135 + pct * 270
-
-  const C = 2 * Math.PI * radius
-  const maxArcLength = C * 0.75
-  const strokeDashoffset = C - Math.max(0.001, pct * maxArcLength)
-  const bgStrokeDashoffset = C - maxArcLength
+  // ASCII block track — the value maps to a pointer index across the cells;
+  // cells before it fill with `=`, after it stay empty `-`.
+  const pct = max === min ? 0 : (value - min) / (max - min)
+  const pointerIndex = Math.round(pct * (TRACK_CELLS - 1))
+  const cells: Array<{ char: string; filled: boolean }> = []
+  for (let i = 0; i < TRACK_CELLS; i++) {
+    cells.push({
+      char: i === pointerIndex ? '+' : i < pointerIndex ? '=' : '-',
+      filled: i <= pointerIndex,
+    })
+  }
 
   return (
     <div className="flex flex-col items-center gap-1.5">
       <motion.div
         role="slider"
-        tabIndex={0}
+        tabIndex={enabled ? 0 : -1}
+        aria-disabled={!enabled}
         aria-label={label}
         aria-orientation="vertical"
         aria-valuemin={min}
         aria-valuemax={max}
         aria-valuenow={Math.round(value)}
-        aria-valuetext={displayValue}
-        className="relative cursor-ns-resize group rounded-full shadow-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg flex items-center justify-center"
-        style={{ width: viewBoxSize, height: viewBoxSize }}
+        aria-valuetext={enabled ? displayValue : '--'}
+        className="relative cursor-ns-resize px-2 py-1 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         animate={{ scale: isDraggingState ? 1.05 : 1 }}
         transition={{ duration: 0.14, ease: 'easeOut' }}
         onPointerDown={handlePointerDown}
@@ -134,97 +151,29 @@ export function Knob({
         onPointerCancel={handlePointerEnd}
         onKeyDown={handleKeyDown}
       >
-        <svg
-          className="absolute inset-0 w-full h-full"
-          viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
+        <span
+          className={`font-ascii leading-none ${
+            size === 'small' ? 'text-[8px]' : 'text-[16px]'
+          } ${enabled ? '' : 'opacity-40'}`}
+          aria-hidden="true"
+          data-testid="knob-track"
         >
-          <defs>
-            {/* Machined metal face — mirrors the --gradient-metal token (SVG
-                cannot read CSS custom properties, so the stops are literal). */}
-            <radialGradient
-              id={faceGradientId}
-              gradientUnits="objectBoundingBox"
-              cx="38%"
-              cy="34%"
-              r="75%"
-            >
-              <stop offset="0%" stopColor="#3a3a3a" />
-              <stop offset="45%" stopColor="#1a1a1a" />
-              <stop offset="100%" stopColor="#0c0c0c" />
-            </radialGradient>
-          </defs>
-          {/* Background arc */}
-          <circle
-            cx={center}
-            cy={center}
-            r={radius}
-            fill="none"
-            stroke="var(--border)"
-            strokeWidth={size === 'small' ? '2' : '3'}
-            strokeDasharray={C}
-            strokeDashoffset={bgStrokeDashoffset}
-            transform={`rotate(135 ${center} ${center})`}
-            strokeLinecap="round"
-          />
-          {/* Soft glow under the active arc — a wide low-opacity accent stroke
-              (the FftVisualizer double-stroke trick, no shadowBlur cost). */}
-          <circle
-            cx={center}
-            cy={center}
-            r={radius}
-            fill="none"
-            stroke="rgba(199, 195, 186, 0.22)"
-            strokeWidth={size === 'small' ? '5' : '7'}
-            strokeDasharray={C}
-            strokeDashoffset={strokeDashoffset}
-            transform={`rotate(135 ${center} ${center})`}
-            strokeLinecap="round"
-          />
-          {/* Active value arc */}
-          <circle
-            cx={center}
-            cy={center}
-            r={radius}
-            fill="none"
-            stroke="var(--accent)"
-            strokeWidth={size === 'small' ? '2' : '3'}
-            strokeDasharray={C}
-            strokeDashoffset={strokeDashoffset}
-            transform={`rotate(135 ${center} ${center})`}
-            strokeLinecap="round"
-            className="transition-all duration-75"
-          />
-          {/* Inner circle — the machined knob face, raised off the faceplate */}
-          <circle
-            cx={center}
-            cy={center}
-            r={innerRadius}
-            fill={`url(#${faceGradientId})`}
-            stroke="var(--elev-6)"
-            strokeWidth="1"
-            style={{ filter: 'drop-shadow(0 2px 2px rgba(0, 0, 0, 0.8))' }}
-          />
-          {/* Indicator line */}
-          <g transform={`rotate(${angle} ${center} ${center})`}>
-            <line
-              x1={center}
-              y1={center - innerRadius}
-              x2={center}
-              y2={center - indicatorTip}
-              stroke="var(--fg)"
-              strokeWidth={size === 'small' ? '1.5' : '2'}
-              strokeLinecap="round"
-            />
-          </g>
-        </svg>
+          <span className="text-ink-3">[</span>
+          {cells.map((cell, i) => (
+            <span key={i} className={cell.filled ? 'text-fg' : 'text-ink-3'}>
+              {cell.char}
+            </span>
+          ))}
+          <span className="text-ink-3">]</span>
+        </span>
       </motion.div>
       <div className="flex flex-col items-center mt-1">
         <span
-          className={`font-mono text-fg uppercase-tracked select-none ${
+          className={`font-mono uppercase-tracked select-none ${
             size === 'small' ? 'text-[9px]' : 'text-[10px]'
-          }`}
+          } ${enabled ? 'text-fg' : 'text-ink-3'}`}
         >
-          {displayValue}
+          {enabled ? displayValue : '--'}
         </span>
         <span
           className={`font-display text-muted uppercase-tracked select-none mt-1 ${

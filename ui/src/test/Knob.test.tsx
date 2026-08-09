@@ -36,6 +36,11 @@ function renderKnob(
   return { onChange, slider: within(container).getByRole('slider') }
 }
 
+/** The concatenated `[====+----]` track string from the rendered knob. */
+function trackText(): string | null {
+  return screen.getByTestId('knob-track').textContent
+}
+
 describe('Knob', () => {
   describe('accessibility', () => {
     it('exposes slider role and value attributes', () => {
@@ -57,6 +62,85 @@ describe('Knob', () => {
       expect(slider).toHaveAttribute('aria-valuetext', '42%')
       expect(slider).toHaveAttribute('aria-orientation', 'vertical')
     })
+
+    it('marks a disabled knob inert and out of tab order', () => {
+      render(
+        <Knob
+          label="Drive"
+          value={42}
+          min={0}
+          max={100}
+          displayValue="42%"
+          enabled={false}
+          onChange={() => {}}
+        />
+      )
+
+      const slider = screen.getByRole('slider', { name: 'Drive' })
+      expect(slider).toHaveAttribute('aria-disabled', 'true')
+      expect(slider).toHaveAttribute('tabindex', '-1')
+      // The readout collapses to `--` and stays out of the value contract.
+      expect(slider).toHaveAttribute('aria-valuetext', '--')
+    })
+  })
+
+  describe('block track', () => {
+    it('renders the canonical [====+----] pattern at mid value', () => {
+      render(
+        <Knob
+          label="Drive"
+          value={50}
+          min={0}
+          max={100}
+          displayValue="50%"
+          onChange={() => {}}
+        />
+      )
+
+      expect(trackText()).toBe('[====+----]')
+    })
+
+    it('maps the pointer to the value across the track', () => {
+      const { rerender } = render(
+        <Knob
+          label="Drive"
+          value={0}
+          min={0}
+          max={100}
+          displayValue="0%"
+          onChange={() => {}}
+        />
+      )
+
+      // pct 0 → pointer at cell 0, everything after empty.
+      expect(trackText()).toBe('[+--------]')
+
+      rerender(
+        <Knob
+          label="Drive"
+          value={100}
+          min={0}
+          max={100}
+          displayValue="100%"
+          onChange={() => {}}
+        />
+      )
+      // pct 1 → all cells filled, pointer at the last cell.
+      expect(trackText()).toBe('[========+]')
+
+      rerender(
+        <Knob
+          label="Drive"
+          value={12.5}
+          min={0}
+          max={100}
+          displayValue="13%"
+          onChange={() => {}}
+        />
+      )
+      // pct 0.125 → pointerIndex = round(1) = 1.
+      expect(trackText()).toBe('[=+-------]')
+    })
   })
 
   describe('pointer drag', () => {
@@ -69,6 +153,17 @@ describe('Knob', () => {
       fireEvent.pointerUp(slider, { pointerId: 1 })
 
       expect(onChange).toHaveBeenCalledWith(60)
+    })
+
+    it('applies a fine step when Shift is held during drag', () => {
+      const { slider, onChange } = renderKnob(50)
+
+      fireEvent.pointerDown(slider, { clientY: 200, pointerId: 1 })
+      // dy = 20 → normal would be +10; Shift scales sensitivity by 0.1 → +1
+      fireEvent.pointerMove(slider, { clientY: 180, pointerId: 1, shiftKey: true })
+      fireEvent.pointerUp(slider, { pointerId: 1 })
+
+      expect(onChange).toHaveBeenCalledWith(51)
     })
 
     it('clamps upward drag to max', () => {
@@ -139,8 +234,29 @@ describe('Knob', () => {
     })
   })
 
-  describe('machined face', () => {
-    it('renders a unique metal radial gradient for the knob face', () => {
+  describe('enabled state', () => {
+    it('renders a dimmed track and -- readout when disabled', () => {
+      render(
+        <Knob
+          label="Drive"
+          value={42}
+          min={0}
+          max={100}
+          displayValue="42%"
+          enabled={false}
+          onChange={() => {}}
+        />
+      )
+
+      const track = screen.getByTestId('knob-track')
+      expect(track).toHaveClass('opacity-40')
+      // The track still shows the value pattern, dimmed.
+      expect(track.textContent).toBe('[===+-----]')
+      expect(screen.getByText('--')).toBeInTheDocument()
+      expect(screen.queryByText('42%')).not.toBeInTheDocument()
+    })
+
+    it('restores the live readout when re-enabled', () => {
       const { rerender } = render(
         <Knob
           label="Drive"
@@ -148,156 +264,46 @@ describe('Knob', () => {
           min={0}
           max={100}
           displayValue="42%"
+          enabled={false}
           onChange={() => {}}
         />
       )
 
-      const gradients = Array.from(document.querySelectorAll('radialGradient'))
-      expect(gradients).toHaveLength(1)
-      const id = gradients[0]?.getAttribute('id')
-      expect(id).toMatch(/^knob-face-/)
-      // The face fill references that gradient by id.
-      expect(
-        Array.from(document.querySelectorAll('circle')).find(
-          (circle) => circle.getAttribute('fill') === `url(#${id})`
-        )
-      ).toBeTruthy()
-
-      const stops = Array.from(
-        gradients[0]?.querySelectorAll('stop') ?? []
-      ).map((stop) => stop.getAttribute('stop-color'))
-      expect(stops).toEqual(['#3a3a3a', '#1a1a1a', '#0c0c0c'])
-
-      // Two knobs render two distinct gradient ids (no SVG id collisions).
-      rerender(
-        <div>
-          <Knob
-            label="Drive"
-            value={42}
-            min={0}
-            max={100}
-            displayValue="42%"
-            onChange={() => {}}
-          />
-          <Knob
-            label="Mix"
-            value={10}
-            min={0}
-            max={100}
-            displayValue="10%"
-            onChange={() => {}}
-          />
-        </div>
-      )
-      const ids = Array.from(
-        document.querySelectorAll('radialGradient')
-      ).map((g) => g.getAttribute('id'))
-      expect(new Set(ids).size).toBe(2)
-    })
-  })
-
-  describe('polar arc math', () => {
-    const radius = 22
-    const C = 2 * Math.PI * radius
-    const maxArcLength = C * 0.75
-
-    /** The active-value arc is the circle stroked with the accent token. */
-    const activeArc = () =>
-      Array.from(document.querySelectorAll('circle')).find(
-        (circle) => circle.getAttribute('stroke') === 'var(--accent)'
-      )
-
-    it('renders the active arc proportional to value on the 3/4 trajectory', () => {
-      render(
-        <Knob
-          label="Drive"
-          value={0}
-          min={0}
-          max={100}
-          displayValue="0%"
-          onChange={() => {}}
-        />
-      )
-
-      // pct 0 → offset = C - max(0.001, 0) = C - 0.001
-      expect(Number(activeArc()?.getAttribute('stroke-dashoffset'))).toBeCloseTo(
-        C - 0.001,
-        5
-      )
-    })
-
-    it('reaches a full 3/4 arc at max value and half at mid value', () => {
-      const { rerender } = render(
-        <Knob
-          label="Drive"
-          value={100}
-          min={0}
-          max={100}
-          displayValue="100%"
-          onChange={() => {}}
-        />
-      )
-
-      // pct 1 → offset = C - maxArcLength = C * 0.25
-      expect(Number(activeArc()?.getAttribute('stroke-dashoffset'))).toBeCloseTo(
-        C * 0.25,
-        5
-      )
+      expect(screen.getByText('--')).toBeInTheDocument()
 
       rerender(
         <Knob
           label="Drive"
-          value={50}
+          value={42}
           min={0}
           max={100}
-          displayValue="50%"
+          displayValue="42%"
+          enabled={true}
           onChange={() => {}}
         />
       )
 
-      // pct 0.5 → offset = C - maxArcLength / 2
-      expect(Number(activeArc()?.getAttribute('stroke-dashoffset'))).toBeCloseTo(
-        C - maxArcLength / 2,
-        5
-      )
+      expect(screen.queryByText('--')).not.toBeInTheDocument()
+      expect(screen.getByText('42%')).toBeInTheDocument()
     })
-  })
 
-  describe('machined cap', () => {
-    it('fills the knob cap with the machined-metal gradient', () => {
-      render(
-        <Knob
-          label="Drive"
-          value={50}
-          min={0}
-          max={100}
-          displayValue="50%"
-          onChange={() => {}}
-        />
-      )
+    it('ignores pointer drag while disabled', () => {
+      const { slider, onChange } = renderKnob(50, { enabled: false })
 
-      const gradient = document.querySelector('radialGradient')
-      expect(gradient).not.toBeNull()
+      fireEvent.pointerDown(slider, { clientY: 200, pointerId: 1 })
+      fireEvent.pointerMove(slider, { clientY: 180, pointerId: 1 })
+      fireEvent.pointerUp(slider, { pointerId: 1 })
 
-      // The radial stops mirror --gradient-metal in globals.css.
-      const stops = Array.from(document.querySelectorAll('radialGradient stop'))
-      expect(stops.map((stop) => stop.getAttribute('offset'))).toEqual([
-        '0%',
-        '45%',
-        '100%',
-      ])
-      expect(stops.map((stop) => stop.getAttribute('stop-color'))).toEqual([
-        '#3a3a3a',
-        '#1a1a1a',
-        '#0c0c0c',
-      ])
+      expect(onChange).not.toHaveBeenCalled()
+    })
 
-      // The inner cap circle references the same gradient by id.
-      const capCircle = Array.from(document.querySelectorAll('circle')).find(
-        (circle) => circle.getAttribute('fill')?.startsWith('url(#')
-      )
-      expect(capCircle).toBeDefined()
-      expect(capCircle?.getAttribute('fill')).toBe(`url(#${gradient?.id})`)
+    it('ignores keyboard input while disabled', () => {
+      const { slider, onChange } = renderKnob(50, { enabled: false })
+
+      fireEvent.keyDown(slider, { key: 'ArrowUp' })
+      fireEvent.keyDown(slider, { key: 'Home' })
+
+      expect(onChange).not.toHaveBeenCalled()
     })
   })
 })
