@@ -205,6 +205,111 @@ body {
     );
 }
 
+/* Terminal Boot Overlay — staged log + typewriter reveal.
+   The boot log is a monospace grid: label (dot-leader) | value | status, so
+   the `[ OK ]` column aligns across every line. Each row types out via CSS
+   `clip-path` (never progressive textContent), so the full text stays in the
+   DOM for assistive tech. All animation is gated behind
+   prefers-reduced-motion: no-preference — reduced-motion users see the final
+   state rendered immediately. */
+.boot-log {
+  display: grid;
+  grid-template-columns: 22ch 1fr auto;
+  font-family: var(--font-ascii);
+  font-size: 16px;
+  line-height: 1;
+  row-gap: 4px;
+  text-align: left;
+  color: var(--fg);
+}
+
+.boot-line {
+  clip-path: inset(0 0 0 0);
+  white-space: nowrap;
+}
+
+.boot-header {
+  grid-column: 1 / -1;
+}
+
+.boot-status {
+  color: var(--muted);
+  text-align: right;
+  min-width: 7ch;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .boot-line {
+    clip-path: inset(0 100% 0 0);
+    animation-name: boot-type;
+    animation-duration: 700ms;
+    animation-timing-function: steps(var(--chars, 1), end);
+    animation-fill-mode: forwards;
+    animation-delay: var(--type-delay, 0ms);
+  }
+}
+
+@keyframes boot-type {
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Decorative density stream under the boot log — aria-hidden, inert. */
+.boot-stream {
+  position: relative;
+  z-index: 10;
+  pointer-events: none;
+  user-select: none;
+  font-family: var(--font-ascii);
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.35em;
+  color: var(--ink-3);
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .boot-stream {
+    animation: stream-scroll 10s linear infinite;
+  }
+}
+
+@keyframes stream-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-30%);
+  }
+}
+
+/* Block cursor (U+258A ▊) — terminal voice for the boot log and the header
+   preset readout. Blinks only when motion is allowed. */
+.block-cursor {
+  display: inline-block;
+  font-family: inherit;
+  color: inherit;
+  margin-left: 0.15em;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .block-cursor {
+    animation: cursor-blink 1.06s steps(1, end) infinite;
+  }
+}
+
+@keyframes cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
 /* Entrance Animation */
 @keyframes vst-enter {
   0% {

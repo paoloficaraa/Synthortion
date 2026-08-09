@@ -7,16 +7,19 @@ interface HeaderProps {
   onToggleBypass: (active: boolean) => void
 }
 
-/** Preset name shown in the header LCD readout. */
+/** Preset name shown in the header VGA readout. */
 const PRESET_NAME = 'INIT_STATE_01'
 
+/** Terminal bracket-button labels (`[ SAVE ]` / `[ LOAD ]`). */
+const ACTIONS = ['SAVE', 'LOAD'] as const
+
 /**
- * Header — the "Glitch Brutalism" chrome strip.
+ * Header — the terminal status bar.
  *
- * Brand on the left beside the bypass LED, the embedded preset LCD readout in
- * the middle, and the SAVE / LOAD buttons on the right. Motion (hover, press)
- * is handled by Framer Motion so `MotionConfig reducedMotion="user"` can
- * disable it globally.
+ * Brand on the left beside the engine LED, the VGA preset readout (with a
+ * blinking block cursor) in the middle, and the `[ SAVE ] [ LOAD ]` bracket
+ * buttons on the right. Hover inverts the bracket buttons; the bypass LED
+ * behaviour is unchanged.
  */
 export function Header({ engineActive, onToggleBypass }: HeaderProps) {
   return (
@@ -51,21 +54,25 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
         >
           Preset
         </span>
-        <div className="min-w-[132px] px-3 py-1.5 bg-elev-0 bg-gradient-well border border-border font-mono text-[11px] text-fg uppercase-tracked select-none shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),inset_0_1px_3px_rgba(0,0,0,0.9)]">
+        <div className="min-w-[140px] px-3 py-1.5 bg-elev-0 bg-gradient-well border border-border font-ascii text-[16px] leading-none text-fg uppercase-tracked select-none shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),inset_0_1px_3px_rgba(0,0,0,0.9)]">
           {PRESET_NAME}
+          <span className="block-cursor" aria-hidden="true">
+            ▊
+          </span>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        {['SAVE', 'LOAD'].map((label) => (
+        {ACTIONS.map((label) => (
           <motion.button
             key={label}
             type="button"
-            whileHover={{ background: 'var(--gradient-accent)', color: 'var(--bg)', borderColor: 'var(--fg)' }}
             whileTap={{ scale: 0.94 }}
-            className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted bg-gradient-panel shadow-raised outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+            className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted bg-gradient-panel shadow-raised outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent hover:bg-fg hover:text-bg hover:border-fg transition-colors"
           >
+            <span aria-hidden="true">[ </span>
             {label}
+            <span aria-hidden="true"> ]</span>
           </motion.button>
         ))}
       </div>

@@ -357,13 +357,21 @@ describe('App', () => {
     expect(drive).toHaveAttribute('aria-valuetext', '40%')
   })
 
-  it('renders the T06 header chrome: brand, preset LCD and SAVE/LOAD', () => {
-    render(<App />)
+  it('renders the T07 status bar chrome: brand, VGA preset readout and SAVE/LOAD', () => {
+    const { container } = render(<App />)
 
     expect(screen.getByRole('heading', { name: 'SYNTHORTION' })).toBeInTheDocument()
     expect(screen.getByText('INIT_STATE_01')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'SAVE' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'LOAD' })).toBeInTheDocument()
+
+    // The preset readout is a VGA ASCII surface with a blinking block cursor.
+    const lcd = container.querySelector('header .bg-gradient-well') as HTMLElement
+    expect(lcd).toHaveClass('font-ascii')
+    expect(lcd.querySelector('.block-cursor')).toHaveAttribute(
+      'aria-hidden',
+      'true'
+    )
   })
 
   it('mounts four box-drawing corner brackets on the chassis', () => {
@@ -381,9 +389,9 @@ describe('App', () => {
       screen.getByTestId('system-boot-overlay')
     ).toBeInTheDocument()
 
-    // Boot sequence auto-dismisses after its fixed pause.
+    // Boot sequence auto-dismisses after its ~2.5s one-shot window.
     act(() => {
-      vi.advanceTimersByTime(2000)
+      vi.advanceTimersByTime(2600)
     })
 
     expect(
