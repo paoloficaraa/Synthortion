@@ -206,24 +206,27 @@ body {
 }
 
 /* Terminal Boot Overlay — staged log + typewriter reveal.
-   The boot log is a monospace grid: label (dot-leader) | value | status, so
-   the `[ OK ]` column aligns across every line. Each row types out via CSS
-   `clip-path` (never progressive textContent), so the full text stays in the
-   DOM for assistive tech. All animation is gated behind
-   prefers-reduced-motion: no-preference — reduced-motion users see the final
-   state rendered immediately. */
+   Each log row is a three-column grid — label (dot-leader) | value | status —
+   with an identical track template, so the `[ OK ]` column aligns across every
+   line. Each row types out via CSS `clip-path` (never progressive textContent),
+   so the full text stays in the DOM for assistive tech. All animation is gated
+   behind prefers-reduced-motion: no-preference — reduced-motion users see the
+   final state rendered immediately. */
 .boot-log {
-  display: grid;
-  grid-template-columns: 22ch 1fr auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
   font-family: var(--font-ascii);
   font-size: 16px;
   line-height: 1;
-  row-gap: 4px;
   text-align: left;
   color: var(--fg);
 }
 
 .boot-line {
+  display: grid;
+  grid-template-columns: 22ch 1fr auto;
   clip-path: inset(0 0 0 0);
   white-space: nowrap;
 }
