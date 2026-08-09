@@ -311,6 +311,52 @@ describe('App', () => {
     expect(bridge.calls).toContainEqual({ parameterId: 'chorusWide', value: true })
   })
 
+  it('renders a power switch in each module title bar', () => {
+    render(<App />)
+
+    for (const code of ['DRV', 'BCR', 'DLY', 'CHR']) {
+      const sw = screen.getByTestId(`power-${code}`)
+      expect(sw).toHaveAttribute('aria-pressed', 'true')
+    }
+  })
+
+  it('pulses the glitch pulser at 0.8 on a module power toggle', () => {
+    render(<App />)
+    const pulser = appPulser()
+    pulser.pulse.mockClear()
+
+    fireEvent.click(screen.getByTestId('power-DRV'))
+
+    // Module power toggles fire a fixed short burst (0.8), not the heavy 1.0.
+    expect(pulser.pulse).toHaveBeenCalledWith(0.8)
+  })
+
+  it('forwards a module power toggle to the DSP bridge', () => {
+    const bridge = createMockDspBridge()
+    render(<App dspBridge={bridge} />)
+
+    const sw = screen.getByTestId('power-DRV')
+    fireEvent.click(sw)
+
+    expect(sw).toHaveAttribute('aria-pressed', 'false')
+    expect(bridge.calls).toContainEqual({ parameterId: 'driveOn', value: false })
+  })
+
+  it('dims a powered-off module and shows -- readouts', () => {
+    render(<App />)
+
+    const drive = screen.getByRole('slider', { name: 'Drive' })
+    expect(drive).toHaveAttribute('aria-valuetext', '40%')
+
+    fireEvent.click(screen.getByTestId('power-DRV'))
+
+    expect(drive).toHaveAttribute('aria-valuetext', '--')
+
+    // Powering the module back on restores the live readout.
+    fireEvent.click(screen.getByTestId('power-DRV'))
+    expect(drive).toHaveAttribute('aria-valuetext', '40%')
+  })
+
   it('renders the T06 header chrome: brand, preset LCD and SAVE/LOAD', () => {
     render(<App />)
 

@@ -58,4 +58,109 @@ describe('MatrixFaceplate', () => {
 
     expect(onChange).toHaveBeenCalledWith({ driveRoute: 'POST' })
   })
+
+  it('renders a power switch in each module title bar', () => {
+    render(<MatrixFaceplate state={initialState} onChange={() => {}} />)
+
+    for (const code of ['DRV', 'BCR', 'DLY', 'CHR']) {
+      const sw = screen.getByTestId(`power-${code}`)
+      expect(sw).toHaveAttribute('aria-pressed', 'true')
+      expect(sw).toHaveAttribute(
+        'aria-label',
+        `Turn off ${code} module`
+      )
+    }
+  })
+
+  it('forwards a drive power toggle through onChange', () => {
+    const onChange = vi.fn()
+    render(<MatrixFaceplate state={initialState} onChange={onChange} />)
+
+    fireEvent.click(screen.getByTestId('power-DRV'))
+
+    expect(onChange).toHaveBeenCalledWith({ driveOn: false })
+  })
+
+  it('forwards each remaining power toggle through onChange', () => {
+    const onChange = vi.fn()
+    render(<MatrixFaceplate state={initialState} onChange={onChange} />)
+
+    fireEvent.click(screen.getByTestId('power-BCR'))
+    fireEvent.click(screen.getByTestId('power-DLY'))
+    fireEvent.click(screen.getByTestId('power-CHR'))
+
+    expect(onChange).toHaveBeenCalledWith({ bitcrushOn: false })
+    expect(onChange).toHaveBeenCalledWith({ delayOn: false })
+    expect(onChange).toHaveBeenCalledWith({ chorusOn: false })
+  })
+
+  it('shows a powered-off power switch as un-pressed with an "on" label', () => {
+    render(
+      <MatrixFaceplate
+        state={{ ...initialState, driveOn: false }}
+        onChange={() => {}}
+      />
+    )
+
+    const sw = screen.getByTestId('power-DRV')
+    expect(sw).toHaveAttribute('aria-pressed', 'false')
+    expect(sw).toHaveAttribute('aria-label', 'Turn on DRV module')
+  })
+
+  it('renders -- readouts for a powered-off module', () => {
+    render(
+      <MatrixFaceplate
+        state={{ ...initialState, driveOn: false, delayOn: false }}
+        onChange={() => {}}
+      />
+    )
+
+    expect(screen.getByRole('slider', { name: 'Drive' })).toHaveAttribute(
+      'aria-valuetext',
+      '--'
+    )
+    expect(screen.getByRole('slider', { name: 'Mix' })).toHaveAttribute(
+      'aria-valuetext',
+      '--'
+    )
+    expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
+      'aria-valuetext',
+      '--'
+    )
+    expect(screen.getByRole('slider', { name: 'Fbk' })).toHaveAttribute(
+      'aria-valuetext',
+      '--'
+    )
+
+    // Powered-on modules keep their numeric readouts.
+    expect(screen.getByRole('slider', { name: 'Bitcrush' })).toHaveAttribute(
+      'aria-valuetext',
+      '12B'
+    )
+    expect(screen.getByRole('slider', { name: 'Chorus' })).toHaveAttribute(
+      'aria-valuetext',
+      '75%'
+    )
+  })
+
+  it('dims a powered-off module section', () => {
+    const { container } = render(
+      <MatrixFaceplate
+        state={{ ...initialState, driveOn: false }}
+        onChange={() => {}}
+      />
+    )
+
+    // The DRV section is the first grid cell; its controls wrapper carries the
+    // dimmed + inert classes when the module is off.
+    const sections = container.querySelectorAll('section')
+    const drv = sections[0]
+    const drvControls = drv.querySelector('div.opacity-30')
+    expect(drvControls).not.toBeNull()
+    expect(drvControls).toHaveClass('pointer-events-none')
+
+    // A powered-on section does not carry the dimmed wrapper class.
+    const chr = sections[3]
+    expect(chr.querySelector('div.opacity-30')).toBeNull()
+  })
 })

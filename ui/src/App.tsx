@@ -11,6 +11,14 @@ import { initialState, diffPluginState, type PluginState } from './lib/pluginSta
 import { noopDspBridge, type DspBridge } from './lib/dspBridge'
 import { createGlitchPulser } from './lib/glitchPulser'
 
+/** Module power flags pulse a fixed 0.8 burst (spec: short glitch). */
+const MODULE_POWER_KEYS: ReadonlySet<string> = new Set([
+  'driveOn',
+  'bitcrushOn',
+  'delayOn',
+  'chorusOn',
+])
+
 interface AppProps {
   /** Integration seam for the future C++ DSP bridge. */
   dspBridge?: DspBridge
@@ -45,13 +53,18 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
       dspBridge.setParameter(call.parameterId, call.value)
 
       // Pulse the glitch pulser with |Δvalue| / 100.
-      // Boolean/string changes produce a full-intensity burst.
+      // Module power toggles fire a fixed 0.8 burst; other non-numeric
+      // changes (master bypass, route ties) produce a heavy 1.0 burst.
       const prevVal = prev[call.parameterId as keyof PluginState]
       const newVal = call.value
-      const delta =
-        typeof prevVal === 'number' && typeof newVal === 'number'
-          ? Math.abs(newVal - prevVal) / 100
-          : 1.0
+      let delta
+      if (typeof prevVal === 'number' && typeof newVal === 'number') {
+        delta = Math.abs(newVal - prevVal) / 100
+      } else if (MODULE_POWER_KEYS.has(call.parameterId)) {
+        delta = 0.8
+      } else {
+        delta = 1.0
+      }
       pulser.pulse(Math.min(1, delta))
     }
   }, [state, dspBridge, pulser])
