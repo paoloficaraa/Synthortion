@@ -115,14 +115,16 @@ export function FftVisualizer({
       ctx.fillStyle = SCOPE_BG
       ctx.fillRect(0, 0, width, height)
 
-      // ── Graticule (static — box-drawing in VGA face) ──
-      const grat = buildGraticule(numCols)
+      // ── Graticule (static — box-drawing in VGA face, row-by-row) ──
+      const gratRows = buildGraticule(numCols).split('\n')
       ctx.font = FONT_GRAT
       ctx.textBaseline = 'top'
       ctx.fillStyle = GRAT_FG
-      ctx.fillText(grat, 0, 0)
+      for (let i = 0; i < gratRows.length; i++) {
+        ctx.fillText(gratRows[i], 0, i * CELL_PX)
+      }
 
-      // ── Trace (dynamic — braille, one prebuilt string) ──
+      // ── Trace (dynamic — braille, drawn row-by-row) ──
       let traceRows = buildTrace(samples, numCols)
 
       // ── Glitch corruption ──
@@ -131,17 +133,20 @@ export function FftVisualizer({
         traceRows = applyGlitch(traceRows, glitchIntensity, random)
       }
 
-      const traceStr = traceRows.join('\n')
       const isLive = activeRef.current
 
       // Soft halo behind the trace.
       ctx.font = FONT_TRACE
       ctx.fillStyle = isLive ? TRACE_HALO_LIVE : TRACE_HALO_IDLE
-      ctx.fillText(traceStr, 0, 0)
+      for (let i = 0; i < traceRows.length; i++) {
+        ctx.fillText(traceRows[i], 0, i * CELL_PX)
+      }
 
       // Crisp trace.
       ctx.fillStyle = isLive ? TRACE_FG : TRACE_IDLE
-      ctx.fillText(traceStr, 0, 0)
+      for (let i = 0; i < traceRows.length; i++) {
+        ctx.fillText(traceRows[i], 0, i * CELL_PX)
+      }
     }
 
     // ── Size backing store to layout box ──
