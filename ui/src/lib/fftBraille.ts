@@ -3,8 +3,10 @@
  *
  * `buildGraticule` and `buildTrace` turn grid geometry and time-domain
  * samples into prebuilt text (box-drawing frame + braille waveform) that the
- * canvas draws via a single `fillText` per frame. Kept free of React/canvas so
- * the layout maths is unit-testable without a rendering context.
+ * canvas draws row-by-row — one `fillText(row, 0, i * CELL_PX)` per line,
+ * since Canvas `fillText` ignores embedded newlines. Kept free of
+ * React/canvas so the layout maths is unit-testable without a rendering
+ * context.
  */
 
 /** Grid cell size in CSS pixels — tiles Px437 8x16 at 16px font-size. */
