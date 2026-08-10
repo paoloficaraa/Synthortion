@@ -87,9 +87,9 @@ export function buildGraticule(numCols: number): string {
 }
 
 /**
- * Build the braille trace string from time-domain samples.
+ * Build the braille trace strings from time-domain samples.
  * Returns CELL_ROWS strings of numCols braille characters (or spaces).
- * This is the "one prebuilt string per frame" — drawn via a single fillText.
+ * Each row is drawn individually via fillText(row, 0, i * CELL_PX).
  */
 export function buildTrace(
   samples: Float32Array,
