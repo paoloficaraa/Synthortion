@@ -24,9 +24,9 @@ interface AppProps {
   dspBridge?: DspBridge
 }
 
-/** Format a TRIM value in dB, prefixing positive values with a "+". */
+/** Format a TRIM value in dB, prefixing non-negative values with a "+" (+0, +6). */
 function formatTrimValue(value: number): string {
-  return value > 0 ? `+${Math.round(value)}` : `${Math.round(value)}`
+  return value >= 0 ? `+${Math.round(value)}` : `${Math.round(value)}`
 }
 
 /**

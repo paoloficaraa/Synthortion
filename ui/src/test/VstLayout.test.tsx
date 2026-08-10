@@ -43,6 +43,19 @@ describe('VstLayout', () => {
     expect(vstContainer).toHaveClass('noise-overlay')
   })
 
+  it('wraps each flanking meter rail at 48px width', () => {
+    const { container } = render(
+      <VstLayout leftColumn={<div>L</div>} rightColumn={<div>R</div>}>
+        <div>Center</div>
+      </VstLayout>
+    )
+
+    const leftRail = container.querySelector('.border-r')
+    const rightRail = container.querySelector('.border-l')
+    expect(leftRail).toHaveClass('w-[48px]')
+    expect(rightRail).toHaveClass('w-[48px]')
+  })
+
   it('applies flex-row layout for 3-column structure', () => {
     const { container } = render(
       <VstLayout>

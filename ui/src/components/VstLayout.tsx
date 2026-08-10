@@ -23,7 +23,7 @@ function MeterRail({ side, children }: MeterRailProps) {
   const borderClass = side === 'left' ? 'border-r' : 'border-l'
   return (
     <div
-      className={`w-[40px] shrink-0 bg-elev-0 bg-gradient-well flex flex-col items-center py-6 ${borderClass} border-elev-6 z-10 relative shadow-[inset_0_0_12px_rgba(0,0,0,0.8)]`}
+      className={`w-[48px] shrink-0 bg-elev-0 bg-gradient-well flex flex-col items-center py-6 ${borderClass} border-elev-6 z-10 relative shadow-[inset_0_0_12px_rgba(0,0,0,0.8)]`}
     >
       {children}
     </div>
@@ -34,9 +34,9 @@ function MeterRail({ side, children }: MeterRailProps) {
  * VstLayout - 3-column glass frame shell for VST plugin UI
  *
  * Renders a horizontal flex-row layout with:
- * - Left: Input gain meter rail (40px width)
+ * - Left: Input gain meter rail (48px width)
  * - Center: Main controls hub (flexible)
- * - Right: Output gain meter rail (40px width)
+ * - Right: Output gain meter rail (48px width)
  *
  * Full-height borders separate meter columns from the center hub. The panel
  * enters with a subtle rise+fade (disabled by `prefers-reduced-motion`), and
