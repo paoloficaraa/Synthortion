@@ -1,8 +1,11 @@
 import { useRef, useEffect, type ReactNode } from 'react'
 
-/** Block characters for the 8 sub-segment levels (1/8 each). */
+/** Block characters for the 8 sub-segment levels (1/EIGHTHS_PER_ROW each). */
 const BLOCK_CHARS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
 const PEAK_GLYPH = '▲'
+
+/** Sub-segments per row; the ladder has BLOCK_CHARS.length eighths per row. */
+const EIGHTHS_PER_ROW = BLOCK_CHARS.length
 
 /** Meter configuration. */
 const METER_ROWS = 16
@@ -10,7 +13,6 @@ const PEAK_ROWS = 2
 const CANVAS_WIDTH = 8
 const CANVAS_HEIGHT = 256
 const FONT_SIZE = 16
-const LINE_HEIGHT = 1
 const TEXT_BASELINE = 'hanging' as CanvasTextBaseline
 
 /** Colors matching the design tokens. */
@@ -67,31 +69,38 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
         levelRef.current += (0 - levelRef.current) * 0.2
       }
 
-      const totalEighths = levelRef.current * METER_ROWS * 8
+      const totalEighths = levelRef.current * METER_ROWS * EIGHTHS_PER_ROW
 
       for (let i = 0; i < METER_ROWS; i++) {
         // Draw from bottom (i = METER_ROWS-1) to top (i = 0)
         const rowsBelow = METER_ROWS - 1 - i
-        const eighths = Math.max(0, Math.min(8, totalEighths - rowsBelow * 8))
+        const eighths = Math.max(
+          0,
+          Math.min(EIGHTHS_PER_ROW, totalEighths - rowsBelow * EIGHTHS_PER_ROW)
+        )
 
         if (eighths <= 0) continue
 
         const isPeak = i < PEAK_ROWS
-        const fill = Math.max(1, Math.min(8, Math.round(eighths)))
+        const fill = Math.max(1, Math.min(EIGHTHS_PER_ROW, Math.round(eighths)))
 
         let char: string
-        if (isPeak && fill >= 8) {
+        if (isPeak && fill >= EIGHTHS_PER_ROW) {
           char = PEAK_GLYPH
-        } else if (fill >= 8) {
-          char = BLOCK_CHARS[7]
+        } else if (fill >= EIGHTHS_PER_ROW) {
+          char = BLOCK_CHARS[EIGHTHS_PER_ROW - 1]
         } else {
           char = BLOCK_CHARS[fill - 1]
         }
 
-        const color = isPeak && fill >= 8 ? METER_PEAK : fill >= 8 ? METER_LEVEL : METER_WELL
+        const color =
+          isPeak && fill >= EIGHTHS_PER_ROW
+            ? METER_PEAK
+            : fill >= EIGHTHS_PER_ROW
+              ? METER_LEVEL
+              : METER_WELL
         ctx.fillStyle = color
 
-        // Each row is 16px tall (FONT_SIZE), drawn at y = i * FONT_SIZE
         const y = i * FONT_SIZE
         ctx.fillText(char, 0, y)
       }

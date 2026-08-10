@@ -47,7 +47,7 @@ describe('App', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders IN and OUT meter columns with a TRIM knob in each', () => {
+  it('renders IN and OUT meter columns with a TRIM fader in each', () => {
     render(<App />)
 
     expect(screen.getByText('IN')).toBeInTheDocument()
@@ -69,7 +69,7 @@ describe('App', () => {
     expect(rightRail).toContainElement(screen.getByText('OUT'))
   })
 
-  it('binds both TRIM knobs to the -24..+24 dB range', () => {
+  it('binds both TRIM faders to the -24..+24 dB range', () => {
     render(<App />)
 
     const [inTrim, outTrim] = screen.getAllByRole('slider', { name: 'TRIM' })
@@ -79,7 +79,7 @@ describe('App', () => {
     expect(outTrim).toHaveAttribute('aria-valuemax', '24')
   })
 
-  it('starts both TRIM knobs at 0 dB', () => {
+  it('starts both TRIM faders at 0 dB', () => {
     render(<App />)
 
     const [inTrim, outTrim] = screen.getAllByRole('slider', { name: 'TRIM' })
@@ -115,7 +115,7 @@ describe('App', () => {
     expect(inTrim).toHaveAttribute('aria-valuetext', '-5')
   })
 
-  it('adjusts the output trim knob independently of the input', () => {
+  it('adjusts the output trim fader independently of the input', () => {
     render(<App />)
 
     const [inTrim, outTrim] = screen.getAllByRole('slider', { name: 'TRIM' })

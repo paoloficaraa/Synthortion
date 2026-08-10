@@ -4,11 +4,8 @@ import { GainMeter } from '../components/GainMeter'
 import { createMockCanvasContext, type CanvasFillOp, type CanvasTextOp } from './mockCanvasContext'
 
 /** Geometry shared by GainMeter's draw() loop and these tests. */
-const METER_ROWS = 16
-const PEAK_ROWS = 2
 const CANVAS_WIDTH = 8
 const CANVAS_HEIGHT = 256
-const FONT_SIZE = 16
 
 describe('GainMeter', () => {
   let ops: CanvasFillOp[]

@@ -1,6 +1,11 @@
 import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import { motion } from 'framer-motion'
 
+/** dB range — the same -24..+24 span used on the IN/OUT rails. */
+const MIN_DB = -24
+const MAX_DB = 24
+const DB_RANGE = MAX_DB - MIN_DB
+
 interface TrimFaderProps {
   /** Current dB value (-24..+24) */
   value: number
@@ -28,8 +33,9 @@ const BLOCK_FULL = '█'
 const BLOCK_EMPTY = '·'
 const POINTER = '▶'
 
-const MIN_DB = -24
-const MAX_DB = 24
+/** Keyboard step sizes (in dB). */
+const STEP = 1
+const LARGE_STEP = 6
 
 /**
  * TrimFader — compact vertical block fader with position marker and live dB readout.
@@ -64,7 +70,7 @@ export function TrimFader({
     if (!isDragging.current) return
     const dy = startY.current - e.clientY
     const sensitivity =
-      DRAG_SENSITIVITY * (e.shiftKey ? FINE_STEP_FACTOR : 1) * ((MAX_DB - MIN_DB) / 100)
+      DRAG_SENSITIVITY * (e.shiftKey ? FINE_STEP_FACTOR : 1) * (DB_RANGE / 100)
     let newValue = startVal.current + dy * sensitivity
     newValue = Math.max(MIN_DB, Math.min(MAX_DB, newValue))
     onChange(newValue)
@@ -79,16 +85,14 @@ export function TrimFader({
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!enabled) return
-    const step = 1
-    const largeStep = 6
     let newValue = value
 
     switch (e.key) {
       case 'ArrowUp':
-        newValue += e.shiftKey ? largeStep : step
+        newValue += e.shiftKey ? LARGE_STEP : STEP
         break
       case 'ArrowDown':
-        newValue -= e.shiftKey ? largeStep : step
+        newValue -= e.shiftKey ? LARGE_STEP : STEP
         break
       case 'Home':
         newValue = MIN_DB
@@ -104,7 +108,7 @@ export function TrimFader({
     onChange(newValue)
   }
 
-  const pct = (value - MIN_DB) / (MAX_DB - MIN_DB)
+  const pct = (value - MIN_DB) / DB_RANGE
   const pointerRow = Math.round(pct * (TRACK_ROWS - 1))
 
   const track = Array.from({ length: TRACK_ROWS }, (_, i) => {
@@ -142,7 +146,10 @@ export function TrimFader({
           data-testid="trim-track"
         >
           {track.map((char, i) => (
-            <span key={i} className={char === POINTER ? 'text-fg' : char === BLOCK_FULL ? 'text-fg' : 'text-ink-3'}>
+            <span
+              key={i}
+              className={char === BLOCK_EMPTY ? 'text-ink-3' : 'text-fg'}
+            >
               {char}
             </span>
           ))}
