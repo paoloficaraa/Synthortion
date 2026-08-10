@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { render, screen, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { FftVisualizer } from '../components/FftVisualizer'
-import { buildGraticule, buildTrace } from '../lib/fftBraille'
+import { buildGraticule, buildTrace, CELL_PX, CELL_ROWS } from '../lib/fftBraille'
 import { createOscilloscopeSignal } from '../lib/oscilloscopeSignal'
 import { applyGlitch, createGlitchPulser } from '../lib/glitchPulser'
+import { createMockCanvasContext, type CanvasTextOp } from './mockCanvasContext'
 
 /* ------------------------------------------------------------------ */
 /*  buildGraticule unit tests (pure string output, no canvas needed)   */
@@ -159,5 +160,89 @@ describe('FftVisualizer', () => {
     const pulser = createGlitchPulser()
     const { container } = render(<FftVisualizer active glitch={pulser} />)
     expect(container.querySelector('canvas')).toBeInTheDocument()
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/*  Canvas row-by-row rendering tests                                  */
+/* ------------------------------------------------------------------ */
+describe('FftVisualizer canvas fillText', () => {
+  /** Palette mirrors the module constants — trace crisp, trace halo, grat. */
+  const TRACE_FG = '#f6f6f6'
+  const TRACE_HALO_LIVE = 'rgba(246, 246, 246, 0.12)'
+  const GRAT_FG = 'rgba(136, 136, 136, 0.25)'
+
+  let textOps: CanvasTextOp[]
+
+  beforeEach(() => {
+    textOps = []
+    vi.useFakeTimers()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      createMockCanvasContext({ textOps })
+    )
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  /** jsdom reports a 0x0 layout box; widen the canvas so the draw loop runs. */
+  const widenCanvas = () => {
+    const canvas = document.querySelector('canvas') as HTMLCanvasElement
+    Object.defineProperty(canvas, 'clientWidth', {
+      configurable: true,
+      value: 80,
+    })
+  }
+
+  it('splits the trace string by row and fills each row individually', () => {
+    const signal = createOscilloscopeSignal(() => 0.5)
+    render(<FftVisualizer active signal={signal} />)
+    widenCanvas()
+
+    // Trigger one animation frame so the draw loop executes.
+    act(() => { vi.advanceTimersByTime(16) })
+
+    // Crisp trace pass uses the #f6f6f6 fillStyle. Canvas fillText cannot
+    // render newlines, so the fix must issue one call per braille row.
+    const crispOps = textOps.filter(op => op.style === TRACE_FG)
+    expect(crispOps).toHaveLength(CELL_ROWS)
+
+    // Every row is its own call — no embedded newline — stacked by CELL_PX.
+    for (let i = 0; i < crispOps.length; i++) {
+      expect(crispOps[i].text).not.toContain('\n')
+      expect(crispOps[i].x).toBe(0)
+      expect(crispOps[i].y).toBe(i * CELL_PX)
+    }
+  })
+
+  it('renders the soft halo behind the trace row-by-row too', () => {
+    const signal = createOscilloscopeSignal(() => 0.5)
+    render(<FftVisualizer active signal={signal} />)
+    widenCanvas()
+
+    act(() => { vi.advanceTimersByTime(16) })
+
+    const haloOps = textOps.filter(op => op.style === TRACE_HALO_LIVE)
+    expect(haloOps).toHaveLength(CELL_ROWS)
+    for (let i = 0; i < haloOps.length; i++) {
+      expect(haloOps[i].y).toBe(i * CELL_PX)
+    }
+  })
+
+  it('draws the graticule row-by-row at y = i * CELL_PX', () => {
+    render(<FftVisualizer active />)
+    widenCanvas()
+
+    act(() => { vi.advanceTimersByTime(16) })
+
+    // The graticule is CELL_ROWS rows of box-drawing glyphs in GRAT_FG.
+    const gratOps = textOps.filter(op => op.style === GRAT_FG)
+    expect(gratOps).toHaveLength(CELL_ROWS)
+    for (let i = 0; i < gratOps.length; i++) {
+      expect(gratOps[i].text).not.toContain('\n')
+      expect(gratOps[i].y).toBe(i * CELL_PX)
+    }
   })
 })
