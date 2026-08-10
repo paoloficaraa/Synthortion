@@ -72,7 +72,7 @@ Three self-hosted voices (no CDN dependency — the WebView may be offline):
 ## Layout
 
 - **Chassis:** fixed 880px, 1px border, box-drawing corner brackets (`┌ ┐ └ ┘`), subtle static CRT scanlines (one pseudo-element, never animated).
-- **Structure:** 3 columns — left IN rail (40px) · center hub · right OUT rail (40px). Center hub = status bar (64px) + ASCII scope (240px) + module grid.
+- **Structure:** 3 columns — left IN rail (48px) · center hub · right OUT rail (48px). Center hub = status bar (64px) + ASCII scope (240px) + module grid.
 - **Faceplate:** 5-column grid — DRV | BCR | DLY (×2) | CHR. Each section is a framed module: title bar with code + power switch, control area, inactive modules dim with `--` readouts.
 - **Radius:** max 2px.
 - **Border weight:** 1px.

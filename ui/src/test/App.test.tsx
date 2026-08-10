@@ -65,6 +65,8 @@ describe('App', () => {
 
     expect(leftRail).toHaveClass('border-elev-6')
     expect(rightRail).toHaveClass('border-elev-6')
+    expect(leftRail).toHaveClass('w-[48px]')
+    expect(rightRail).toHaveClass('w-[48px]')
     expect(leftRail).toContainElement(screen.getByText('IN'))
     expect(rightRail).toContainElement(screen.getByText('OUT'))
   })
@@ -84,9 +86,9 @@ describe('App', () => {
 
     const [inTrim, outTrim] = screen.getAllByRole('slider', { name: 'TRIM' })
     expect(inTrim).toHaveAttribute('aria-valuenow', '0')
-    expect(inTrim).toHaveAttribute('aria-valuetext', '0')
+    expect(inTrim).toHaveAttribute('aria-valuetext', '+0')
     expect(outTrim).toHaveAttribute('aria-valuenow', '0')
-    expect(outTrim).toHaveAttribute('aria-valuetext', '0')
+    expect(outTrim).toHaveAttribute('aria-valuetext', '+0')
   })
 
   it('formats positive trim with a leading +n dB string', () => {
@@ -126,7 +128,7 @@ describe('App', () => {
 
     expect(outTrim).toHaveAttribute('aria-valuetext', '+10')
     expect(screen.getByText('+10')).toBeInTheDocument()
-    expect(inTrim).toHaveAttribute('aria-valuetext', '0')
+    expect(inTrim).toHaveAttribute('aria-valuetext', '+0')
   })
 
   it('renders the Matrix Faceplate control rows (DRV, BCR, DLY, CHR)', () => {
