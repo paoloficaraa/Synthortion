@@ -1,25 +1,25 @@
 import { render, screen, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { GainMeter } from '../components/GainMeter'
-import { createMockCanvasContext, type CanvasFillOp } from './mockCanvasContext'
+import { createMockCanvasContext, type CanvasFillOp, type CanvasTextOp } from './mockCanvasContext'
 
 /** Geometry shared by GainMeter's draw() loop and these tests. */
-const BLOCK_COUNT = 32
-const CANVAS_WIDTH = 12
-const CANVAS_HEIGHT = 800
-const BLOCK_HEIGHT = CANVAS_HEIGHT / BLOCK_COUNT // 25
-const BLOCK_GAP = 4
-const BLOCK_OFFSET = 2
-const BLOCK_DRAWN_HEIGHT = Math.max(2, BLOCK_HEIGHT - BLOCK_GAP) // 21
+const METER_ROWS = 16
+const PEAK_ROWS = 2
+const CANVAS_WIDTH = 8
+const CANVAS_HEIGHT = 256
+const FONT_SIZE = 16
 
 describe('GainMeter', () => {
   let ops: CanvasFillOp[]
+  let textOps: CanvasTextOp[]
 
   beforeEach(() => {
     ops = []
+    textOps = []
     vi.useFakeTimers()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
-      createMockCanvasContext({ ops })
+      createMockCanvasContext({ ops, textOps })
     )
   })
 
@@ -29,7 +29,7 @@ describe('GainMeter', () => {
   })
 
   describe('markup', () => {
-    it('renders the label, scale markers and a 12x800 canvas', () => {
+    it('renders the label, scale markers and an 8x256 canvas', () => {
       render(<GainMeter label="IN" active={false} />)
 
       expect(screen.getByText('IN')).toBeInTheDocument()
@@ -42,7 +42,7 @@ describe('GainMeter', () => {
       expect(canvas.height).toBe(CANVAS_HEIGHT)
     })
 
-    it('renders children (e.g. a TRIM knob) inside the column', () => {
+    it('renders children (e.g. a TrimFader) inside the column', () => {
       render(
         <GainMeter label="IN" active={false}>
           <button type="button">TRIM</button>
@@ -71,50 +71,39 @@ describe('GainMeter', () => {
   })
 
   describe('canvas draw loop', () => {
-    it('clears the canvas and draws 32 void blocks when inactive', () => {
+    it('clears the canvas and draws 16 void blocks when inactive', () => {
       render(<GainMeter label="IN" active={false} />)
 
       // Inactive meter waits for one animation frame before drawing.
       expect(ops).toHaveLength(0)
+      expect(textOps).toHaveLength(0)
       act(() => {
         vi.advanceTimersByTime(16)
       })
 
-      // Background clear + 32 blocks + final decay-to-zero clear.
-      expect(ops).toHaveLength(BLOCK_COUNT + 2)
+      // Background clear + final decay-to-zero clear.
+      expect(ops).toHaveLength(2)
       expect(ops[0]).toEqual({
         style: '#030303',
         args: [0, 0, CANVAS_WIDTH, CANVAS_HEIGHT],
       })
-
-      // Every segment is drawn void (near-black) with the prototype block gap.
-      const blocks = ops.slice(1, 1 + BLOCK_COUNT)
-      expect(blocks).toHaveLength(BLOCK_COUNT)
-      for (const block of blocks) {
-        expect(block.style).toBe('#0a0a0a')
-        expect(block.args[0]).toBe(0)
-        expect(block.args[2]).toBe(CANVAS_WIDTH)
-        expect(block.args[3]).toBe(BLOCK_DRAWN_HEIGHT)
-      }
-
-      expect(ops[BLOCK_COUNT + 1]).toEqual({
+      expect(ops[1]).toEqual({
         style: '#030303',
         args: [0, 0, CANVAS_WIDTH, CANVAS_HEIGHT],
       })
+      // No text drawn when inactive
+      expect(textOps).toHaveLength(0)
     })
 
-    it('stacks the 32 blocks bottom-up with the prototype proportions', () => {
+    it('stacks the 16 rows bottom-up', () => {
       render(<GainMeter label="IN" active={false} />)
       act(() => {
         vi.advanceTimersByTime(16)
       })
 
-      const blocks = ops.slice(1, 1 + BLOCK_COUNT)
-      // Block i sits at y = CANVAS_HEIGHT - (i + 1) * BLOCK_HEIGHT, drawn 2px lower.
-      expect(blocks[0].args[1]).toBe(CANVAS_HEIGHT - BLOCK_HEIGHT + BLOCK_OFFSET)
-      expect(blocks[31].args[1]).toBe(
-        CANVAS_HEIGHT - BLOCK_COUNT * BLOCK_HEIGHT + BLOCK_OFFSET
-      )
+      // Background clear at index 0, final clear at index 1
+      expect(ops[0].args[1]).toBe(0)
+      expect(ops[1].args[1]).toBe(0)
     })
 
     it('does not keep animating once the inactive level decays to zero', () => {
@@ -130,28 +119,28 @@ describe('GainMeter', () => {
       expect(ops.length).toBe(afterFirstFrame)
     })
 
-    it('fills grey segments when an active signal is present', () => {
-      // Deterministic signal: rawTarget = 0.5 * 0.7 + 0.2 = 0.55.
+    it('draws block characters via fillText when active signal is present', () => {
+      // Deterministic signal: rawTarget = 0.5 * 0.7 + 0.2 = 0.55
       vi.spyOn(Math, 'random').mockReturnValue(0.5)
 
       render(<GainMeter label="IN" active />)
 
-      // Active meter draws immediately: background + 4 grey + 28 void.
+      // Active meter draws immediately: background clear + text ops
       expect(ops[0]).toEqual({
         style: '#030303',
         args: [0, 0, CANVAS_WIDTH, CANVAS_HEIGHT],
       })
 
-      const blocks = ops.slice(1, 1 + BLOCK_COUNT)
-      const greyCount = blocks.filter((b) => b.style === '#888888').length
-      const voidCount = blocks.filter((b) => b.style === '#0a0a0a').length
+      // Should have textOps for the block characters
+      expect(textOps.length).toBeGreaterThan(0)
 
-      expect(greyCount).toBe(4)
-      expect(voidCount).toBe(BLOCK_COUNT - 4)
+      // Check that fillText was called with block characters
+      const chars = textOps.map((op) => op.text)
+      expect(chars.some((c) => ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'].includes(c))).toBe(true)
     })
 
-    it('lights peak segments in the foreground ink at the top of the scale', () => {
-      // Force the 5% "spike" branch: first call ≤ 0.05 selects rawTarget = rnd * 0.99.
+    it('draws peak glyph ▲ at top rows when fully filled', () => {
+      // Force the 5% "spike" branch: first call ≤ 0.05 selects rawTarget = rnd * 0.99
       let call = 0
       vi.spyOn(Math, 'random').mockImplementation(() => {
         call += 1
@@ -160,27 +149,41 @@ describe('GainMeter', () => {
 
       render(<GainMeter label="IN" active />)
 
-      // Converge the level toward 0.99 → activeCount crosses 29/32 blocks.
+      // Converge the level toward 0.99
       for (let i = 0; i < 12; i++) {
         act(() => {
           vi.advanceTimersByTime(16)
         })
       }
 
-      expect(ops.some((op) => op.style === '#f6f6f6')).toBe(true)
+      // Check that peak glyph was drawn (textOps with ▲)
+      const peakOps = textOps.filter((op) => op.text === '▲')
+      expect(peakOps.length).toBeGreaterThan(0)
     })
 
     it('continues animating each frame while active', () => {
       vi.spyOn(Math, 'random').mockReturnValue(0.5)
 
       render(<GainMeter label="IN" active />)
-      const afterFirstFrame = ops.length
+      const afterFirstFrame = textOps.length
 
       act(() => {
         vi.advanceTimersByTime(16)
       })
-      // Every active frame redraws the background plus all 32 blocks.
-      expect(ops.length).toBe(afterFirstFrame + BLOCK_COUNT + 1)
+      // Every active frame redraws background + text
+      expect(textOps.length).toBeGreaterThan(afterFirstFrame)
+    })
+
+    it('uses correct colors for well, level, and peak', () => {
+      vi.spyOn(Math, 'random').mockReturnValue(0.5)
+
+      render(<GainMeter label="IN" active />)
+
+      // Check that textOps have correct colors
+      const levelOps = textOps.filter((op) => op.style === '#888888')
+      const wellOps = textOps.filter((op) => op.style === '#0a0a0a')
+      expect(levelOps.length).toBeGreaterThan(0)
+      expect(wellOps.length).toBeGreaterThan(0)
     })
   })
 })

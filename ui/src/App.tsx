@@ -4,7 +4,7 @@ import { VstLayout } from './components/VstLayout'
 import { Header } from './components/Header'
 import { SystemBoot } from './components/SystemBoot'
 import { GainMeter } from './components/GainMeter'
-import { Knob } from './components/Knob'
+import { TrimFader } from './components/TrimFader'
 import { MatrixFaceplate } from './components/MatrixFaceplate'
 import { FftVisualizer } from './components/FftVisualizer'
 import { initialState, diffPluginState, type PluginState } from './lib/pluginState'
@@ -79,26 +79,20 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
         <VstLayout
           leftColumn={
             <GainMeter label="IN" active={state.engineActive} delay={50}>
-              <Knob
+              <TrimFader
                 label="TRIM"
                 value={state.inputGain}
-                min={-24}
-                max={24}
                 displayValue={formatTrimValue(state.inputGain)}
-                size="small"
                 onChange={(value) => update({ inputGain: value })}
               />
             </GainMeter>
           }
           rightColumn={
             <GainMeter label="OUT" active={state.engineActive} delay={260}>
-              <Knob
+              <TrimFader
                 label="TRIM"
                 value={state.outputGain}
-                min={-24}
-                max={24}
                 displayValue={formatTrimValue(state.outputGain)}
-                size="small"
                 onChange={(value) => update({ outputGain: value })}
               />
             </GainMeter>

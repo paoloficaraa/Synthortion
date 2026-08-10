@@ -1,16 +1,23 @@
 import { useRef, useEffect, type ReactNode } from 'react'
 
-/**
- * Canvas palette — token-equivalent hex for the meter draw loop. The 2D API
- * cannot read CSS custom properties, so these literals stay in step with the
- * design tokens in `globals.css` (--void, --elev-1, --ink-4, --fg). Keep them
- * in lock-step with the tokens; the meter backdrop deliberately matches
- * `--void` so it reads as the same recessed well as the app chassis.
- */
-const METER_VOID = '#030303' // --void: meter track backdrop
-const METER_WELL = '#0a0a0a' // --elev-1: unfilled segment blocks
-const METER_LEVEL = '#888888' // --ink-4: active signal blocks
-const METER_PEAK = '#f6f6f6' // --fg: top-of-scale peak blocks
+/** Block characters for the 8 sub-segment levels (1/8 each). */
+const BLOCK_CHARS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
+const PEAK_GLYPH = '▲'
+
+/** Meter configuration. */
+const METER_ROWS = 16
+const PEAK_ROWS = 2
+const CANVAS_WIDTH = 8
+const CANVAS_HEIGHT = 256
+const FONT_SIZE = 16
+const LINE_HEIGHT = 1
+const TEXT_BASELINE = 'hanging' as CanvasTextBaseline
+
+/** Colors matching the design tokens. */
+const METER_VOID = '#030303'
+const METER_WELL = '#0a0a0a'
+const METER_LEVEL = '#888888'
+const METER_PEAK = '#f6f6f6'
 
 interface GainMeterProps {
   /** Label displayed above the meter */
@@ -19,15 +26,16 @@ interface GainMeterProps {
   active: boolean
   /** Animation delay in ms */
   delay?: number
-  /** Optional children (typically a Knob) */
+  /** Optional children (typically a TrimFader) */
   children?: ReactNode
 }
 
 /**
- * GainMeter - 32-segment volume meter with brutalist aesthetic
+ * GainMeter - 16-row vertical block character ladder meter.
  *
- * Renders a vertical meter bar with segmented blocks.
- * Peak levels shown in the foreground ink, normal levels in gray.
+ * Renders a character-cell ladder using fillText with ▁▂▃▄▅▆▇█ block characters
+ * (one char per 8px column). Peak rows (top 2) use ▲ when fully filled.
+ * Animation uses the same smoothed random signal as the previous implementation.
  */
 export function GainMeter({ label, active, delay = 0, children }: GainMeterProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -43,32 +51,49 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
     let raf: number
 
     const draw = () => {
+      // Clear background
       ctx.fillStyle = METER_VOID
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
+      // Set up font for block characters
+      ctx.font = `${FONT_SIZE}px "Px437 IBM VGA8", "IBM VGA 8", monospace`
+      ctx.textBaseline = TEXT_BASELINE
+
       if (active) {
+        // Same signal logic as before: mostly 0.2-0.9 range, 5% spikes to 0.99
         const rawTarget = Math.random() > 0.05 ? Math.random() * 0.7 + 0.2 : Math.random() * 0.99
         levelRef.current += (rawTarget - levelRef.current) * 0.25
       } else {
         levelRef.current += (0 - levelRef.current) * 0.2
       }
 
-      const blocks = 32
-      const blockH = canvas.height / blocks
-      const activeCount = Math.floor(levelRef.current * blocks)
+      const totalEighths = levelRef.current * METER_ROWS * 8
 
-      for (let i = 0; i < blocks; i++) {
-        const y = canvas.height - (i + 1) * blockH
-        const isFilled = i < activeCount
-        const isPeak = i >= blocks - 3
+      for (let i = 0; i < METER_ROWS; i++) {
+        // Draw from bottom (i = METER_ROWS-1) to top (i = 0)
+        const rowsBelow = METER_ROWS - 1 - i
+        const eighths = Math.max(0, Math.min(8, totalEighths - rowsBelow * 8))
 
-        if (isFilled) {
-          ctx.fillStyle = isPeak ? METER_PEAK : METER_LEVEL
+        if (eighths <= 0) continue
+
+        const isPeak = i < PEAK_ROWS
+        const fill = Math.max(1, Math.min(8, Math.round(eighths)))
+
+        let char: string
+        if (isPeak && fill >= 8) {
+          char = PEAK_GLYPH
+        } else if (fill >= 8) {
+          char = BLOCK_CHARS[7]
         } else {
-          ctx.fillStyle = METER_WELL
+          char = BLOCK_CHARS[fill - 1]
         }
 
-        ctx.fillRect(0, y + 2, canvas.width, Math.max(2, blockH - 4))
+        const color = isPeak && fill >= 8 ? METER_PEAK : fill >= 8 ? METER_LEVEL : METER_WELL
+        ctx.fillStyle = color
+
+        // Each row is 16px tall (FONT_SIZE), drawn at y = i * FONT_SIZE
+        const y = i * FONT_SIZE
+        ctx.fillText(char, 0, y)
       }
 
       if (active || levelRef.current > 0.01) {
@@ -96,13 +121,13 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
       <div className="font-mono text-[7px] text-ink-1 mb-2 font-bold leading-none">0</div>
       <div className="flex-1 w-full flex justify-center z-10 shrink min-h-0">
         <div
-          className="w-[6px] h-full bg-elev-0"
+          className="w-[8px] h-[256px] bg-elev-0"
           style={{ boxShadow: 'var(--shadow-well), 0 0 0 1px var(--elev-6)' }}
         >
           <canvas
             ref={canvasRef}
-            width={12}
-            height={800}
+            width={CANVAS_WIDTH}
+            height={CANVAS_HEIGHT}
             className="w-full h-full block"
           />
         </div>
