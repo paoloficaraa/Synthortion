@@ -123,9 +123,22 @@ export function Knob({
   const pct = max === min ? 0 : (value - min) / (max - min)
   const pointerIndex = Math.round(pct * (TRACK_CELLS - 1))
   const cells: Array<{ char: string; filled: boolean }> = []
+  const GLITCH_CHARS = ['░', '▒', '▓', '█', '┼', '▚', '?', '#', '!', '&']
+
   for (let i = 0; i < TRACK_CELLS; i++) {
+    const isPointer = i === pointerIndex
+    // Deterministic scramble keyed on the live value: as `value` changes
+    // during a drag the cells re-derive to a new glitch glyph, so the track
+    // visibly corrupts without an impure Math.random() in the render body.
+    const char = isDraggingState
+      ? GLITCH_CHARS[(i + Math.round(value)) % GLITCH_CHARS.length]
+      : isPointer
+      ? '+'
+      : i < pointerIndex
+      ? '='
+      : '-'
     cells.push({
-      char: i === pointerIndex ? '+' : i < pointerIndex ? '=' : '-',
+      char,
       filled: i <= pointerIndex,
     })
   }
@@ -152,7 +165,7 @@ export function Knob({
         onKeyDown={handleKeyDown}
       >
         <span
-          className={`font-ascii leading-none ${
+          className={`font-ascii leading-none inline-block whitespace-nowrap ${
             size === 'small' ? 'text-[8px]' : 'text-[16px]'
           } ${enabled ? '' : 'opacity-40'}`}
           aria-hidden="true"
@@ -166,6 +179,9 @@ export function Knob({
           ))}
           <span className={`text-ink-3 ${isDraggingState ? 'knob-glitch' : ''}`}>]</span>
         </span>
+        <div className="text-[6px] text-ink-3 mt-0.5 whitespace-nowrap">
+          0% . . + . . 100%
+        </div>
       </motion.div>
       <div className="flex flex-col items-center mt-1">
         <span

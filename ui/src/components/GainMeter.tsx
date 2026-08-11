@@ -1,4 +1,4 @@
-import { useRef, useEffect, type ReactNode } from 'react'
+import { useRef, useEffect } from 'react'
 
 /** Block characters for the 8 sub-segment levels (1/EIGHTHS_PER_ROW each). */
 const BLOCK_CHARS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
@@ -28,8 +28,6 @@ interface GainMeterProps {
   active: boolean
   /** Animation delay in ms */
   delay?: number
-  /** Optional children (typically a TrimFader) */
-  children?: ReactNode
 }
 
 /**
@@ -39,7 +37,7 @@ interface GainMeterProps {
  * (one char per 8px column). Peak rows (top 2) use ▲ when fully filled.
  * Animation uses the same smoothed random signal as the previous implementation.
  */
-export function GainMeter({ label, active, delay = 0, children }: GainMeterProps) {
+export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const levelRef = useRef(0)
 
@@ -124,11 +122,14 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
       className="w-full flex flex-col items-center animate-vst-enter"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="font-display text-[8px] text-ink-3 uppercase-tracked mb-5">
-        {label}
+      <div className="font-ascii text-[9px] text-ink-3 whitespace-pre leading-none flex items-center" aria-hidden="true">
+        <span>┌</span><span> </span><span className="text-fg">{label}</span><span> </span><span>┐</span>
       </div>
-      <div className="font-mono text-[7px] text-ink-1 mb-2 font-bold leading-none">0</div>
+      <div className="font-mono text-[7px] text-ink-1 mb-1 font-bold leading-none">0</div>
       <div className="flex-1 w-full flex justify-center z-10 shrink min-h-0">
+        <div className="font-ascii text-[9px] text-ink-2 leading-none select-none" aria-hidden="true">
+          │
+        </div>
         <div
           className="w-[8px] h-[256px] bg-elev-0"
           style={{ boxShadow: 'var(--shadow-well), 0 0 0 1px var(--elev-6)' }}
@@ -140,15 +141,25 @@ export function GainMeter({ label, active, delay = 0, children }: GainMeterProps
             className="w-full h-full block"
           />
         </div>
-      </div>
-      <div className="font-mono text-[7px] text-ink-1 mt-2 font-bold leading-none">
-        -INF
-      </div>
-      {children && (
-        <div className="mt-5 mb-1 flex flex-col items-center relative z-20">
-          {children}
+        <div className="font-ascii text-[9px] text-ink-2 leading-none select-none" aria-hidden="true">
+          │
         </div>
-      )}
+      </div>
+      <div className="font-ascii text-[9px] text-ink-3 whitespace-pre leading-none mt-1" aria-hidden="true">
+        └{'─'.repeat(3)}┘
+      </div>
+      <div
+        role="meter"
+        aria-valuenow={0}
+        aria-valuemin={-120}
+        aria-valuemax={0}
+        aria-valuetext="-INF"
+        className="font-mono text-[7px] text-ink-1 mt-2 font-bold leading-none"
+      >
+        <span aria-hidden="true">[ </span>
+        -INF
+        <span aria-hidden="true"> ]</span>
+      </div>
     </div>
   )
 }

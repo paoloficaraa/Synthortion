@@ -43,6 +43,7 @@ export function Toggle({ label, options, value, onChange }: ToggleProps) {
             key={option.value}
             type="button"
             aria-pressed={isActive}
+            aria-label={option.label}
             onClick={() => onChange(option.value)}
             whileTap={{ scale: 0.96 }}
             whileHover={
@@ -56,7 +57,9 @@ export function Toggle({ label, options, value, onChange }: ToggleProps) {
                 : 'bg-transparent border-border text-muted shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)]'
             }`}
           >
+            <span aria-hidden="true">{isActive ? '[* ' : '[ '}</span>
             {option.label}
+            <span aria-hidden="true">{isActive ? ' *]' : ' ]'}</span>
           </motion.button>
         )
       })}

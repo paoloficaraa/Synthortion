@@ -75,9 +75,13 @@
    * Brand Palette — DESIGN.md-compatible tokens. Values are unchanged; the
    * neutral ones now resolve against the ramps above so the palette stays a
    * single source of truth.
+   *
+   * T69 — panel surfaces are held at ~80-85% opacity so the chassis micro-grid
+   * and the CRT scanline overlay bleed through for an authentic synth-video
+   * feel. Text/ink and border tokens stay fully opaque for legibility.
    */
-  --bg: var(--elev-2);
-  --surface: var(--elev-4);
+  --bg: rgba(15, 14, 14, 0.82);
+  --surface: rgba(18, 18, 18, 0.82);
   --fg: #f6f6f6;
   --muted: var(--ink-4);
   --border: var(--elev-7);
@@ -88,9 +92,10 @@
    * Gradients — machined-metal and recessed-well surfaces that give
    * components the "expensive" hardware feel. Consume via the Tailwind
    * `bg-gradient-*` utilities or `background: var(--gradient-*)`.
+   * Panel surfaces are alpha-scaled (T69) so the CRT backdrop shows through.
    */
-  --gradient-panel: linear-gradient(180deg, var(--elev-5) 0%, var(--elev-2) 100%);
-  --gradient-well: linear-gradient(180deg, var(--elev-0) 0%, var(--elev-1) 100%);
+  --gradient-panel: linear-gradient(180deg, rgba(26, 26, 26, 0.84) 0%, rgba(15, 14, 14, 0.82) 100%);
+  --gradient-well: linear-gradient(180deg, rgba(5, 5, 5, 0.85) 0%, rgba(10, 10, 10, 0.85) 100%);
   --gradient-metal: radial-gradient(circle at 38% 34%, #3a3a3a 0%, #1a1a1a 45%, #0c0c0c 100%);
   --gradient-accent: linear-gradient(135deg, #c7c3ba 0%, #8a867e 100%);
   --gradient-danger: linear-gradient(135deg, #ff4444 0%, #b32323 100%);
@@ -129,6 +134,13 @@ html {
 body {
   margin: 0;
   background-color: var(--void);
+  /* T69 — the micro-grid chassis backdrop that shows through the translucent
+     panels for a CRT video-synth feel. A fine repeating dot/line grid. */
+  background-image:
+    radial-gradient(rgba(246, 246, 246, 0.03) 1px, transparent 1px),
+    linear-gradient(rgba(246, 246, 246, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(246, 246, 246, 0.015) 1px, transparent 1px);
+  background-size: 6px 6px, 24px 24px, 24px 24px;
   color: var(--fg);
   font-family: var(--font-body);
   min-height: 100vh;

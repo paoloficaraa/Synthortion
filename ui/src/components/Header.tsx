@@ -24,7 +24,7 @@ const ACTIONS = ['SAVE', 'LOAD'] as const
 export function Header({ engineActive, onToggleBypass }: HeaderProps) {
   return (
     <header className="h-[64px] bg-bg bg-gradient-panel border-b border-border flex items-center justify-between px-8 shrink-0 relative z-10 shadow-[inset_0_-6px_8px_-6px_rgba(0,0,0,0.8)]">
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-3">
         <motion.button
           type="button"
           onClick={() => onToggleBypass(!engineActive)}
@@ -42,6 +42,9 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
               : undefined,
           }}
         />
+        <span className="font-mono text-[9px] text-muted uppercase-tracked select-none" aria-hidden="true">
+          [ BYPASS: {engineActive ? 'ACTIVE' : 'INACTIVE'} ]
+        </span>
         <h1 className="font-display text-[16px] text-fg display-tracked mt-1 select-none">
           SYNTHORTION
         </h1>

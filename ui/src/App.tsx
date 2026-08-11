@@ -4,7 +4,6 @@ import { VstLayout } from './components/VstLayout'
 import { Header } from './components/Header'
 import { SystemBoot } from './components/SystemBoot'
 import { GainMeter } from './components/GainMeter'
-import { TrimFader } from './components/TrimFader'
 import { MatrixFaceplate } from './components/MatrixFaceplate'
 import { FftVisualizer } from './components/FftVisualizer'
 import { initialState, diffPluginState, type PluginState } from './lib/pluginState'
@@ -22,11 +21,6 @@ const MODULE_POWER_KEYS: ReadonlySet<string> = new Set([
 interface AppProps {
   /** Integration seam for the future C++ DSP bridge. */
   dspBridge?: DspBridge
-}
-
-/** Format a TRIM value in dB, prefixing non-negative values with a "+" (+0, +6). */
-function formatTrimValue(value: number): string {
-  return value >= 0 ? `+${Math.round(value)}` : `${Math.round(value)}`
 }
 
 /**
@@ -78,24 +72,10 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
       <div className="flex items-start justify-center min-h-screen py-8">
         <VstLayout
           leftColumn={
-            <GainMeter label="IN" active={state.engineActive} delay={50}>
-              <TrimFader
-                label="TRIM"
-                value={state.inputGain}
-                displayValue={formatTrimValue(state.inputGain)}
-                onChange={(value) => update({ inputGain: value })}
-              />
-            </GainMeter>
+            <GainMeter label="IN" active={state.engineActive} delay={50} />
           }
           rightColumn={
-            <GainMeter label="OUT" active={state.engineActive} delay={260}>
-              <TrimFader
-                label="TRIM"
-                value={state.outputGain}
-                displayValue={formatTrimValue(state.outputGain)}
-                onChange={(value) => update({ outputGain: value })}
-              />
-            </GainMeter>
+            <GainMeter label="OUT" active={state.engineActive} delay={260} />
           }
         >
           <main className="flex-1 flex flex-col bg-bg bg-gradient-panel border-t border-elev-6">

@@ -47,15 +47,29 @@ function ModuleFrame({
 }: ModuleFrameProps) {
   return (
     <section
-      className={`p-6 pb-6 flex flex-col items-center justify-between relative group hover:bg-elev-0 transition-colors ${className ?? ''}`}
+      className={`p-0 flex flex-col items-stretch justify-between relative group ${className ?? ''}`}
     >
-      <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-        <span
-          className="bg-elev-1 px-1.5 py-0.5 rounded-[2px] text-ink-3 font-display text-[9px] uppercase-tracked shadow-well"
-          aria-hidden="true"
-        >
-          {code}
+      {/* ASCII box-drawing header: ┌──[ DRV ]──[ PWR: ON ]──┐ */}
+      <div
+        className="flex items-center justify-between px-2 h-[24px] font-ascii text-[10px] leading-none select-none"
+        aria-hidden="true"
+      >
+        <span className="text-ink-3 whitespace-pre">┌──[ </span>
+        <span className="text-fg">{code}</span>
+        <span className="text-ink-3 whitespace-pre"> ]</span>
+        <span className="flex-1 text-ink-3 text-center px-1 truncate">
+          {'─'.repeat(8)}
         </span>
+        <span className="text-ink-3 whitespace-pre">[ PWR: </span>
+        <span className={powerOn ? 'text-fg' : 'text-ink-3'}>
+          {powerOn ? 'ON ' : 'OFF'}
+        </span>
+        <span className="text-ink-3 whitespace-pre">]──┐</span>
+      </div>
+
+      {/* Box-drawing left border is implied by section edges; keep the
+          interactive title controls absolutely positioned for keyboard/a11y. */}
+      <div className="absolute top-1 right-2 z-10 flex items-center">
         <motion.button
           type="button"
           onClick={onTogglePower}
@@ -75,12 +89,27 @@ function ModuleFrame({
           }}
         />
       </div>
+
+      <div className="px-4 pt-4 pb-3 flex-1 flex flex-col items-center justify-between">
+        <div
+          className={`flex-1 flex flex-col items-center justify-between w-full ${
+            powerOn ? '' : 'opacity-30 pointer-events-none'
+          }`}
+        >
+          {children}
+        </div>
+      </div>
+
+      {/* ASCII box-drawing footer border */}
       <div
-        className={`flex-1 flex flex-col items-center justify-between w-full ${
-          powerOn ? '' : 'opacity-30 pointer-events-none'
-        }`}
+        className="flex items-center px-2 h-[18px] font-ascii text-[10px] leading-none select-none"
+        aria-hidden="true"
       >
-        {children}
+        <span className="text-ink-3 whitespace-pre">└</span>
+        <span className="flex-1 text-ink-3 text-center truncate">
+          {'─'.repeat(20)}
+        </span>
+        <span className="text-ink-3 whitespace-pre">┘</span>
       </div>
     </section>
   )

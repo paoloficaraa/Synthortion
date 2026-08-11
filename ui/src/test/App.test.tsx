@@ -47,14 +47,14 @@ describe('App', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders IN and OUT meter columns with a TRIM fader in each', () => {
+  it('renders IN and OUT meter columns without TRIM faders in the rails', () => {
     render(<App />)
 
     expect(screen.getByText('IN')).toBeInTheDocument()
     expect(screen.getByText('OUT')).toBeInTheDocument()
 
-    const trims = screen.getAllByRole('slider', { name: 'TRIM' })
-    expect(trims).toHaveLength(2)
+    // Side rails host meter columns only — the TrimFader slider is gone.
+    expect(screen.queryAllByRole('slider', { name: 'TRIM' })).toHaveLength(0)
   })
 
   it('places IN/OUT meters in full-height side-bordered rails', () => {
@@ -71,64 +71,25 @@ describe('App', () => {
     expect(rightRail).toContainElement(screen.getByText('OUT'))
   })
 
-  it('binds both TRIM faders to the -24..+24 dB range', () => {
-    render(<App />)
+  it('renders the IN/OUT meters as box-framed ASCII ladders with dB readouts', () => {
+    const { container } = render(<App />)
 
-    const [inTrim, outTrim] = screen.getAllByRole('slider', { name: 'TRIM' })
-    expect(inTrim).toHaveAttribute('aria-valuemin', '-24')
-    expect(inTrim).toHaveAttribute('aria-valuemax', '24')
-    expect(outTrim).toHaveAttribute('aria-valuemin', '-24')
-    expect(outTrim).toHaveAttribute('aria-valuemax', '24')
-  })
+    const meters = container.querySelectorAll('[role="meter"]')
+    expect(meters).toHaveLength(2)
 
-  it('starts both TRIM faders at 0 dB', () => {
-    render(<App />)
+    // Each meter readout is bracketed: [ -INF ] / [ 0dB ].
+    const readouts = [...meters].map((m) => m.textContent)
+    expect(readouts[0]).toContain('-INF')
+    expect(readouts[1]).toContain('-INF')
 
-    const [inTrim, outTrim] = screen.getAllByRole('slider', { name: 'TRIM' })
-    expect(inTrim).toHaveAttribute('aria-valuenow', '0')
-    expect(inTrim).toHaveAttribute('aria-valuetext', '+0')
-    expect(outTrim).toHaveAttribute('aria-valuenow', '0')
-    expect(outTrim).toHaveAttribute('aria-valuetext', '+0')
-  })
-
-  it('formats positive trim with a leading +n dB string', () => {
-    render(<App />)
-
-    const [inTrim] = screen.getAllByRole('slider', { name: 'TRIM' })
-    // dy = 100 - 80 = 20 → value = 0 + 20 * 0.5 * (48/100) = 4.8 → "+5"
-    fireEvent.pointerDown(inTrim, { clientY: 100, pointerId: 1 })
-    fireEvent.pointerMove(inTrim, { clientY: 80, pointerId: 1 })
-    fireEvent.pointerUp(inTrim, { pointerId: 1 })
-
-    expect(screen.getByText('+5')).toBeInTheDocument()
-    expect(inTrim).toHaveAttribute('aria-valuetext', '+5')
-  })
-
-  it('formats negative trim as a -n dB string', () => {
-    render(<App />)
-
-    const [inTrim] = screen.getAllByRole('slider', { name: 'TRIM' })
-    // dy = 100 - 120 = -20 → value = -4.8 → "-5"
-    fireEvent.pointerDown(inTrim, { clientY: 100, pointerId: 1 })
-    fireEvent.pointerMove(inTrim, { clientY: 120, pointerId: 1 })
-    fireEvent.pointerUp(inTrim, { pointerId: 1 })
-
-    expect(screen.getByText('-5')).toBeInTheDocument()
-    expect(inTrim).toHaveAttribute('aria-valuetext', '-5')
-  })
-
-  it('adjusts the output trim fader independently of the input', () => {
-    render(<App />)
-
-    const [inTrim, outTrim] = screen.getAllByRole('slider', { name: 'TRIM' })
-    // dy = 200 - 160 = 40 → value = 9.6 → "+10"
-    fireEvent.pointerDown(outTrim, { clientY: 200, pointerId: 1 })
-    fireEvent.pointerMove(outTrim, { clientY: 160, pointerId: 1 })
-    fireEvent.pointerUp(outTrim, { pointerId: 1 })
-
-    expect(outTrim).toHaveAttribute('aria-valuetext', '+10')
-    expect(screen.getByText('+10')).toBeInTheDocument()
-    expect(inTrim).toHaveAttribute('aria-valuetext', '+0')
+    // Box-drawing frame glyphs frame the ladder.
+    const frame = container.querySelector('[role="meter"]')
+    expect(frame).toBeInTheDocument()
+    const asciiBoxes = Array.from(container.querySelectorAll('.font-ascii'))
+    expect(asciiBoxes.length).toBeGreaterThan(0)
+    const boxText = asciiBoxes.map((n) => n.textContent ?? '').join(' ')
+    expect(boxText).toContain('┌')
+    expect(boxText).toContain('┐')
   })
 
   it('renders the Matrix Faceplate control rows (DRV, BCR, DLY, CHR)', () => {

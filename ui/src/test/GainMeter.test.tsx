@@ -39,16 +39,6 @@ describe('GainMeter', () => {
       expect(canvas.height).toBe(CANVAS_HEIGHT)
     })
 
-    it('renders children (e.g. a TrimFader) inside the column', () => {
-      render(
-        <GainMeter label="IN" active={false}>
-          <button type="button">TRIM</button>
-        </GainMeter>
-      )
-
-      expect(screen.getByRole('button', { name: 'TRIM' })).toBeInTheDocument()
-    })
-
     it('applies the prototype entrance delay to the meter column', () => {
       const { container } = render(<GainMeter label="IN" active={false} delay={50} />)
 
