@@ -14,7 +14,7 @@ interface MatrixFaceplateProps {
 const delaySyncOptions: readonly ToggleOption[] = [
   { value: 'SYNC', label: 'SYNC' },
   { value: 'FREE', label: 'FREE' },
-  { value: 'PING-PONG', label: 'PANG' },
+  { value: 'PING-PONG', label: 'PING-PONG' },
 ]
 
 interface ModuleFrameProps {
@@ -89,18 +89,25 @@ function ModuleFrame({
           }}
         />
       </div>
-
-      <div className="px-4 pt-4 pb-3 flex-1 flex flex-col items-center justify-between">
-        <div
-          className={`flex-1 flex flex-col items-center justify-between w-full ${
-            powerOn ? '' : 'opacity-30 pointer-events-none'
-          }`}
-        >
-          {children}
+      <div className="relative flex-1 flex items-stretch w-full min-h-0">
+        <div className="font-ascii text-[10px] text-ink-3 select-none py-2 px-0.5 flex flex-col justify-between" aria-hidden="true">
+          <span>│</span>
+          <span>│</span>
+        </div>
+        <div className="px-2 pt-4 pb-3 flex-1 flex flex-col items-center justify-between min-w-0">
+          <div
+            className={`flex-1 flex flex-col items-center justify-between w-full ${
+              powerOn ? '' : 'opacity-30 pointer-events-none'
+            }`}
+          >
+            {children}
+          </div>
+        </div>
+        <div className="font-ascii text-[10px] text-ink-3 select-none py-2 px-0.5 flex flex-col justify-between" aria-hidden="true">
+          <span>│</span>
+          <span>│</span>
         </div>
       </div>
-
-      {/* ASCII box-drawing footer border */}
       <div
         className="flex items-center px-2 h-[18px] font-ascii text-[10px] leading-none select-none"
         aria-hidden="true"

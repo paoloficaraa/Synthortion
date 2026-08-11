@@ -39,6 +39,8 @@ interface GainMeterProps {
  */
 export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const meterRef = useRef<HTMLDivElement>(null)
+  const readoutTextRef = useRef<HTMLSpanElement>(null)
   const levelRef = useRef(0)
 
   useEffect(() => {
@@ -77,7 +79,14 @@ export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
           Math.min(EIGHTHS_PER_ROW, totalEighths - rowsBelow * EIGHTHS_PER_ROW)
         )
 
-        if (eighths <= 0) continue
+        if (eighths <= 0) {
+          if (active || levelRef.current > 0.01) {
+            ctx.fillStyle = METER_WELL
+            const y = i * FONT_SIZE
+            ctx.fillText('·', 0, y)
+          }
+          continue
+        }
 
         const isPeak = i < PEAK_ROWS
         const fill = Math.max(1, Math.min(EIGHTHS_PER_ROW, Math.round(eighths)))
@@ -103,6 +112,22 @@ export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
         ctx.fillText(char, 0, y)
       }
 
+      // Update dynamic ARIA attributes and bracketed dB readout
+      if (meterRef.current && readoutTextRef.current) {
+        if (levelRef.current < 0.01) {
+          meterRef.current.setAttribute('aria-valuenow', '-120')
+          meterRef.current.setAttribute('aria-valuetext', '-INF')
+          readoutTextRef.current.textContent = '-INF'
+        } else {
+          const db = Math.min(0, Math.max(-60, Math.round((levelRef.current - 1) * 60)))
+          const absVal = Math.abs(db).toString().padStart(2, '0')
+          const text = `${db < 0 ? '-' : '+'}${absVal}dB`
+          meterRef.current.setAttribute('aria-valuenow', db.toString())
+          meterRef.current.setAttribute('aria-valuetext', text)
+          readoutTextRef.current.textContent = text
+        }
+      }
+
       if (active || levelRef.current > 0.01) {
         raf = requestAnimationFrame(draw)
       } else {
@@ -110,7 +135,6 @@ export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
         ctx.fillRect(0, 0, canvas.width, canvas.height)
       }
     }
-
     if (active) draw()
     else raf = requestAnimationFrame(draw)
 
@@ -146,18 +170,19 @@ export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
         </div>
       </div>
       <div className="font-ascii text-[9px] text-ink-3 whitespace-pre leading-none mt-1" aria-hidden="true">
-        └{'─'.repeat(3)}┘
+        └{'─'.repeat(label.length + 2)}┘
       </div>
       <div
+        ref={meterRef}
         role="meter"
-        aria-valuenow={0}
+        aria-valuenow={-120}
         aria-valuemin={-120}
         aria-valuemax={0}
         aria-valuetext="-INF"
         className="font-mono text-[7px] text-ink-1 mt-2 font-bold leading-none"
       >
         <span aria-hidden="true">[ </span>
-        -INF
+        <span ref={readoutTextRef}>-INF</span>
         <span aria-hidden="true"> ]</span>
       </div>
     </div>

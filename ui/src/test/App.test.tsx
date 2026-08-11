@@ -77,11 +77,11 @@ describe('App', () => {
     const meters = container.querySelectorAll('[role="meter"]')
     expect(meters).toHaveLength(2)
 
-    // Each meter readout is bracketed: [ -INF ] / [ 0dB ].
-    const readouts = [...meters].map((m) => m.textContent)
-    expect(readouts[0]).toContain('-INF')
-    expect(readouts[1]).toContain('-INF')
-
+    // Each meter readout is bracketed: [ -INF ] / [ -06dB ].
+    const readouts = [...meters].map((m) => m.textContent ?? '')
+    const bracketPattern = /\[ (?:-INF|[-+]\d{2}dB) \]/
+    expect(readouts[0]).toMatch(bracketPattern)
+    expect(readouts[1]).toMatch(bracketPattern)
     // Box-drawing frame glyphs frame the ladder.
     const frame = container.querySelector('[role="meter"]')
     expect(frame).toBeInTheDocument()

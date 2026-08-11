@@ -43,7 +43,7 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
           }}
         />
         <span className="font-mono text-[9px] text-muted uppercase-tracked select-none" aria-hidden="true">
-          [ BYPASS: {engineActive ? 'ACTIVE' : 'INACTIVE'} ]
+          [ BYPASS: {engineActive ? 'INACTIVE' : 'ACTIVE'} ]
         </span>
         <h1 className="font-display text-[16px] text-fg display-tracked mt-1 select-none">
           SYNTHORTION

@@ -33,6 +33,17 @@ const DRAG_SENSITIVITY = 0.5
 /** Shift held during drag scales normal sensitivity by this (fine step, ×0.1). */
 const FINE_STEP_FACTOR = 0.1
 
+/** CRT noise symbols for character-scrambling glitch corruption during drag. */
+const GLITCH_CHARS = ['░', '▒', '▓', '█', '┼', '▚', '?', '#', '!', '&']
+
+/** Formats ASCII scale ruler indicators (e.g. `0% . . + . . 100%`, `2B . . + . . 24B`). */
+function formatRulerText(min: number, max: number, displayValue: string): string {
+  const unitMatch = displayValue.match(/[%a-zA-Z]+$/)
+  const unit = unitMatch ? unitMatch[0] : ''
+  const minStr = `${min}${unit}`
+  const maxStr = max >= 1000 ? `${max / 1000}k${unit}` : `${max}${unit}`
+  return `${minStr} . . + . . ${maxStr}`
+}
 /**
  * Knob — horizontal ASCII block control with live numeric readout.
  *
@@ -123,8 +134,6 @@ export function Knob({
   const pct = max === min ? 0 : (value - min) / (max - min)
   const pointerIndex = Math.round(pct * (TRACK_CELLS - 1))
   const cells: Array<{ char: string; filled: boolean }> = []
-  const GLITCH_CHARS = ['░', '▒', '▓', '█', '┼', '▚', '?', '#', '!', '&']
-
   for (let i = 0; i < TRACK_CELLS; i++) {
     const isPointer = i === pointerIndex
     // Deterministic scramble keyed on the live value: as `value` changes
@@ -180,7 +189,7 @@ export function Knob({
           <span className={`text-ink-3 ${isDraggingState ? 'knob-glitch' : ''}`}>]</span>
         </span>
         <div className="text-[6px] text-ink-3 mt-0.5 whitespace-nowrap">
-          0% . . + . . 100%
+          {formatRulerText(min, max, displayValue)}
         </div>
       </motion.div>
       <div className="flex flex-col items-center mt-1">
