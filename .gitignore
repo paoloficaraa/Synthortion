@@ -107,10 +107,6 @@ graphify-out/
 format-context.js
 
 # ==========================================
-# SANDCASTLE AGENT PIPELINE (set up fresh from template)
-# ==========================================
-
-.sandcastle/
 
 # ==========================================
 # AUDIO PLUGIN SPECIFIC
@@ -139,3 +135,5 @@ ehthumbs.db
 # libs/
 
 node_modules/
+
+.sandcastle/*

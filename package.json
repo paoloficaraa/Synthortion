@@ -1,6 +1,10 @@
 {
   "scripts": {
-    "sandcastle": "npx tsx .sandcastle/main.mts"
+    "sandcastle": "npx tsx .sandcastle/main.mts",
+    "typecheck": "npm --prefix ui run typecheck",
+    "test": "npm --prefix ui run test:run",
+    "lint": "npm --prefix ui run lint",
+    "build": "npm --prefix ui run build"
   },
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.12.0",
