@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
+import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { motion } from 'framer-motion'
 
 /** dB range — the same -24..+24 span used on the IN/OUT rails. */
@@ -53,12 +53,14 @@ export function TrimFader({
   label = 'TRIM',
 }: TrimFaderProps) {
   const isDragging = useRef(false)
+  const [isDraggingState, setIsDraggingState] = useState(false)
   const startY = useRef(0)
   const startVal = useRef(0)
 
   const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (!enabled) return
     isDragging.current = true
+    setIsDraggingState(true)
     startY.current = e.clientY
     startVal.current = value
     if (e.currentTarget.setPointerCapture) {
@@ -78,6 +80,7 @@ export function TrimFader({
 
   const handlePointerEnd = (e: PointerEvent<HTMLDivElement>) => {
     isDragging.current = false
+    setIsDraggingState(false)
     if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId)
     }
@@ -148,7 +151,9 @@ export function TrimFader({
           {track.map((char, i) => (
             <span
               key={i}
-              className={char === BLOCK_EMPTY ? 'text-ink-3' : 'text-fg'}
+              className={`${char === BLOCK_EMPTY ? 'text-ink-3' : 'text-fg'} ${
+                isDraggingState ? 'trim-glitch' : ''
+              }`}
             >
               {char}
             </span>

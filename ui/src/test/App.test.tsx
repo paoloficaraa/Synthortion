@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import App from '../App'
 import { createMockCanvasContext } from './mockCanvasContext'
@@ -399,5 +399,35 @@ describe('App', () => {
     expect(
       screen.queryByTestId('system-boot-overlay')
     ).not.toBeInTheDocument()
+  })
+
+  it('micro-glitches the active Drive knob track during drag and keeps its readout clean', () => {
+    render(<App />)
+
+    const drive = screen.getByRole('slider', { name: 'Drive' })
+    // Scope via the Knob's parent wrapper (direct parent of the slider div).
+    const driveKnob = drive.parentElement!
+    // Value text rendered before the drag — must stay clean throughout.
+    expect(within(driveKnob).getByText('40%')).toBeInTheDocument()
+
+    fireEvent.pointerDown(drive, { clientY: 200, pointerId: 1 })
+    // The drive knob track exposes the glitched border cells while active.
+    const driveTrack = within(drive).getByTestId('knob-track')
+    expect(driveTrack.querySelectorAll('.knob-glitch')).toHaveLength(2)
+    // The other modules' knobs must NOT micro-glitch — only the active one.
+    const bitcrushTrack = within(
+      screen.getByRole('slider', { name: 'Bitcrush' }),
+    ).getByTestId('knob-track')
+    expect(bitcrushTrack.querySelectorAll('.knob-glitch')).toHaveLength(0)
+
+    // Drag and release.
+    act(() => {
+      fireEvent.pointerMove(drive, { clientY: 180, pointerId: 1 })
+    })
+    // The drive changed from 40 to 50 after the drag; readout must be clean.
+    const readout = within(driveKnob).getByText('50%')
+    expect(readout).not.toHaveClass('knob-glitch')
+
+    fireEvent.pointerUp(drive, { pointerId: 1 })
   })
 })

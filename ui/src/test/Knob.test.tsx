@@ -186,6 +186,48 @@ describe('Knob', () => {
       expect(onChange).toHaveBeenCalledWith(0)
     })
   })
+  describe('active-drag micro-glitch', () => {
+    it('applies a micro-glitch class to the track border cells while dragging', () => {
+      const { slider, onChange } = renderKnob(50)
+
+      fireEvent.pointerDown(slider, { clientY: 200, pointerId: 1 })
+      // While active, the border spans `[` and `]` are flagged for flickering.
+      const track = screen.getByTestId('knob-track')
+      const borders = Array.from(track.querySelectorAll('.knob-glitch'))
+      // Exactly the two border cells are glitched — not the inner track cells.
+      expect(borders).toHaveLength(2)
+
+      fireEvent.pointerMove(slider, { clientY: 180, pointerId: 1 })
+      fireEvent.pointerUp(slider, { pointerId: 1 })
+      expect(onChange).toHaveBeenCalledWith(60)
+    })
+
+    it('clears the micro-glitch class when the drag ends', () => {
+      const { slider } = renderKnob(50)
+
+      fireEvent.pointerDown(slider, { clientY: 200, pointerId: 1 })
+      expect(screen.getByTestId('knob-track').querySelectorAll('.knob-glitch'))
+        .toHaveLength(2)
+
+      fireEvent.pointerUp(slider, { pointerId: 1 })
+      expect(screen.getByTestId('knob-track').querySelectorAll('.knob-glitch'))
+        .toHaveLength(0)
+    })
+
+    it('keeps the numeric readout free of the micro-glitch class', () => {
+      const { slider } = renderKnob(50, {
+        displayValue: '50%',
+      })
+
+      fireEvent.pointerDown(slider, { clientY: 200, pointerId: 1 })
+      // The displayValue readout must never carry the glitch class —
+      // 100% numeric legibility is an acceptance criterion.
+      const readout = screen.getByText('50%')
+      expect(readout).not.toHaveClass('knob-glitch')
+
+      fireEvent.pointerUp(slider, { pointerId: 1 })
+    })
+  })
 
   describe('keyboard step boundaries', () => {
     it('increments by step on ArrowUp', () => {

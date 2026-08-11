@@ -158,13 +158,13 @@ export function Knob({
           aria-hidden="true"
           data-testid="knob-track"
         >
-          <span className="text-ink-3">[</span>
+          <span className={`text-ink-3 ${isDraggingState ? 'knob-glitch' : ''}`}>[</span>
           {cells.map((cell, i) => (
             <span key={i} className={cell.filled ? 'text-fg' : 'text-ink-3'}>
               {cell.char}
             </span>
           ))}
-          <span className="text-ink-3">]</span>
+          <span className={`text-ink-3 ${isDraggingState ? 'knob-glitch' : ''}`}>]</span>
         </span>
       </motion.div>
       <div className="flex flex-col items-center mt-1">

@@ -185,6 +185,47 @@ describe('TrimFader', () => {
       expect(onChange).toHaveBeenCalledWith(MIN_DB)
     })
   })
+  describe('active-drag micro-glitch', () => {
+    it('applies a micro-glitch class to track cells while dragging', () => {
+      const { slider, onChange } = renderFader(0)
+
+      fireEvent.pointerDown(slider, { clientY: 200, pointerId: 1 })
+      // Track character spans flagged for flickering while the pointer is down.
+      const track = screen.getByTestId('trim-track')
+      const glitched = track.querySelectorAll('.trim-glitch')
+      expect(glitched.length).toBeGreaterThan(0)
+
+      fireEvent.pointerMove(slider, { clientY: 180, pointerId: 1 })
+      fireEvent.pointerUp(slider, { pointerId: 1 })
+      expect(onChange).toHaveBeenCalledWith(4.8)
+    })
+
+    it('clears the micro-glitch class when the drag ends', () => {
+      const { slider } = renderFader(0)
+
+      fireEvent.pointerDown(slider, { clientY: 200, pointerId: 1 })
+      expect(
+        screen.getByTestId('trim-track').querySelectorAll('.trim-glitch').length,
+      ).toBeGreaterThan(0)
+
+      fireEvent.pointerUp(slider, { pointerId: 1 })
+      expect(
+        screen.getByTestId('trim-track').querySelectorAll('.trim-glitch').length,
+      ).toBe(0)
+    })
+
+    it('keeps the numeric readout free of the micro-glitch class', () => {
+      const { slider } = renderFader(0, { displayValue: '+0' })
+
+      fireEvent.pointerDown(slider, { clientY: 200, pointerId: 1 })
+      // Readout must stay clean: 100% numeric legibility is an acceptance
+      // criterion of issue #64.
+      const readout = screen.getByText('+0')
+      expect(readout).not.toHaveClass('trim-glitch')
+
+      fireEvent.pointerUp(slider, { pointerId: 1 })
+    })
+  })
 
   describe('keyboard step boundaries', () => {
     it('increments by 1 dB on ArrowUp', () => {
