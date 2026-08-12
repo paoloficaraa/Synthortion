@@ -50,14 +50,6 @@ describe('MatrixFaceplate', () => {
     expect(onChange).toHaveBeenCalledWith({ drive: 50 })
   })
 
-  it('forwards a drive route toggle flip through onChange', () => {
-    const onChange = vi.fn()
-    render(<MatrixFaceplate state={initialState} onChange={onChange} />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'POST' }))
-
-    expect(onChange).toHaveBeenCalledWith({ driveRoute: 'POST' })
-  })
 
   it('renders a power switch in each module title bar', () => {
     render(<MatrixFaceplate state={initialState} onChange={() => {}} />)

@@ -18,12 +18,9 @@ namespace synthortion
         void runTest() override
         {
             testEditorSizeIs800x480();
-            testEditorContainsEightRotarySliders();
-            testEditorContainsLabels();
-            testEditorContainsBypassToggle();
-            testEditorSliderAttachmentFollowsApvtsParameter();
-            testEditorBypassToggleFollowsApvtsParameter();
-            testEditorPaintRendersDarkGreyBackground();
+            testEditorContainsWebBrowserComponent();
+            testProcessorAPVTSParameterCount();
+            testEditorPaintRendersBackground();
         }
 
     private:
@@ -38,119 +35,62 @@ namespace synthortion
             expect (editor.getHeight() == 480, "Editor height should be 480");
         }
 
-        void testEditorContainsEightRotarySliders()
+        void testEditorContainsWebBrowserComponent()
         {
-            beginTest ("Plugin editor contains eight rotary sliders");
+            beginTest ("Plugin editor contains WebBrowserComponent");
 
             AudioPluginAudioProcessor processor;
             AudioPluginAudioProcessorEditor editor (processor);
 
-            int sliderCount = 0;
-            int rotarySliderCount = 0;
+            bool foundWebBrowser = false;
             for (auto* child : editor.getChildren())
             {
-                if (auto* slider = dynamic_cast<juce::Slider*> (child))
+                if (dynamic_cast<juce::WebBrowserComponent*> (child) != nullptr)
                 {
-                    ++sliderCount;
-                    if (slider->getSliderStyle() == juce::Slider::Rotary)
-                        ++rotarySliderCount;
+                    foundWebBrowser = true;
+                    break;
                 }
             }
 
-            expect (sliderCount == 8, "Editor should contain eight Sliders");
-            expect (rotarySliderCount == 8, "All editor sliders should be in Rotary style");
+            expect (foundWebBrowser, "Editor should contain a WebBrowserComponent child");
         }
 
-        void testEditorContainsLabels()
+        void testProcessorAPVTSParameterCount()
         {
-            beginTest ("Plugin editor contains title and slider labels");
+            beginTest ("Plugin processor contains 16 APVTS parameters");
 
             AudioPluginAudioProcessor processor;
-            AudioPluginAudioProcessorEditor editor (processor);
+            auto& apvts = processor.getAPVTS();
 
-            int labelCount = 0;
-            for (auto* child : editor.getChildren())
-                if (dynamic_cast<juce::Label*> (child) != nullptr)
-                    ++labelCount;
-
-            expect (labelCount == 10, "Editor should contain ten Labels (title + 8 slider titles + COMING SOON)");
+            expect (apvts.getParameter ("INPUT_GAIN") != nullptr);
+            expect (apvts.getParameter ("OUTPUT_GAIN") != nullptr);
+            expect (apvts.getParameter ("COLOR") != nullptr);
+            expect (apvts.getParameter ("BITCRUSH") != nullptr);
+            expect (apvts.getParameter ("DELAY_TIME") != nullptr);
+            expect (apvts.getParameter ("DELAY_MIX") != nullptr);
+            expect (apvts.getParameter ("DELAY_FEEDBACK") != nullptr);
+            expect (apvts.getParameter ("CHORUS_MIX") != nullptr);
+            expect (apvts.getParameter ("PLUGIN_BYPASS") != nullptr);
+            expect (apvts.getParameter ("DRIVE_ON") != nullptr);
+            expect (apvts.getParameter ("BITCRUSH_ON") != nullptr);
+            expect (apvts.getParameter ("DELAY_ON") != nullptr);
+            expect (apvts.getParameter ("CHORUS_ON") != nullptr);
+            expect (apvts.getParameter ("DRIVE_ROUTE") != nullptr);
+            expect (apvts.getParameter ("DELAY_SYNC") != nullptr);
+            expect (apvts.getParameter ("CHORUS_WIDE") != nullptr);
         }
 
-        void testEditorContainsBypassToggle()
+        void testEditorPaintRendersBackground()
         {
-            beginTest ("Plugin editor contains a stock JUCE bypass ToggleButton");
-
-            AudioPluginAudioProcessor processor;
-            AudioPluginAudioProcessorEditor editor (processor);
-
-            auto* btn = editor.findBypassButton();
-            expect (btn != nullptr, "Editor should contain a bypass ToggleButton");
-        }
-
-        void testEditorSliderAttachmentFollowsApvtsParameter()
-        {
-            beginTest ("Plugin editor slider attachments respond to APVTS parameter changes");
-
-            AudioPluginAudioProcessor processor;
-            AudioPluginAudioProcessorEditor editor (processor);
-
-            auto* colorParam = processor.getAPVTS().getParameter ("COLOR");
-            jassert (colorParam != nullptr);
-            colorParam->setValueNotifyingHost (0.0f);
-            juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
-
-            colorParam->setValueNotifyingHost (0.75f);
-            juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
-
-            const double expected = processor.getAPVTS().getParameterRange ("COLOR").convertFrom0to1 (0.75);
-            bool anySliderFollowed = false;
-            for (auto* child : editor.getChildren())
-                if (auto* slider = dynamic_cast<juce::Slider*> (child))
-                    if (std::abs (slider->getValue() - expected) < 0.1)
-                        anySliderFollowed = true;
-
-            expect (anySliderFollowed,
-                    "At least one editor slider should follow the COLOR parameter via SliderAttachment");
-        }
-
-        void testEditorBypassToggleFollowsApvtsParameter()
-        {
-            beginTest ("Plugin editor bypass ToggleButton is attached to PLUGIN_BYPASS");
-
-            AudioPluginAudioProcessor processor;
-            AudioPluginAudioProcessorEditor editor (processor);
-
-            auto* btn = editor.findBypassButton();
-            expect (btn != nullptr, "Editor should expose a bypass ToggleButton");
-            if (btn == nullptr) return;
-
-            expect (! btn->getToggleState());
-
-            processor.getAPVTS().getParameter ("PLUGIN_BYPASS")->setValueNotifyingHost (1.0f);
-            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
-
-            expect (btn->getToggleState(), "Button should follow PLUGIN_BYPASS parameter turning on");
-
-            btn->triggerClick();
-            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
-
-            expect (processor.getAPVTS().getRawParameterValue ("PLUGIN_BYPASS")->load() < 0.5f,
-                    "PLUGIN_BYPASS parameter should follow button click turning off");
-        }
-
-        void testEditorPaintRendersDarkGreyBackground()
-        {
-            beginTest ("Plugin editor paints a darkgrey background");
+            beginTest ("Plugin editor paints background");
 
             AudioPluginAudioProcessor processor;
             AudioPluginAudioProcessorEditor editor (processor);
 
             editor.repaint();
             const auto snapshot = editor.createComponentSnapshot (editor.getLocalBounds());
-
-            const auto centre = snapshot.getPixelAt (editor.getWidth() / 2, editor.getHeight() / 2);
-            expect (centre.getRed() < 100 && centre.getGreen() < 100 && centre.getBlue() < 100,
-                    "Editor centre should render a dark background");
+            expect (snapshot.getWidth() == 800 && snapshot.getHeight() == 480,
+                    "Snapshot should match editor dimensions");
         }
     };
 

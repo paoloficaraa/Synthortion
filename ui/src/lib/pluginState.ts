@@ -1,10 +1,5 @@
 import type { DspCall } from './dspBridge'
 
-/** Drive route selectable on the faceplate. */
-export type DriveRoute = 'PRE' | 'POST'
-
-/** Delay timebase tie on the faceplate. */
-export type DelaySync = 'SYNC' | 'FREE' | 'PING-PONG'
 
 /**
  * Full plugin state hoisted to the App root as controlled props.
@@ -17,14 +12,14 @@ export type DelaySync = 'SYNC' | 'FREE' | 'PING-PONG'
  */
 export interface PluginState {
   drive: number
-  driveRoute: DriveRoute
   driveOn: boolean
+  driveRoute: 'PRE' | 'POST'
   bitcrush: number
   bitcrushOn: boolean
   delayMix: number
   delayTime: number
   delayFbk: number
-  delaySync: DelaySync
+  delaySync: 'SYNC' | 'FREE' | 'PING-PONG'
   delayOn: boolean
   chorus: number
   chorusWide: boolean
@@ -37,8 +32,8 @@ export interface PluginState {
 /** Factory defaults, matching the prototype's initial values. */
 export const initialState: PluginState = {
   drive: 40,
-  driveRoute: 'PRE',
   driveOn: true,
+  driveRoute: 'PRE',
   bitcrush: 12,
   bitcrushOn: true,
   delayMix: 30,
@@ -53,6 +48,7 @@ export const initialState: PluginState = {
   outputGain: 0,
   engineActive: true,
 }
+
 
 /**
  * Diff two plugin states into the bridge calls the App root must push.

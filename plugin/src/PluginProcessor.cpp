@@ -64,16 +64,26 @@ namespace synthortion
             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
             0.0f));
 
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"VOLUME_COMPENSATION", 1},
-            "Volume Compensation",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 1.0f),
-            1.0f));
-
         layout.add(std::make_unique<juce::AudioParameterBool>(
             juce::ParameterID{"PLUGIN_BYPASS", 1},
             "Bypass",
             false));
+
+        layout.add(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID{"DRIVE_ON", 1}, "Drive On", true));
+        layout.add(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID{"BITCRUSH_ON", 1}, "Bitcrush On", true));
+        layout.add(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID{"DELAY_ON", 1}, "Delay On", true));
+        layout.add(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID{"CHORUS_ON", 1}, "Chorus On", true));
+        layout.add(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID{"DRIVE_ROUTE", 1}, "Drive Route Post", false));
+        layout.add(std::make_unique<juce::AudioParameterChoice>(
+            juce::ParameterID{"DELAY_SYNC", 1}, "Delay Sync Mode",
+            juce::StringArray{"SYNC", "FREE", "PING-PONG"}, 0));
+        layout.add(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID{"CHORUS_WIDE", 1}, "Chorus Wide", false));
 
         return layout;
     }
@@ -105,12 +115,22 @@ namespace synthortion
         jassert(delayFeedbackParam != nullptr);
         chorusMixParam = apvts.getRawParameterValue("CHORUS_MIX");
         jassert(chorusMixParam != nullptr);
-
-        volumeCompParam = apvts.getRawParameterValue("VOLUME_COMPENSATION");
-        jassert(volumeCompParam != nullptr);
-
         bypassParam = apvts.getRawParameterValue("PLUGIN_BYPASS");
         jassert(bypassParam != nullptr);
+        driveOnParam = apvts.getRawParameterValue("DRIVE_ON");
+        jassert(driveOnParam != nullptr);
+        bitcrushOnParam = apvts.getRawParameterValue("BITCRUSH_ON");
+        jassert(bitcrushOnParam != nullptr);
+        delayOnParam = apvts.getRawParameterValue("DELAY_ON");
+        jassert(delayOnParam != nullptr);
+        chorusOnParam = apvts.getRawParameterValue("CHORUS_ON");
+        jassert(chorusOnParam != nullptr);
+        driveRouteParam = apvts.getRawParameterValue("DRIVE_ROUTE");
+        jassert(driveRouteParam != nullptr);
+        delaySyncParam = apvts.getRawParameterValue("DELAY_SYNC");
+        jassert(delaySyncParam != nullptr);
+        chorusWideParam = apvts.getRawParameterValue("CHORUS_WIDE");
+        jassert(chorusWideParam != nullptr);
     }
 
     AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
@@ -155,10 +175,23 @@ namespace synthortion
         return 0.0;
     }
 
+    void AudioPluginAudioProcessor::handleMessage(const juce::String& message)
+    {
+        auto json = juce::JSON::parse(message);
+        if (auto* obj = json.getDynamicObject())
+        {
+            auto parameterId = obj->getProperty("parameterId").toString();
+            auto value = obj->getProperty("value");
+            if (auto* param = apvts.getParameter(parameterId))
+            {
+                param->setValueNotifyingHost(param->getNormalisableRange().convertTo0to1(static_cast<float>(value)));
+            }
+        }
+    }
+
     int AudioPluginAudioProcessor::getNumPrograms()
     {
-        return 1; // NB: some hosts don't cope very well if you tell them there are 0 programs,
-                  // so this should be at least 1, even if you're not really implementing programs.
+        return 1;
     }
 
     int AudioPluginAudioProcessor::getCurrentProgram()
@@ -258,8 +291,13 @@ namespace synthortion
         const float delayMix = delayMixParam->load(std::memory_order_relaxed);
         const float delayFeedback = delayFeedbackParam->load(std::memory_order_relaxed);
         const float chorusMix = chorusMixParam->load(std::memory_order_relaxed);
-        const bool volumeComp = volumeCompParam->load(std::memory_order_relaxed) > kBooleanThreshold;
+        const bool volumeComp = false; // Hardcoded since UI control removed
         const bool bypass = bypassParam->load(std::memory_order_relaxed) > kBooleanThreshold;
+        const bool driveOn = driveOnParam->load(std::memory_order_relaxed) > kBooleanThreshold;
+        const bool bitcrushOn = bitcrushOnParam->load(std::memory_order_relaxed) > kBooleanThreshold;
+        const bool delayOn = delayOnParam->load(std::memory_order_relaxed) > kBooleanThreshold;
+        const bool chorusOn = chorusOnParam->load(std::memory_order_relaxed) > kBooleanThreshold;
+        const bool drivePost = driveRouteParam->load(std::memory_order_relaxed) > kBooleanThreshold;
 
         inputGainSmoother.setTargetValue(inputGain);
         outputGainSmoother.setTargetValue(outputGain);
@@ -289,19 +327,39 @@ namespace synthortion
 
         if (!bypass)
         {
-            warmDistortion.setVolumeCompensation(volumeComp);
-            warmDistortion.process(context, &smoothedColorDrive);
+            auto runDrive = [&]() {
+                if (driveOn) {
+                    warmDistortion.setVolumeCompensation(volumeComp);
+                    warmDistortion.process(context, &smoothedColorDrive);
+                }
+            };
 
-            bitCrusher.setBitCrushMix(bitCrush);
-            bitCrusher.process(buffer);
+            auto runFx = [&]() {
+                if (bitcrushOn) {
+                    bitCrusher.setBitCrushMix(bitCrush);
+                    bitCrusher.process(buffer);
+                }
 
-            chorus.setChorusMix(chorusMix);
-            chorus.process(buffer);
+                if (chorusOn) {
+                    chorus.setChorusMix(chorusMix);
+                    chorus.process(buffer);
+                }
 
-            pingPongDelay.setDelayTime(delayTime);
-            pingPongDelay.setDelayMix(delayMix);
-            pingPongDelay.setFeedback(delayFeedback);
-            pingPongDelay.process(buffer);
+                if (delayOn) {
+                    pingPongDelay.setDelayTime(delayTime);
+                    pingPongDelay.setDelayMix(delayMix);
+                    pingPongDelay.setFeedback(delayFeedback);
+                    pingPongDelay.process(buffer);
+                }
+            };
+
+            if (drivePost) {
+                runFx();
+                runDrive();
+            } else {
+                runDrive();
+                runFx();
+            }
         }
 
         // Apply output gain with proper per-sample smoothing
@@ -337,7 +395,6 @@ namespace synthortion
         const float drive = smoothedColorDrive.getCurrentValue();
 
         warmDistortion.setDrive(drive);
-        warmDistortion.setVolumeCompensation(volumeCompParam->load() > kBooleanThreshold);
 
         bitCrusher.setBitCrushMix(bitCrushParam->load());
 

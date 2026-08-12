@@ -27,6 +27,7 @@ namespace synthortion
         bool isBusesLayoutSupported(const BusesLayout &layouts) const override;
         void processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) override;
         using AudioProcessor::processBlock;
+    void handleMessage(const juce::String& message);
 
         juce::AudioProcessorEditor *createEditor() override;
         bool hasEditor() const override;
@@ -73,8 +74,14 @@ namespace synthortion
         std::atomic<float>* delayMixParam = nullptr;
         std::atomic<float>* delayFeedbackParam = nullptr;
         std::atomic<float>* chorusMixParam = nullptr;
-        std::atomic<float>* volumeCompParam = nullptr;
         std::atomic<float>* bypassParam = nullptr;
+        std::atomic<float>* driveOnParam = nullptr;
+        std::atomic<float>* bitcrushOnParam = nullptr;
+        std::atomic<float>* delayOnParam = nullptr;
+        std::atomic<float>* chorusOnParam = nullptr;
+        std::atomic<float>* driveRouteParam = nullptr;
+        std::atomic<float>* delaySyncParam = nullptr;
+        std::atomic<float>* chorusWideParam = nullptr;
 
         juce::SmoothedValue<float> inputGainSmoother;
         juce::SmoothedValue<float> outputGainSmoother;

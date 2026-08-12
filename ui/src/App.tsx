@@ -7,7 +7,9 @@ import { GainMeter } from './components/GainMeter'
 import { MatrixFaceplate } from './components/MatrixFaceplate'
 import { FftVisualizer } from './components/FftVisualizer'
 import { initialState, diffPluginState, type PluginState } from './lib/pluginState'
-import { noopDspBridge, type DspBridge } from './lib/dspBridge'
+import { noopDspBridge, type DspBridge, PARAMETER_IDS } from './lib/dspBridge'
+import { toAPVTS } from './lib/parameterSpecs'
+import { subscribeToDspChanges } from './lib/webViewDspBridge'
 import { createGlitchPulser } from './lib/glitchPulser'
 
 /** Module power flags pulse a fixed 0.8 burst (spec: short glitch). */
@@ -44,7 +46,11 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
     const prev = prevStateRef.current
     prevStateRef.current = state
     for (const call of diffPluginState(prev, state)) {
-      dspBridge.setParameter(call.parameterId, call.value)
+      const apvtsId = PARAMETER_IDS[call.parameterId as keyof typeof PARAMETER_IDS]
+      if (apvtsId) {
+        const normalized = toAPVTS(call.parameterId as keyof PluginState, call.value)
+        dspBridge.setParameter(apvtsId, normalized)
+      }
 
       // Pulse the glitch pulser with |Δvalue| / 100.
       // Module power toggles fire a fixed 0.8 burst; other non-numeric
@@ -62,11 +68,14 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
       pulser.pulse(Math.min(1, delta))
     }
   }, [state, dspBridge, pulser])
-
   const update = (patch: Partial<PluginState>) => {
     setState((prev) => ({ ...prev, ...patch }))
   }
 
+  useEffect(() => {
+    const unsubscribe = subscribeToDspChanges(update)
+    return () => unsubscribe()
+  }, [])
   return (
     <MotionConfig reducedMotion="user">
       <div className="flex items-start justify-center min-h-screen py-8">

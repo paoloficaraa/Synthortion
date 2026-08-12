@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { Knob } from './Knob'
-import { Toggle, type ToggleOption } from './Toggle'
-import type { DelaySync, DriveRoute, PluginState } from '../lib/pluginState'
+import type { PluginState } from '../lib/pluginState'
 
 interface MatrixFaceplateProps {
   /** Full plugin state, owned by the App root. */
@@ -11,11 +10,6 @@ interface MatrixFaceplateProps {
   onChange: (patch: Partial<PluginState>) => void
 }
 
-const delaySyncOptions: readonly ToggleOption[] = [
-  { value: 'SYNC', label: 'SYNC' },
-  { value: 'FREE', label: 'FREE' },
-  { value: 'PING-PONG', label: 'PING-PONG' },
-]
 
 interface ModuleFrameProps {
   /** Module code rendered in the title bar (DRV/BCR/DLY/CHR). */
@@ -137,14 +131,11 @@ function ModuleFrame({
 export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
   const {
     drive,
-    driveRoute,
     bitcrush,
     delayMix,
     delayTime,
     delayFbk,
-    delaySync,
     chorus,
-    chorusWide,
     driveOn,
     bitcrushOn,
     delayOn,
@@ -168,17 +159,6 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             displayValue={`${Math.round(drive)}%`}
             enabled={driveOn}
             onChange={(value) => onChange({ drive: value })}
-          />
-        </div>
-        <div className="w-full flex gap-1 mt-8 opacity-40 hover:opacity-100 transition-opacity">
-          <Toggle
-            label="Drive route"
-            options={[
-              { value: 'PRE', label: 'PRE' },
-              { value: 'POST', label: 'POST' },
-            ]}
-            value={driveRoute}
-            onChange={(value) => onChange({ driveRoute: value as DriveRoute })}
           />
         </div>
       </ModuleFrame>
@@ -250,14 +230,6 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             />
           </div>
         </div>
-        <div className="w-[80%] max-w-[200px] flex gap-1 mt-8 opacity-40 hover:opacity-100 transition-opacity mx-auto">
-          <Toggle
-            label="Delay timebase"
-            options={delaySyncOptions}
-            value={delaySync}
-            onChange={(value) => onChange({ delaySync: value as DelaySync })}
-          />
-        </div>
       </ModuleFrame>
 
       {/* CHR — Chorus with WIDE on/off toggle */}
@@ -276,14 +248,6 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             displayValue={`${Math.round(chorus)}%`}
             enabled={chorusOn}
             onChange={(value) => onChange({ chorus: value })}
-          />
-        </div>
-        <div className="w-full mt-8 opacity-40 hover:opacity-100 transition-opacity">
-          <Toggle
-            label="Chorus width"
-            options={[{ value: 'on', label: 'WIDE' }]}
-            value={chorusWide ? 'on' : 'off'}
-            onChange={() => onChange({ chorusWide: !chorusWide })}
           />
         </div>
       </ModuleFrame>

@@ -8,15 +8,34 @@ export interface DspCall {
 }
 
 /**
- * Integration seam between the React UI and the future C++ DSP backend.
- *
- * A real implementation will be backed by `juce::WebBrowserComponent` native
- * IPC; the mock records every mutation so integration tests can prove that UI
- * manipulation lands at the top-level boundary as parameter changes.
+ * Integration seam between the React UI and the JUCE C++ DSP backend.
  */
 export interface DspBridge {
   setParameter(parameterId: string, value: ParameterValue): void
 }
+
+/** Canonical APVTS parameter IDs (must match C++ ParameterID strings). */
+export const PARAMETER_IDS = {
+  inputGain: 'INPUT_GAIN',
+  outputGain: 'OUTPUT_GAIN',
+  drive: 'COLOR',
+  bitcrush: 'BITCRUSH',
+  delayTime: 'DELAY_TIME',
+  delayMix: 'DELAY_MIX',
+  delayFbk: 'DELAY_FEEDBACK',
+  chorus: 'CHORUS_MIX',
+  engineActive: 'PLUGIN_BYPASS',
+  driveOn: 'DRIVE_ON',
+  bitcrushOn: 'BITCRUSH_ON',
+  delayOn: 'DELAY_ON',
+  chorusOn: 'CHORUS_ON',
+  driveRoute: 'DRIVE_ROUTE',
+  delaySync: 'DELAY_SYNC',
+  chorusWide: 'CHORUS_WIDE',
+} as const
+
+/** UI keys that are sent to the DSP bridge. */
+export const BRIDGED_UI_KEYS = new Set(Object.keys(PARAMETER_IDS))
 
 /** A recording mock bridge for tests and local development. */
 export interface MockDspBridge extends DspBridge {
