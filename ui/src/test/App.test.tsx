@@ -305,7 +305,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'LOAD' })).toBeInTheDocument()
 
     // The preset readout is a VGA ASCII surface with a blinking block cursor.
-    const lcd = container.querySelector('header .bg-gradient-well') as HTMLElement
+    const lcd = container.querySelector('header .bg-elev-0') as HTMLElement
     expect(lcd).toHaveClass('font-ascii')
     expect(lcd.querySelector('.block-cursor')).toHaveAttribute(
       'aria-hidden',

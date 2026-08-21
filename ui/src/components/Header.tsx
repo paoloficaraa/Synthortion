@@ -23,7 +23,7 @@ const ACTIONS = ['SAVE', 'LOAD'] as const
  */
 export function Header({ engineActive, onToggleBypass }: HeaderProps) {
   return (
-    <header className="h-[64px] bg-bg bg-gradient-panel border-b border-border flex items-center justify-between px-8 shrink-0 relative z-10 shadow-[inset_0_-6px_8px_-6px_rgba(0,0,0,0.8)]">
+    <header className="h-[54px] bg-bg border-b border-border flex items-center justify-between px-6 shrink-0 relative z-10">
       <div className="flex items-center gap-3">
         <motion.button
           type="button"
@@ -50,16 +50,16 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
         </h1>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <span
           className="font-display text-[8px] text-muted uppercase-tracked"
           aria-hidden="true"
         >
           Preset
         </span>
-        <div className="min-w-[140px] px-3 py-1.5 bg-elev-0 bg-gradient-well border border-border font-ascii text-[16px] leading-none text-fg uppercase-tracked select-none shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),inset_0_1px_3px_rgba(0,0,0,0.9)]">
-          {PRESET_NAME}
-          <span className="block-cursor" aria-hidden="true">
+        <div className="min-w-[170px] whitespace-nowrap px-3 py-1 bg-elev-0 border border-border font-ascii text-[14px] leading-none text-fg uppercase-tracked select-none flex items-center justify-between">
+          <span>{PRESET_NAME}</span>
+          <span className="block-cursor ml-1" aria-hidden="true">
             ▊
           </span>
         </div>
@@ -71,7 +71,7 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
             key={label}
             type="button"
             whileTap={{ scale: 0.94 }}
-            className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted bg-gradient-panel shadow-raised outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent hover:bg-fg hover:text-bg hover:border-fg transition-colors"
+            className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent hover:bg-fg hover:text-bg hover:border-fg transition-colors"
           >
             <span aria-hidden="true">[ </span>
             {label}

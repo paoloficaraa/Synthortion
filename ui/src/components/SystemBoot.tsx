@@ -51,7 +51,6 @@ export function SystemBoot() {
   }, [])
 
   if (!visible) return null
-
   return (
     <button
       type="button"
@@ -63,9 +62,8 @@ export function SystemBoot() {
       }}
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-void cursor-pointer outline-none"
     >
-      {/* Soft radial atmosphere behind the boot text */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-glow opacity-[0.12]" />
-
+      {/* Soft overlay (gradient removed for slop) */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.12]" />
       <div
         className="boot-log relative z-10"
         data-reduce-motion={reduceMotion ? 'true' : undefined}

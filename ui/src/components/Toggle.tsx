@@ -34,7 +34,7 @@ export function Toggle({ label, options, value, onChange }: ToggleProps) {
     <div
       role="group"
       aria-label={label}
-      className="w-full flex gap-1 p-0.5 rounded-[3px] bg-elev-1 bg-gradient-well shadow-well"
+      className="w-full flex gap-1 p-0.5 rounded-[3px] bg-elev-1"
     >
       {options.map((option) => {
         const isActive = option.value === value
@@ -53,8 +53,8 @@ export function Toggle({ label, options, value, onChange }: ToggleProps) {
             }
             className={`flex-1 border font-mono text-[9px] py-1.5 uppercase outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
               isActive
-                ? 'bg-fg bg-gradient-accent text-bg border-fg shadow-[inset_0_1px_2px_rgba(0,0,0,0.35),0_1px_0_rgba(255,255,255,0.25)]'
-                : 'bg-transparent border-border text-muted shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)]'
+                ? 'bg-fg text-bg border-fg'
+                : 'bg-transparent border-border text-muted'
             }`}
           >
             <span aria-hidden="true">{isActive ? '[* ' : '[ '}</span>

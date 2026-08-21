@@ -48,8 +48,9 @@ export function VstLayout({ leftColumn, children, rightColumn }: VstLayoutProps)
       initial={{ opacity: 0, y: 12, scale: 0.99 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
+      className="w-full h-full flex flex-col flex-1 min-h-0 min-w-0"
     >
-      <div className="vst-container flex flex-row mx-auto max-w-full relative noise-overlay">
+      <div className="vst-container flex flex-row w-full h-full flex-1 min-h-0 relative noise-overlay">
         <CornerBracket position="tl" />
         <CornerBracket position="tr" />
         <CornerBracket position="bl" />
@@ -59,7 +60,7 @@ export function VstLayout({ leftColumn, children, rightColumn }: VstLayoutProps)
         <MeterRail side="left">{leftColumn}</MeterRail>
 
         {/* Center hub */}
-        <div className="flex flex-col flex-1 min-w-0">
+        <div className="flex flex-col flex-1 min-w-0 min-h-0">
           {children}
         </div>
 

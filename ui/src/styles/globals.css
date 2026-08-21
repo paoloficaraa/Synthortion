@@ -89,19 +89,16 @@
   --danger: #ff4444;
 
   /*
-   * Gradients — machined-metal and recessed-well surfaces that give
-   * components the "expensive" hardware feel. Consume via the Tailwind
-   * `bg-gradient-*` utilities or `background: var(--gradient-*)`.
-   * Panel surfaces are alpha-scaled (T69) so the CRT backdrop shows through.
+   * Gradients — removed for true ASCII digital instrument aesthetics.
+   * Hard-coded values replaced with solid colors for now.
    */
-  --gradient-panel: linear-gradient(180deg, rgba(26, 26, 26, 0.84) 0%, rgba(15, 14, 14, 0.82) 100%);
-  --gradient-well: linear-gradient(180deg, rgba(5, 5, 5, 0.85) 0%, rgba(10, 10, 10, 0.85) 100%);
-  --gradient-metal: radial-gradient(circle at 38% 34%, #3a3a3a 0%, #1a1a1a 45%, #0c0c0c 100%);
-  --gradient-accent: linear-gradient(135deg, #c7c3ba 0%, #8a867e 100%);
-  --gradient-danger: linear-gradient(135deg, #ff4444 0%, #b32323 100%);
-  --gradient-glow: radial-gradient(circle at 50% 50%, rgba(246, 246, 246, 0.85) 0%, rgba(199, 195, 186, 0.35) 40%, transparent 70%);
-  --gradient-bezel: linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
-
+  --gradient-panel: var(--surface);
+  --gradient-well: var(--elev-0);
+  --gradient-metal: var(--elev-5);
+  --gradient-accent: var(--accent);
+  --gradient-danger: var(--danger);
+  --gradient-glow: transparent;
+  --gradient-bezel: transparent;
   /*
    * Contrast note (T06): the `--accent` (#c7c3ba) active value arc sits on
    * `--bg` (#0f0e0e). Relative luminance is 0.547 vs 0.005, giving a contrast
@@ -124,27 +121,24 @@
   box-sizing: border-box;
 }
 
-html {
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: var(--bg);
 }
 
 body {
   margin: 0;
-  background-color: var(--void);
-  /* T69 — the micro-grid chassis backdrop that shows through the translucent
-     panels for a CRT video-synth feel. A fine repeating dot/line grid. */
-  background-image:
-    radial-gradient(rgba(246, 246, 246, 0.03) 1px, transparent 1px),
-    linear-gradient(rgba(246, 246, 246, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(246, 246, 246, 0.015) 1px, transparent 1px);
-  background-size: 6px 6px, 24px 24px, 24px 24px;
+  padding: 0;
+  background-color: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
-  min-height: 100vh;
-  overflow: auto;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Typography Utilities */
@@ -181,12 +175,13 @@ body {
 
 /* VST Container Base */
 .vst-container {
-  width: 880px;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   background: var(--bg);
   border: 1px solid var(--border);
-  box-shadow:
-    0 60px 100px -20px rgba(0, 0, 0, 0.9),
-    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  box-shadow: none;
   user-select: none;
   position: relative;
   overflow: hidden;
@@ -383,15 +378,13 @@ body {
   --color-elev-6: var(--elev-6);
   --color-elev-7: var(--elev-7);
 
-  /* App backdrop utility (bg-void) */
-  --color-void: var(--void);
-
   /* Ink ramp utilities (text-ink-1 … text-ink-5) */
   --color-ink-1: var(--ink-1);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-ink-4: var(--ink-4);
   --color-ink-5: var(--ink-5);
+
 
   /* Gradient utilities (bg-gradient-panel, bg-gradient-well, …) */
   --background-image-gradient-panel: var(--gradient-panel);
@@ -402,15 +395,8 @@ body {
   --background-image-gradient-glow: var(--gradient-glow);
   --background-image-gradient-bezel: var(--gradient-bezel);
 
-  /*
-   * Shadow ramp — three reusable depths that give controls physical presence.
-   * `lift` raises a control off the panel, `raised` models a machined button
-   * with a top highlight, and `well` sinks a surface into the chassis.
-   * Defined once here rather than in :root: the utility namespace (`--shadow-*`)
-   * is the token name, so a :root copy plus this mapping would be a
-   * self-referential cycle.
-   */
-  --shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 6px rgba(0, 0, 0, 0.5);
-  --shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-well: inset 0 1px 3px rgba(0, 0, 0, 0.75);
+  /* Generic shadows removed for ASCII purity */
+  --shadow-lift: none;
+  --shadow-raised: none;
+  --shadow-well: none;
 }

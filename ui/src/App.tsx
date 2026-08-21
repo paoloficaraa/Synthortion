@@ -12,6 +12,9 @@ import { toAPVTS } from './lib/parameterSpecs'
 import { subscribeToDspChanges } from './lib/webViewDspBridge'
 import { createGlitchPulser } from './lib/glitchPulser'
 
+const BASE_WIDTH = 880
+const BASE_HEIGHT = 500
+
 /** Module power flags pulse a fixed 0.8 burst (spec: short glitch). */
 const MODULE_POWER_KEYS: ReadonlySet<string> = new Set([
   'driveOn',
@@ -24,7 +27,6 @@ interface AppProps {
   /** Integration seam for the future C++ DSP bridge. */
   dspBridge?: DspBridge
 }
-
 /**
  * App — single top-level state boundary for the whole plugin.
  *
@@ -40,7 +42,26 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
   // from the effect below, read by the visualizer as a prop.
   const pulser = useMemo(() => createGlitchPulser(), [])
 
-  // Push changed parameters to the bridge and pulse the glitch pulser
+  const [viewportSize, setViewportSize] = useState(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : BASE_WIDTH,
+    height: typeof window !== 'undefined' ? window.innerHeight : BASE_HEIGHT,
+  }))
+
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      })
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const scale = Math.min(
+    viewportSize.width / BASE_WIDTH,
+    viewportSize.height / BASE_HEIGHT
+  )
   // proportionally to the value delta. The initial mount is skipped.
   useEffect(() => {
     const prev = prevStateRef.current
@@ -78,26 +99,36 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
   }, [])
   return (
     <MotionConfig reducedMotion="user">
-      <div className="flex items-start justify-center min-h-screen py-8">
-        <VstLayout
-          leftColumn={
-            <GainMeter label="IN" active={state.engineActive} delay={50} />
-          }
-          rightColumn={
-            <GainMeter label="OUT" active={state.engineActive} delay={260} />
-          }
+      <div className="w-screen h-screen overflow-hidden flex items-center justify-center bg-bg select-none">
+        <div
+          style={{
+            width: `${BASE_WIDTH}px`,
+            height: `${BASE_HEIGHT}px`,
+            transform: `scale(${scale})`,
+            transformOrigin: 'center center',
+          }}
+          className="shrink-0 flex flex-col w-[880px] h-[500px] overflow-hidden"
         >
-          <main className="flex-1 flex flex-col bg-bg bg-gradient-panel border-t border-elev-6">
-            <Header
-              engineActive={state.engineActive}
-              onToggleBypass={(active) => update({ engineActive: active })}
-            />
-            <FftVisualizer active={state.engineActive} glitch={pulser} />
-            <div className="flex-1 flex items-center justify-center p-8">
-              <MatrixFaceplate state={state} onChange={update} />
-            </div>
-          </main>
-        </VstLayout>
+          <VstLayout
+            leftColumn={
+              <GainMeter label="IN" active={state.engineActive} delay={50} />
+            }
+            rightColumn={
+              <GainMeter label="OUT" active={state.engineActive} delay={260} />
+            }
+          >
+            <main className="flex-1 flex flex-col bg-bg bg-gradient-panel border-t border-elev-6 min-h-0 overflow-hidden">
+              <Header
+                engineActive={state.engineActive}
+                onToggleBypass={(active) => update({ engineActive: active })}
+              />
+              <FftVisualizer active={state.engineActive} glitch={pulser} />
+              <div className="flex-1 flex items-stretch justify-center p-0 min-h-0 overflow-hidden">
+                <MatrixFaceplate state={state} onChange={update} />
+              </div>
+            </main>
+          </VstLayout>
+        </div>
       </div>
       <SystemBoot />
     </MotionConfig>

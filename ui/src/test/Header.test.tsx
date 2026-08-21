@@ -30,7 +30,7 @@ describe('Header', () => {
   it('renders the preset readout in the VGA face with a blinking block cursor', () => {
     const { container } = render(<Header engineActive onToggleBypass={() => {}} />)
 
-    const lcd = container.querySelector('.bg-gradient-well') as HTMLElement
+    const lcd = container.querySelector('.bg-elev-0') as HTMLElement
     expect(lcd).toBeInTheDocument()
     expect(lcd).toHaveClass('font-ascii')
 
@@ -41,7 +41,6 @@ describe('Header', () => {
     // The readout keeps its full preset name next to the cursor.
     expect(within(lcd).getByText('INIT_STATE_01')).toBeInTheDocument()
   })
-
   it('renders [ SAVE ] [ LOAD ] bracket buttons with hover inversion', () => {
     const { container } = render(<Header engineActive onToggleBypass={() => {}} />)
 
@@ -59,15 +58,5 @@ describe('Header', () => {
     expect(container.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThanOrEqual(
       4
     )
-  })
-
-  it('machines the chrome strip with the panel gradient', () => {
-    const { container } = render(<Header engineActive onToggleBypass={() => {}} />)
-
-    const header = container.querySelector('header') as HTMLElement
-    expect(header).toHaveClass('bg-gradient-panel')
-
-    const lcd = container.querySelector('.bg-gradient-well') as HTMLElement
-    expect(lcd).toBeInTheDocument()
   })
 })

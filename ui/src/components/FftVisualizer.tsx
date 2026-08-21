@@ -193,7 +193,7 @@ export function FftVisualizer({
     <div
       data-testid="fft-visualizer"
       data-active={active}
-      className="relative w-full h-[240px] bg-bg overflow-hidden border-b border-border shadow-[inset_0_-1px_3px_rgba(0,0,0,0.5)]"
+      className="relative w-full h-[136px] shrink-0 bg-bg overflow-hidden border-b border-border shadow-[inset_0_-1px_3px_rgba(0,0,0,0.5)]"
     >
       <canvas
         ref={canvasRef}

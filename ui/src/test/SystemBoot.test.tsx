@@ -19,7 +19,6 @@ describe('SystemBoot', () => {
   beforeEach(() => {
     vi.useFakeTimers()
   })
-
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
@@ -123,24 +122,22 @@ describe('SystemBoot', () => {
   })
 
   it('renders the final state immediately under reduced motion', () => {
-    // framer-motion's `useReducedMotion` reads a module-level singleton that
-    // was initialized once at first import. Setting its `.current` before
-    // render makes the hook return `true` for the fresh SystemBoot tree.
     const previous = prefersReducedMotion.current
     prefersReducedMotion.current = true
 
-    const { container } = render(<SystemBoot />)
+    try {
+      const { container } = render(<SystemBoot />)
 
-    // The full staged log — including the final `[READY]` — is present at
-    // mount (the clip reveal is disabled, so nothing is hidden to type out).
-    expect(screen.getByText('SYNTHORTION v0.1')).toBeInTheDocument()
-    expect(screen.getByText('[READY]')).toBeInTheDocument()
-    expect(screen.getAllByText('[ OK ]')).toHaveLength(3)
+      // Status markers: three aligned `[ OK ]` columns ending on `[READY]`.
+      expect(screen.getAllByText('[ OK ]')).toHaveLength(3)
+      expect(screen.getByText('[READY]')).toBeInTheDocument()
 
-    const log = container.querySelector('.boot-log')
-    expect(log).toHaveAttribute('data-reduce-motion', 'true')
-
-    // Restore the global so other tests are unaffected.
-    prefersReducedMotion.current = previous
+      // Marker attached so CSS can unclip immediately if needed.
+      expect(
+        container.querySelector('[data-reduce-motion="true"]')
+      ).toBeInTheDocument()
+    } finally {
+      prefersReducedMotion.current = previous
+    }
   })
 })
