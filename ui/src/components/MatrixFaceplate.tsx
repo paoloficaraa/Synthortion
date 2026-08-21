@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
-import { motion } from 'framer-motion'
 import { Knob } from './Knob'
-import type { PluginState } from '../lib/pluginState'
+import { initialState, type PluginState } from '../lib/pluginState'
 
 interface MatrixFaceplateProps {
   /** Full plugin state, owned by the App root. */
@@ -64,16 +63,14 @@ function ModuleFrame({
       {/* Box-drawing left border is implied by section edges; keep the
           interactive title controls absolutely positioned for keyboard/a11y. */}
       <div className="absolute top-1 right-2 z-10 flex items-center">
-        <motion.button
+        <button
           type="button"
           onClick={onTogglePower}
           aria-pressed={powerOn}
           aria-label={powerOn ? `Turn off ${code} module` : `Turn on ${code} module`}
           title={powerOn ? 'Power off' : 'Power on'}
           data-testid={`power-${code}`}
-          whileHover={{ scale: 1.25 }}
-          whileTap={{ scale: 0.8 }}
-          className="w-2.5 h-2.5 rounded-full border border-border outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-bg transition-colors"
+          className="w-2.5 h-2.5 rounded-full border border-border outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-bg transition-transform duration-150 hover:scale-[1.25] active:scale-[0.8]"
           style={{
             backgroundColor: powerOn ? 'var(--fg)' : 'var(--elev-5)',
             borderColor: powerOn ? 'var(--fg)' : undefined,
@@ -83,10 +80,9 @@ function ModuleFrame({
           }}
         />
       </div>
-      <div className="relative flex-1 flex items-stretch w-full min-h-0">
-        <div className="font-ascii text-[10px] text-ink-3 select-none py-2 px-0.5 flex flex-col justify-between" aria-hidden="true">
-          <span>│</span>
-          <span>│</span>
+      <div className="relative flex-1 flex items-stretch w-full min-h-0 overflow-hidden">
+        <div className="font-ascii text-[10px] leading-[10px] text-ink-3 select-none py-1 px-0.5 flex flex-col justify-start overflow-hidden" aria-hidden="true">
+          {Array.from({ length: 20 }).map((_, i) => <span key={i}>│</span>)}
         </div>
         <div className="px-2 pt-4 pb-3 flex-1 flex flex-col items-center justify-between min-w-0">
           <div
@@ -97,9 +93,8 @@ function ModuleFrame({
             {children}
           </div>
         </div>
-        <div className="font-ascii text-[10px] text-ink-3 select-none py-2 px-0.5 flex flex-col justify-between" aria-hidden="true">
-          <span>│</span>
-          <span>│</span>
+        <div className="font-ascii text-[10px] leading-[10px] text-ink-3 select-none py-1 px-0.5 flex flex-col justify-start overflow-hidden" aria-hidden="true">
+          {Array.from({ length: 20 }).map((_, i) => <span key={i}>│</span>)}
         </div>
       </div>
       <div
@@ -143,7 +138,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
   } = state
 
   return (
-    <div className="grid grid-cols-5 divide-x divide-border w-full shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
+    <div className="grid grid-cols-5 w-full">
       {/* DRV — Drive with PRE/POST route toggle */}
       <ModuleFrame
         code="DRV"
@@ -157,6 +152,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             min={0}
             max={100}
             displayValue={`${Math.round(drive)}%`}
+            defaultValue={initialState.drive}
             enabled={driveOn}
             onChange={(value) => onChange({ drive: value })}
           />
@@ -176,6 +172,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             min={2}
             max={24}
             displayValue={`${Math.round(bitcrush)}B`}
+            defaultValue={initialState.bitcrush}
             enabled={bitcrushOn}
             onChange={(value) => onChange({ bitcrush: value })}
           />
@@ -195,7 +192,6 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
         code="DLY"
         powerOn={delayOn}
         onTogglePower={() => onChange({ delayOn: !delayOn })}
-        className="col-span-2 shadow-[inset_1px_0_0_0_var(--elev-6)]"
       >
         <div className="flex-1 flex flex-col items-center justify-center w-full mt-2">
           <Knob
@@ -214,8 +210,8 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
               min={0}
               max={1000}
               displayValue={`${Math.round(delayTime)}`}
-              size="small"
               enabled={delayOn}
+              defaultValue={initialState.delayTime}
               onChange={(value) => onChange({ delayTime: value })}
             />
             <Knob
@@ -237,7 +233,6 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
         code="CHR"
         powerOn={chorusOn}
         onTogglePower={() => onChange({ chorusOn: !chorusOn })}
-        className="shadow-[inset_1px_0_0_0_var(--elev-6)]"
       >
         <div className="flex-1 flex flex-col justify-center items-center mt-6 w-full">
           <Knob
@@ -248,6 +243,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             displayValue={`${Math.round(chorus)}%`}
             enabled={chorusOn}
             onChange={(value) => onChange({ chorus: value })}
+            defaultValue={initialState.chorus}
           />
         </div>
       </ModuleFrame>

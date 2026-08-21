@@ -1,12 +1,12 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
-import { motion } from 'framer-motion'
 
 interface KnobProps {
   /** Label displayed below the knob */
   label: string
   /** Current value */
   value: number
-  /** Minimum value */
+  /** Default value for double-click reset */
+  defaultValue?: number
   min?: number
   /** Maximum value */
   max?: number
@@ -59,6 +59,7 @@ export function Knob({
   value,
   min = 0,
   max = 100,
+  defaultValue,
   displayValue,
   onChange,
   size = 'default',
@@ -100,6 +101,11 @@ export function Knob({
     }
   }
 
+  const handleDoubleClick = () => {
+    if (!enabled || defaultValue === undefined) return
+    onChange(defaultValue)
+  }
+
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!enabled) return
     const step = (max - min) / 100
@@ -129,32 +135,37 @@ export function Knob({
     onChange(newValue)
   }
 
-  // ASCII block track — the value maps to a pointer index across the cells;
-  // cells before it fill with `=`, after it stay empty `-`.
+  // ASCII block track with progressive dither
   const pct = max === min ? 0 : (value - min) / (max - min)
-  const pointerIndex = Math.round(pct * (TRACK_CELLS - 1))
+  const ditherChars = ['-', '░', '▒', '▓']
+  const totalSteps = TRACK_CELLS * 4
+  const currentStep = Math.round(pct * totalSteps)
+
   const cells: Array<{ char: string; filled: boolean }> = []
   for (let i = 0; i < TRACK_CELLS; i++) {
-    const isPointer = i === pointerIndex
-    // Deterministic scramble keyed on the live value: as `value` changes
-    // during a drag the cells re-derive to a new glitch glyph, so the track
-    // visibly corrupts without an impure Math.random() in the render body.
-    const char = isDraggingState
-      ? GLITCH_CHARS[(i + Math.round(value)) % GLITCH_CHARS.length]
-      : isPointer
-      ? '+'
-      : i < pointerIndex
-      ? '='
-      : '-'
-    cells.push({
-      char,
-      filled: i <= pointerIndex,
-    })
+    const cellStep = currentStep - i * 4
+    let char = '-'
+    let filled = false
+    if (cellStep >= 4) {
+      char = '█'
+      filled = true
+    } else if (cellStep <= 0) {
+      char = '-'
+      filled = false
+    } else {
+      char = ditherChars[cellStep]
+      filled = true
+    }
+
+    if (isDraggingState) {
+      char = GLITCH_CHARS[(i + Math.round(value)) % GLITCH_CHARS.length]
+    }
+    cells.push({ char, filled })
   }
 
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <motion.div
+      <div
         role="slider"
         tabIndex={enabled ? 0 : -1}
         aria-disabled={!enabled}
@@ -165,12 +176,15 @@ export function Knob({
         aria-valuenow={Math.round(value)}
         aria-valuetext={enabled ? displayValue : '--'}
         className="relative cursor-ns-resize px-2 py-1 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-        animate={{ scale: isDraggingState ? 1.05 : 1 }}
-        transition={{ duration: 0.14, ease: 'easeOut' }}
+        style={{
+          transform: isDraggingState ? 'scale(1.05)' : 'scale(1)',
+          transition: 'transform 0.14s ease-out'
+        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerEnd}
+        onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
       >
         <span
@@ -191,7 +205,7 @@ export function Knob({
         <div className="text-[6px] text-ink-3 mt-0.5 whitespace-nowrap">
           {formatRulerText(min, max, displayValue)}
         </div>
-      </motion.div>
+      </div>
       <div className="flex flex-col items-center mt-1">
         <span
           className={`font-mono uppercase-tracked select-none ${

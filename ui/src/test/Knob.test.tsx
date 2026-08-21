@@ -97,7 +97,7 @@ describe('Knob', () => {
         />
       )
 
-      expect(trackText()).toBe('[====+----]')
+      expect(trackText()).toBe('[████▒----]')
     })
 
     it('maps the pointer to the value across the track', () => {
@@ -112,8 +112,8 @@ describe('Knob', () => {
         />
       )
 
-      // pct 0 → pointer at cell 0, everything after empty.
-      expect(trackText()).toBe('[+--------]')
+      // pct 0 → completely empty
+      expect(trackText()).toBe('[---------]')
 
       rerender(
         <Knob
@@ -125,11 +125,12 @@ describe('Knob', () => {
           onChange={() => {}}
         />
       )
-      // pct 1 → all cells filled, pointer at the last cell.
-      expect(trackText()).toBe('[========+]')
+      // pct 1 → everything solid
+      expect(trackText()).toBe('[█████████]')
 
       rerender(
         <Knob
+
           label="Drive"
           value={12.5}
           min={0}
@@ -138,8 +139,8 @@ describe('Knob', () => {
           onChange={() => {}}
         />
       )
-      // pct 0.125 → pointerIndex = round(1) = 1.
-      expect(trackText()).toBe('[=+-------]')
+      // 12.5% = 4.5 steps out of 36. So 1st cell (4) is filled, 2nd cell is (4.5-4=0.5 -> 1 step -> '░').
+      expect(trackText()).toBe('[█░-------]')
     })
   })
 
@@ -292,8 +293,8 @@ describe('Knob', () => {
 
       const track = screen.getByTestId('knob-track')
       expect(track).toHaveClass('opacity-40')
-      // The track still shows the value pattern, dimmed.
-      expect(track.textContent).toBe('[===+-----]')
+      // The track still shows the value pattern (42%), dimmed.
+      expect(track.textContent).toBe('[███▓-----]')
       expect(screen.getByText('--')).toBeInTheDocument()
       expect(screen.queryByText('42%')).not.toBeInTheDocument()
     })

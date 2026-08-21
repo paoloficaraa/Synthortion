@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { motion } from 'framer-motion'
 import { CornerBracket } from './CornerBracket'
 
 interface VstLayoutProps {
@@ -23,7 +22,7 @@ function MeterRail({ side, children }: MeterRailProps) {
   const borderClass = side === 'left' ? 'border-r' : 'border-l'
   return (
     <div
-      className={`w-[48px] shrink-0 bg-gradient-well flex flex-col items-center py-6 ${borderClass} border-elev-6 z-10 relative shadow-[inset_0_0_12px_rgba(0,0,0,0.8)]`}
+      className={`w-[48px] shrink-0 bg-elev-0 flex flex-col items-center py-6 ${borderClass} border-border z-10 relative`}
     >
       {children}
     </div>
@@ -44,10 +43,7 @@ function MeterRail({ side, children }: MeterRailProps) {
  */
 export function VstLayout({ leftColumn, children, rightColumn }: VstLayoutProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.99 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.22, ease: 'easeOut' }}
+    <div
       className="w-full h-full flex flex-col flex-1 min-h-0 min-w-0"
     >
       <div className="vst-container flex flex-row w-full h-full flex-1 min-h-0 relative noise-overlay">
@@ -67,6 +63,6 @@ export function VstLayout({ leftColumn, children, rightColumn }: VstLayoutProps)
         {/* Right meter rail */}
         <MeterRail side="right">{rightColumn}</MeterRail>
       </div>
-    </motion.div>
+    </div>
   )
 }

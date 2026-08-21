@@ -4,33 +4,21 @@ import {
   type OscilloscopeSignal,
 } from '../lib/oscilloscopeSignal'
 import { applyGlitch, type GlitchPulser } from '../lib/glitchPulser'
-import {
-  buildGraticule,
-  buildTrace,
-  CELL_PX,
-} from '../lib/fftBraille'
+const CELL_PX = 16
 
 /* ------------------------------------------------------------------ */
-/*  Canvas palette — mirrors tokens in src/styles/globals.css          */
+/*  Canvas palette                                                     */
 /* ------------------------------------------------------------------ */
-const SCOPE_BG = '#0f0e0e'
-const GRAT_FG = 'rgba(136, 136, 136, 0.25)'
+const SCOPE_BG = '#000000'
+const GRAT_FG = '#333333'
 const TRACE_FG = '#f6f6f6'
-const TRACE_IDLE = '#888888'
-const TRACE_HALO_LIVE = 'rgba(246, 246, 246, 0.12)'
-const TRACE_HALO_IDLE = 'rgba(136, 136, 136, 0.10)'
+const TRACE_IDLE = '#666666'
 
 /* ------------------------------------------------------------------ */
 /*  Grid geometry                                                      */
 /* ------------------------------------------------------------------ */
 const MAX_DPR = 2
-
-/* ------------------------------------------------------------------ */
-/*  Font stacks (canvas fillText)                                      */
-/* ------------------------------------------------------------------ */
-const FONT_GRAT = `${CELL_PX}px "Px437 IBM VGA 8x16", monospace`
-const FONT_TRACE = `${CELL_PX}px "Braille Terminal", monospace`
-
+const FONT_GRAT = `${CELL_PX - 6}px "JetBrains Mono", monospace`
 /* ================================================================== */
 /*  Component                                                          */
 /* ================================================================== */
@@ -70,139 +58,133 @@ export function FftVisualizer({
   glitch,
   random = Math.random,
 }: FftVisualizerProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const fallbackRef = useRef<OscilloscopeSignal | null>(null)
   const resolvedSignal = signal ?? (fallbackRef.current ??= createOscilloscopeSignal())
-
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const activeRef = useRef(active)
+  const reduceMotion = typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null
 
   useEffect(() => {
-    activeRef.current = active
-  }, [active])
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
+    const ctx = canvasRef.current?.getContext('2d', { alpha: false })
     if (!ctx) return
 
-    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR)
-    let rafId = 0
-    let staticFrame = false
-    let lastTimestamp = 0
+    let rafId: number
+    let w = 0
+    let h = 0
 
-    /** Compute number of character columns from the canvas CSS width. */
-    const computeCols = (cssWidth: number): number => {
-      // Px437 8x16 advance = 8px at 16px font-size.
-      ctx.font = FONT_GRAT
-      const charWidth = ctx.measureText('─').width || 8
-      return Math.max(1, Math.floor(cssWidth / charWidth))
-    }
-
-    const trace = () => {
-      resolvedSignal.step(activeRef.current)
-      const samples = resolvedSignal.samples
-      const width = canvas.clientWidth
-      const height = canvas.clientHeight
-      if (samples.length < 2 || width === 0) return
-
-      const numCols = computeCols(width)
-      const now = performance.now()
-      const dt = lastTimestamp ? Math.min(now - lastTimestamp, 100) : 16
-      lastTimestamp = now
-
-      // ── Scope face ──
-      ctx.fillStyle = SCOPE_BG
-      ctx.fillRect(0, 0, width, height)
-
-      // ── Graticule (static — box-drawing in VGA face, row-by-row) ──
-      const gratRows = buildGraticule(numCols).split('\n')
-      ctx.font = FONT_GRAT
-      ctx.textBaseline = 'top'
-      ctx.fillStyle = GRAT_FG
-      for (let i = 0; i < gratRows.length; i++) {
-        ctx.fillText(gratRows[i], 0, i * CELL_PX)
-      }
-
-      // ── Trace (dynamic — braille, drawn row-by-row) ──
-      let traceRows = buildTrace(samples, numCols)
-
-      // ── Glitch corruption ──
-      const glitchIntensity = glitch?.step(dt) ?? 0
-      if (glitchIntensity > 0) {
-        traceRows = applyGlitch(traceRows, glitchIntensity, random)
-      }
-
-      const isLive = activeRef.current
-
-      // Soft halo behind the trace.
-      ctx.font = FONT_TRACE
-      ctx.fillStyle = isLive ? TRACE_HALO_LIVE : TRACE_HALO_IDLE
-      for (let i = 0; i < traceRows.length; i++) {
-        ctx.fillText(traceRows[i], 0, i * CELL_PX)
-      }
-
-      // Crisp trace.
-      ctx.fillStyle = isLive ? TRACE_FG : TRACE_IDLE
-      for (let i = 0; i < traceRows.length; i++) {
-        ctx.fillText(traceRows[i], 0, i * CELL_PX)
-      }
-    }
-
-    // ── Size backing store to layout box ──
     const resize = () => {
-      const rect = canvas.getBoundingClientRect()
-      const w = Math.max(1, Math.round(rect.width * dpr))
-      const h = Math.max(1, Math.round(rect.height * dpr))
-      canvas.width = w
-      canvas.height = h
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      if (staticFrame) trace()
+      if (!canvasRef.current) return
+      const rect = canvasRef.current.getBoundingClientRect()
+      const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR)
+      w = rect.width
+      h = rect.height
+      canvasRef.current.width = w * dpr
+      canvasRef.current.height = h * dpr
+      ctx.scale(dpr, dpr)
+    }
+
+    let resizeObserver: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(resize)
+      if (canvasRef.current) resizeObserver.observe(canvasRef.current)
     }
     resize()
 
-    let resizeObserver: ResizeObserver | undefined
-    if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(resize)
-      resizeObserver.observe(canvas)
+    const drawGraticule = () => {
+      ctx.strokeStyle = GRAT_FG
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      // Vertical lines
+      const NUM_DIVS = 4
+      for (let i = 1; i < NUM_DIVS; i++) {
+        const x = (w / NUM_DIVS) * i
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, h)
+        // Crosshairs
+        ctx.moveTo(x - 4, h / 2)
+        ctx.lineTo(x + 4, h / 2)
+      }
+      // Center horizontal line
+      ctx.moveTo(0, h / 2)
+      ctx.lineTo(w, h / 2)
+      ctx.stroke()
+
+      // Readouts
+      ctx.fillStyle = GRAT_FG
+      ctx.font = FONT_GRAT
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
+      const labels = ['20', '200', '2k', '20k']
+      for (let i = 1; i < NUM_DIVS; i++) {
+        const x = (w / NUM_DIVS) * i
+        ctx.fillText(labels[i-1], x, 4)
+      }
     }
 
-    // ── Reduced-motion: single static frame, no animation ──
-    const reduceMotion = window.matchMedia?.(
-      '(prefers-reduced-motion: reduce)',
-    )
-    if (reduceMotion?.matches) {
-      staticFrame = true
-      lastTimestamp = performance.now()
-      trace()
-    } else {
-      const draw = () => {
-        rafId = requestAnimationFrame(draw)
-        trace()
+    const drawTrace = () => {
+      const samples = resolvedSignal.samples
+      const len = samples.length
+      
+      // Phosphor decay: dim existing canvas instead of clear
+
+      drawGraticule()
+
+      // Calculate glitch offset
+      const g = glitch?.step() ?? 0
+      let yOffset = 0
+      if (g > 0 && random() > 0.5) {
+        yOffset = (random() - 0.5) * h * g * 0.2
       }
-      rafId = requestAnimationFrame(draw)
+
+      ctx.beginPath()
+      ctx.strokeStyle = active ? TRACE_FG : TRACE_IDLE
+      ctx.lineWidth = 1.5
+      
+      for (let i = 0; i < len; i++) {
+        const x = (i / (len - 1)) * w
+        const y = h / 2 - (samples[i] * (h / 2) * 0.8) + yOffset
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+    }
+
+    if (reduceMotion?.matches) {
+      const drawStatic = () => {
+        rafId = requestAnimationFrame(drawStatic)
+        resolvedSignal.step(active)
+        drawTrace()
+      }
+      rafId = requestAnimationFrame(drawStatic)
+    } else {
+      const drawLive = () => {
+        rafId = requestAnimationFrame(drawLive)
+        resolvedSignal.step(active)
+        drawTrace()
+      }
+      rafId = requestAnimationFrame(drawLive)
     }
 
     return () => {
       cancelAnimationFrame(rafId)
       resizeObserver?.disconnect()
     }
-  }, [resolvedSignal, glitch, random])
-
+  }, [resolvedSignal, glitch, random, active, reduceMotion])
   return (
     <div
       data-testid="fft-visualizer"
       data-active={active}
-      className="relative w-full h-[136px] shrink-0 bg-bg overflow-hidden border-b border-border shadow-[inset_0_-1px_3px_rgba(0,0,0,0.5)]"
+      className="relative w-full h-[136px] shrink-0 bg-bg overflow-hidden"
     >
+      {/* ASCII Bottom Border Partition */}
+      <div className="absolute bottom-0 left-0 right-0 font-ascii text-[10px] text-ink-3 leading-none flex overflow-hidden pointer-events-none z-10" aria-hidden="true">
+        {Array.from({ length: 120 }).map((_, i) => <span key={i}>─</span>)}
+      </div>
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full"
         aria-hidden="true"
       />
 
-      {/* Hardware bezel shadow */}
-      <div className="absolute inset-0 pointer-events-none shadow-[inset_0_12px_24px_rgba(0,0,0,0.9)]" />
     </div>
   )
 }

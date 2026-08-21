@@ -1,5 +1,3 @@
-import { motion } from 'framer-motion'
-
 export interface ToggleOption {
   /** Stable value reported through onChange when the segment is activated */
   value: string
@@ -39,28 +37,22 @@ export function Toggle({ label, options, value, onChange }: ToggleProps) {
       {options.map((option) => {
         const isActive = option.value === value
         return (
-          <motion.button
+          <button
             key={option.value}
             type="button"
             aria-pressed={isActive}
             aria-label={option.label}
             onClick={() => onChange(option.value)}
-            whileTap={{ scale: 0.96 }}
-            whileHover={
-              isActive
-                ? undefined
-                : { backgroundColor: 'var(--fg)', color: 'var(--bg)', borderColor: 'var(--fg)' }
-            }
-            className={`flex-1 border font-mono text-[9px] py-1.5 uppercase outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
+            className={`flex-1 border font-mono text-[9px] py-1.5 uppercase outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent transition-all duration-150 active:scale-[0.96] ${
               isActive
                 ? 'bg-fg text-bg border-fg'
-                : 'bg-transparent border-border text-muted'
+                : 'bg-transparent border-border text-muted hover:bg-fg hover:text-bg hover:border-fg'
             }`}
           >
             <span aria-hidden="true">{isActive ? '[* ' : '[ '}</span>
             {option.label}
             <span aria-hidden="true">{isActive ? ' *]' : ' ]'}</span>
-          </motion.button>
+          </button>
         )
       })}
     </div>

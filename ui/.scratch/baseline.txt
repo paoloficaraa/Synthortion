@@ -1,0 +1,12 @@
+- **Mysterious Name** — a function, variable, or type whose name doesn't reveal what it does or holds. → rename it.
+- **Duplicated Code** — the same logic shape appears in more than one hunk or file. → extract the shared shape.
+- **Feature Envy** — a method that reaches into another object's data more than its own. → move the method.
+- **Data Clumps** — the same few fields or params keep travelling together. → bundle them.
+- **Primitive Obsession** — a primitive or string standing in for a domain concept. → give it its own type.
+- **Repeated Switches** — the same switch/if-cascade on the same type recurs. → replace with polymorphism or map.
+- **Shotgun Surgery** — one logical change forces scattered edits across many files. → gather what changes together.
+- **Divergent Change** — one file or module is edited for several unrelated reasons. → split it.
+- **Speculative Generality** — abstraction/hooks added for needs the spec doesn't have. → delete it.
+- **Message Chains** — long `a.b().c().d()` navigation. → hide the walk behind one method.
+- **Middle Man** — a class or function that mostly just delegates. → cut it, call target direct.
+- **Refused Bequest** — a subclass that ignores most of what it inherits. → drop inheritance, use composition.

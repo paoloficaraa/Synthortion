@@ -1,6 +1,5 @@
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { prefersReducedMotion } from 'motion-dom'
 import { SystemBoot } from '../components/SystemBoot'
 
 /** Number of rendered boot lines: header + four staged steps. */
@@ -122,8 +121,20 @@ describe('SystemBoot', () => {
   })
 
   it('renders the final state immediately under reduced motion', () => {
-    const previous = prefersReducedMotion.current
-    prefersReducedMotion.current = true
+    // Mock matchMedia to return true for prefers-reduced-motion
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation(query => ({
+        matches: query === '(prefers-reduced-motion: reduce)',
+        media: query,
+        onchange: null,
+        addListener: vi.fn(), // Deprecated
+        removeListener: vi.fn(), // Deprecated
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    })
 
     try {
       const { container } = render(<SystemBoot />)
@@ -137,7 +148,9 @@ describe('SystemBoot', () => {
         container.querySelector('[data-reduce-motion="true"]')
       ).toBeInTheDocument()
     } finally {
-      prefersReducedMotion.current = previous
+      // Clean up the mock
+      // @ts-ignore
+      delete window.matchMedia
     }
   })
 })

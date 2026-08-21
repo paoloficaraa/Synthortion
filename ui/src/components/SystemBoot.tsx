@@ -1,5 +1,4 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { useReducedMotion } from 'framer-motion'
 
 /** Milliseconds before the boot sequence auto-dismisses. */
 const BOOT_DURATION_MS = 2500
@@ -43,7 +42,7 @@ function lineChars(label: string, value: string, status: string): number {
  */
 export function SystemBoot() {
   const [visible, setVisible] = useState(true)
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false
 
   useEffect(() => {
     const timer = window.setTimeout(() => setVisible(false), BOOT_DURATION_MS)

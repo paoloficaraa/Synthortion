@@ -1,0 +1,486 @@
+diff --git a/ui/src/App.tsx b/ui/src/App.tsx
+index df394b2..47ef083 100644
+--- a/ui/src/App.tsx
++++ b/ui/src/App.tsx
+@@ -12,6 +12,9 @@ import { toAPVTS } from './lib/parameterSpecs'
+ import { subscribeToDspChanges } from './lib/webViewDspBridge'
+ import { createGlitchPulser } from './lib/glitchPulser'
+ 
++const BASE_WIDTH = 880
++const BASE_HEIGHT = 500
++
+ /** Module power flags pulse a fixed 0.8 burst (spec: short glitch). */
+ const MODULE_POWER_KEYS: ReadonlySet<string> = new Set([
+   'driveOn',
+@@ -24,7 +27,6 @@ interface AppProps {
+   /** Integration seam for the future C++ DSP bridge. */
+   dspBridge?: DspBridge
+ }
+-
+ /**
+  * App — single top-level state boundary for the whole plugin.
+  *
+@@ -40,7 +42,26 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
+   // from the effect below, read by the visualizer as a prop.
+   const pulser = useMemo(() => createGlitchPulser(), [])
+ 
+-  // Push changed parameters to the bridge and pulse the glitch pulser
++  const [viewportSize, setViewportSize] = useState(() => ({
++    width: typeof window !== 'undefined' ? window.innerWidth : BASE_WIDTH,
++    height: typeof window !== 'undefined' ? window.innerHeight : BASE_HEIGHT,
++  }))
++
++  useEffect(() => {
++    const handleResize = () => {
++      setViewportSize({
++        width: window.innerWidth,
++        height: window.innerHeight,
++      })
++    }
++    window.addEventListener('resize', handleResize)
++    return () => window.removeEventListener('resize', handleResize)
++  }, [])
++
++  const scale = Math.min(
++    viewportSize.width / BASE_WIDTH,
++    viewportSize.height / BASE_HEIGHT
++  )
+   // proportionally to the value delta. The initial mount is skipped.
+   useEffect(() => {
+     const prev = prevStateRef.current
+@@ -78,26 +99,36 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
+   }, [])
+   return (
+     <MotionConfig reducedMotion="user">
+-      <div className="flex items-start justify-center min-h-screen py-8">
+-        <VstLayout
+-          leftColumn={
+-            <GainMeter label="IN" active={state.engineActive} delay={50} />
+-          }
+-          rightColumn={
+-            <GainMeter label="OUT" active={state.engineActive} delay={260} />
+-          }
++      <div className="w-screen h-screen overflow-hidden flex items-center justify-center bg-bg select-none">
++        <div
++          style={{
++            width: `${BASE_WIDTH}px`,
++            height: `${BASE_HEIGHT}px`,
++            transform: `scale(${scale})`,
++            transformOrigin: 'center center',
++          }}
++          className="shrink-0 flex flex-col w-[880px] h-[500px] overflow-hidden"
+         >
+-          <main className="flex-1 flex flex-col bg-bg bg-gradient-panel border-t border-elev-6">
+-            <Header
+-              engineActive={state.engineActive}
+-              onToggleBypass={(active) => update({ engineActive: active })}
+-            />
+-            <FftVisualizer active={state.engineActive} glitch={pulser} />
+-            <div className="flex-1 flex items-center justify-center p-8">
+-              <MatrixFaceplate state={state} onChange={update} />
+-            </div>
+-          </main>
+-        </VstLayout>
++          <VstLayout
++            leftColumn={
++              <GainMeter label="IN" active={state.engineActive} delay={50} />
++            }
++            rightColumn={
++              <GainMeter label="OUT" active={state.engineActive} delay={260} />
++            }
++          >
++            <main className="flex-1 flex flex-col bg-bg bg-gradient-panel border-t border-elev-6 min-h-0 overflow-hidden">
++              <Header
++                engineActive={state.engineActive}
++                onToggleBypass={(active) => update({ engineActive: active })}
++              />
++              <FftVisualizer active={state.engineActive} glitch={pulser} />
++              <div className="flex-1 flex items-stretch justify-center p-0 min-h-0 overflow-hidden">
++                <MatrixFaceplate state={state} onChange={update} />
++              </div>
++            </main>
++          </VstLayout>
++        </div>
+       </div>
+       <SystemBoot />
+     </MotionConfig>
+diff --git a/ui/src/components/FftVisualizer.tsx b/ui/src/components/FftVisualizer.tsx
+index a683e85..178b3db 100644
+--- a/ui/src/components/FftVisualizer.tsx
++++ b/ui/src/components/FftVisualizer.tsx
+@@ -193,7 +193,7 @@ export function FftVisualizer({
+     <div
+       data-testid="fft-visualizer"
+       data-active={active}
+-      className="relative w-full h-[240px] bg-bg overflow-hidden border-b border-border shadow-[inset_0_-1px_3px_rgba(0,0,0,0.5)]"
++      className="relative w-full h-[136px] shrink-0 bg-bg overflow-hidden border-b border-border shadow-[inset_0_-1px_3px_rgba(0,0,0,0.5)]"
+     >
+       <canvas
+         ref={canvasRef}
+diff --git a/ui/src/components/Header.tsx b/ui/src/components/Header.tsx
+index 82418b2..63209ef 100644
+--- a/ui/src/components/Header.tsx
++++ b/ui/src/components/Header.tsx
+@@ -23,7 +23,7 @@ const ACTIONS = ['SAVE', 'LOAD'] as const
+  */
+ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
+   return (
+-    <header className="h-[64px] bg-bg bg-gradient-panel border-b border-border flex items-center justify-between px-8 shrink-0 relative z-10 shadow-[inset_0_-6px_8px_-6px_rgba(0,0,0,0.8)]">
++    <header className="h-[54px] bg-bg border-b border-border flex items-center justify-between px-6 shrink-0 relative z-10">
+       <div className="flex items-center gap-3">
+         <motion.button
+           type="button"
+@@ -50,16 +50,16 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
+         </h1>
+       </div>
+ 
+-      <div className="flex items-center gap-3">
++      <div className="flex items-center gap-2">
+         <span
+           className="font-display text-[8px] text-muted uppercase-tracked"
+           aria-hidden="true"
+         >
+           Preset
+         </span>
+-        <div className="min-w-[140px] px-3 py-1.5 bg-elev-0 bg-gradient-well border border-border font-ascii text-[16px] leading-none text-fg uppercase-tracked select-none shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),inset_0_1px_3px_rgba(0,0,0,0.9)]">
+-          {PRESET_NAME}
+-          <span className="block-cursor" aria-hidden="true">
++        <div className="min-w-[170px] whitespace-nowrap px-3 py-1 bg-elev-0 border border-border font-ascii text-[14px] leading-none text-fg uppercase-tracked select-none flex items-center justify-between">
++          <span>{PRESET_NAME}</span>
++          <span className="block-cursor ml-1" aria-hidden="true">
+             ▊
+           </span>
+         </div>
+@@ -71,7 +71,7 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
+             key={label}
+             type="button"
+             whileTap={{ scale: 0.94 }}
+-            className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted bg-gradient-panel shadow-raised outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent hover:bg-fg hover:text-bg hover:border-fg transition-colors"
++            className="px-3 py-1 border border-border font-mono text-[9px] uppercase-tracked text-muted outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent hover:bg-fg hover:text-bg hover:border-fg transition-colors"
+           >
+             <span aria-hidden="true">[ </span>
+             {label}
+diff --git a/ui/src/components/SystemBoot.tsx b/ui/src/components/SystemBoot.tsx
+index a947232..7246ffa 100644
+--- a/ui/src/components/SystemBoot.tsx
++++ b/ui/src/components/SystemBoot.tsx
+@@ -51,7 +51,6 @@ export function SystemBoot() {
+   }, [])
+ 
+   if (!visible) return null
+-
+   return (
+     <button
+       type="button"
+@@ -63,9 +62,8 @@ export function SystemBoot() {
+       }}
+       className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-void cursor-pointer outline-none"
+     >
+-      {/* Soft radial atmosphere behind the boot text */}
+-      <div className="absolute inset-0 pointer-events-none bg-gradient-glow opacity-[0.12]" />
+-
++      {/* Soft overlay (gradient removed for slop) */}
++      <div className="absolute inset-0 pointer-events-none opacity-[0.12]" />
+       <div
+         className="boot-log relative z-10"
+         data-reduce-motion={reduceMotion ? 'true' : undefined}
+diff --git a/ui/src/components/Toggle.tsx b/ui/src/components/Toggle.tsx
+index a4aae6b..305ef80 100644
+--- a/ui/src/components/Toggle.tsx
++++ b/ui/src/components/Toggle.tsx
+@@ -34,7 +34,7 @@ export function Toggle({ label, options, value, onChange }: ToggleProps) {
+     <div
+       role="group"
+       aria-label={label}
+-      className="w-full flex gap-1 p-0.5 rounded-[3px] bg-elev-1 bg-gradient-well shadow-well"
++      className="w-full flex gap-1 p-0.5 rounded-[3px] bg-elev-1"
+     >
+       {options.map((option) => {
+         const isActive = option.value === value
+@@ -53,8 +53,8 @@ export function Toggle({ label, options, value, onChange }: ToggleProps) {
+             }
+             className={`flex-1 border font-mono text-[9px] py-1.5 uppercase outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
+               isActive
+-                ? 'bg-fg bg-gradient-accent text-bg border-fg shadow-[inset_0_1px_2px_rgba(0,0,0,0.35),0_1px_0_rgba(255,255,255,0.25)]'
+-                : 'bg-transparent border-border text-muted shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)]'
++                ? 'bg-fg text-bg border-fg'
++                : 'bg-transparent border-border text-muted'
+             }`}
+           >
+             <span aria-hidden="true">{isActive ? '[* ' : '[ '}</span>
+diff --git a/ui/src/components/VstLayout.tsx b/ui/src/components/VstLayout.tsx
+index b050715..1b52152 100644
+--- a/ui/src/components/VstLayout.tsx
++++ b/ui/src/components/VstLayout.tsx
+@@ -48,8 +48,9 @@ export function VstLayout({ leftColumn, children, rightColumn }: VstLayoutProps)
+       initial={{ opacity: 0, y: 12, scale: 0.99 }}
+       animate={{ opacity: 1, y: 0, scale: 1 }}
+       transition={{ duration: 0.22, ease: 'easeOut' }}
++      className="w-full h-full flex flex-col flex-1 min-h-0 min-w-0"
+     >
+-      <div className="vst-container flex flex-row mx-auto max-w-full relative noise-overlay">
++      <div className="vst-container flex flex-row w-full h-full flex-1 min-h-0 relative noise-overlay">
+         <CornerBracket position="tl" />
+         <CornerBracket position="tr" />
+         <CornerBracket position="bl" />
+@@ -59,7 +60,7 @@ export function VstLayout({ leftColumn, children, rightColumn }: VstLayoutProps)
+         <MeterRail side="left">{leftColumn}</MeterRail>
+ 
+         {/* Center hub */}
+-        <div className="flex flex-col flex-1 min-w-0">
++        <div className="flex flex-col flex-1 min-w-0 min-h-0">
+           {children}
+         </div>
+ 
+diff --git a/ui/src/styles/globals.css b/ui/src/styles/globals.css
+index 578f0e1..4d2530d 100644
+--- a/ui/src/styles/globals.css
++++ b/ui/src/styles/globals.css
+@@ -89,19 +89,16 @@
+   --danger: #ff4444;
+ 
+   /*
+-   * Gradients — machined-metal and recessed-well surfaces that give
+-   * components the "expensive" hardware feel. Consume via the Tailwind
+-   * `bg-gradient-*` utilities or `background: var(--gradient-*)`.
+-   * Panel surfaces are alpha-scaled (T69) so the CRT backdrop shows through.
++   * Gradients — removed for true ASCII digital instrument aesthetics.
++   * Hard-coded values replaced with solid colors for now.
+    */
+-  --gradient-panel: linear-gradient(180deg, rgba(26, 26, 26, 0.84) 0%, rgba(15, 14, 14, 0.82) 100%);
+-  --gradient-well: linear-gradient(180deg, rgba(5, 5, 5, 0.85) 0%, rgba(10, 10, 10, 0.85) 100%);
+-  --gradient-metal: radial-gradient(circle at 38% 34%, #3a3a3a 0%, #1a1a1a 45%, #0c0c0c 100%);
+-  --gradient-accent: linear-gradient(135deg, #c7c3ba 0%, #8a867e 100%);
+-  --gradient-danger: linear-gradient(135deg, #ff4444 0%, #b32323 100%);
+-  --gradient-glow: radial-gradient(circle at 50% 50%, rgba(246, 246, 246, 0.85) 0%, rgba(199, 195, 186, 0.35) 40%, transparent 70%);
+-  --gradient-bezel: linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
+-
++  --gradient-panel: var(--surface);
++  --gradient-well: var(--elev-0);
++  --gradient-metal: var(--elev-5);
++  --gradient-accent: var(--accent);
++  --gradient-danger: var(--danger);
++  --gradient-glow: transparent;
++  --gradient-bezel: transparent;
+   /*
+    * Contrast note (T06): the `--accent` (#c7c3ba) active value arc sits on
+    * `--bg` (#0f0e0e). Relative luminance is 0.547 vs 0.005, giving a contrast
+@@ -124,27 +121,24 @@
+   box-sizing: border-box;
+ }
+ 
+-html {
+-  font-synthesis: none;
+-  text-rendering: optimizeLegibility;
+-  -webkit-font-smoothing: antialiased;
+-  -moz-osx-font-smoothing: grayscale;
++html, body, #root {
++  width: 100%;
++  height: 100%;
++  margin: 0;
++  padding: 0;
++  overflow: hidden;
++  background-color: var(--bg);
+ }
+ 
+ body {
+   margin: 0;
+-  background-color: var(--void);
+-  /* T69 — the micro-grid chassis backdrop that shows through the translucent
+-     panels for a CRT video-synth feel. A fine repeating dot/line grid. */
+-  background-image:
+-    radial-gradient(rgba(246, 246, 246, 0.03) 1px, transparent 1px),
+-    linear-gradient(rgba(246, 246, 246, 0.015) 1px, transparent 1px),
+-    linear-gradient(90deg, rgba(246, 246, 246, 0.015) 1px, transparent 1px);
+-  background-size: 6px 6px, 24px 24px, 24px 24px;
++  padding: 0;
++  background-color: var(--bg);
+   color: var(--fg);
+   font-family: var(--font-body);
+-  min-height: 100vh;
+-  overflow: auto;
++  width: 100%;
++  height: 100%;
++  overflow: hidden;
+ }
+ 
+ /* Typography Utilities */
+@@ -181,12 +175,13 @@ body {
+ 
+ /* VST Container Base */
+ .vst-container {
+-  width: 880px;
++  width: 100%;
++  height: 100%;
++  min-width: 0;
++  min-height: 0;
+   background: var(--bg);
+   border: 1px solid var(--border);
+-  box-shadow:
+-    0 60px 100px -20px rgba(0, 0, 0, 0.9),
+-    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
++  box-shadow: none;
+   user-select: none;
+   position: relative;
+   overflow: hidden;
+@@ -383,9 +378,6 @@ body {
+   --color-elev-6: var(--elev-6);
+   --color-elev-7: var(--elev-7);
+ 
+-  /* App backdrop utility (bg-void) */
+-  --color-void: var(--void);
+-
+   /* Ink ramp utilities (text-ink-1 … text-ink-5) */
+   --color-ink-1: var(--ink-1);
+   --color-ink-2: var(--ink-2);
+@@ -393,6 +385,7 @@ body {
+   --color-ink-4: var(--ink-4);
+   --color-ink-5: var(--ink-5);
+ 
++
+   /* Gradient utilities (bg-gradient-panel, bg-gradient-well, …) */
+   --background-image-gradient-panel: var(--gradient-panel);
+   --background-image-gradient-well: var(--gradient-well);
+@@ -402,15 +395,8 @@ body {
+   --background-image-gradient-glow: var(--gradient-glow);
+   --background-image-gradient-bezel: var(--gradient-bezel);
+ 
+-  /*
+-   * Shadow ramp — three reusable depths that give controls physical presence.
+-   * `lift` raises a control off the panel, `raised` models a machined button
+-   * with a top highlight, and `well` sinks a surface into the chassis.
+-   * Defined once here rather than in :root: the utility namespace (`--shadow-*`)
+-   * is the token name, so a :root copy plus this mapping would be a
+-   * self-referential cycle.
+-   */
+-  --shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 6px rgba(0, 0, 0, 0.5);
+-  --shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.5);
+-  --shadow-well: inset 0 1px 3px rgba(0, 0, 0, 0.75);
++  /* Generic shadows removed for ASCII purity */
++  --shadow-lift: none;
++  --shadow-raised: none;
++  --shadow-well: none;
+ }
+diff --git a/ui/src/test/App.test.tsx b/ui/src/test/App.test.tsx
+index 3cb58bb..99833c2 100644
+--- a/ui/src/test/App.test.tsx
++++ b/ui/src/test/App.test.tsx
+@@ -305,7 +305,7 @@ describe('App', () => {
+     expect(screen.getByRole('button', { name: 'LOAD' })).toBeInTheDocument()
+ 
+     // The preset readout is a VGA ASCII surface with a blinking block cursor.
+-    const lcd = container.querySelector('header .bg-gradient-well') as HTMLElement
++    const lcd = container.querySelector('header .bg-elev-0') as HTMLElement
+     expect(lcd).toHaveClass('font-ascii')
+     expect(lcd.querySelector('.block-cursor')).toHaveAttribute(
+       'aria-hidden',
+diff --git a/ui/src/test/Header.test.tsx b/ui/src/test/Header.test.tsx
+index 1fe91f5..438b720 100644
+--- a/ui/src/test/Header.test.tsx
++++ b/ui/src/test/Header.test.tsx
+@@ -30,7 +30,7 @@ describe('Header', () => {
+   it('renders the preset readout in the VGA face with a blinking block cursor', () => {
+     const { container } = render(<Header engineActive onToggleBypass={() => {}} />)
+ 
+-    const lcd = container.querySelector('.bg-gradient-well') as HTMLElement
++    const lcd = container.querySelector('.bg-elev-0') as HTMLElement
+     expect(lcd).toBeInTheDocument()
+     expect(lcd).toHaveClass('font-ascii')
+ 
+@@ -41,7 +41,6 @@ describe('Header', () => {
+     // The readout keeps its full preset name next to the cursor.
+     expect(within(lcd).getByText('INIT_STATE_01')).toBeInTheDocument()
+   })
+-
+   it('renders [ SAVE ] [ LOAD ] bracket buttons with hover inversion', () => {
+     const { container } = render(<Header engineActive onToggleBypass={() => {}} />)
+ 
+@@ -60,14 +59,4 @@ describe('Header', () => {
+       4
+     )
+   })
+-
+-  it('machines the chrome strip with the panel gradient', () => {
+-    const { container } = render(<Header engineActive onToggleBypass={() => {}} />)
+-
+-    const header = container.querySelector('header') as HTMLElement
+-    expect(header).toHaveClass('bg-gradient-panel')
+-
+-    const lcd = container.querySelector('.bg-gradient-well') as HTMLElement
+-    expect(lcd).toBeInTheDocument()
+-  })
+ })
+diff --git a/ui/src/test/SystemBoot.test.tsx b/ui/src/test/SystemBoot.test.tsx
+index 68709a9..9cbd336 100644
+--- a/ui/src/test/SystemBoot.test.tsx
++++ b/ui/src/test/SystemBoot.test.tsx
+@@ -19,7 +19,6 @@ describe('SystemBoot', () => {
+   beforeEach(() => {
+     vi.useFakeTimers()
+   })
+-
+   afterEach(() => {
+     vi.useRealTimers()
+     vi.unstubAllGlobals()
+@@ -123,24 +122,22 @@ describe('SystemBoot', () => {
+   })
+ 
+   it('renders the final state immediately under reduced motion', () => {
+-    // framer-motion's `useReducedMotion` reads a module-level singleton that
+-    // was initialized once at first import. Setting its `.current` before
+-    // render makes the hook return `true` for the fresh SystemBoot tree.
+     const previous = prefersReducedMotion.current
+     prefersReducedMotion.current = true
+ 
+-    const { container } = render(<SystemBoot />)
++    try {
++      const { container } = render(<SystemBoot />)
+ 
+-    // The full staged log — including the final `[READY]` — is present at
+-    // mount (the clip reveal is disabled, so nothing is hidden to type out).
+-    expect(screen.getByText('SYNTHORTION v0.1')).toBeInTheDocument()
+-    expect(screen.getByText('[READY]')).toBeInTheDocument()
+-    expect(screen.getAllByText('[ OK ]')).toHaveLength(3)
+-
+-    const log = container.querySelector('.boot-log')
+-    expect(log).toHaveAttribute('data-reduce-motion', 'true')
++      // Status markers: three aligned `[ OK ]` columns ending on `[READY]`.
++      expect(screen.getAllByText('[ OK ]')).toHaveLength(3)
++      expect(screen.getByText('[READY]')).toBeInTheDocument()
+ 
+-    // Restore the global so other tests are unaffected.
+-    prefersReducedMotion.current = previous
++      // Marker attached so CSS can unclip immediately if needed.
++      expect(
++        container.querySelector('[data-reduce-motion="true"]')
++      ).toBeInTheDocument()
++    } finally {
++      prefersReducedMotion.current = previous
++    }
+   })
+ })
+diff --git a/ui/src/test/Toggle.test.tsx b/ui/src/test/Toggle.test.tsx
+index 2ad7b58..4780869 100644
+--- a/ui/src/test/Toggle.test.tsx
++++ b/ui/src/test/Toggle.test.tsx
+@@ -64,16 +64,16 @@ describe('Toggle', () => {
+     expect(screen.getByRole('group', { name: 'Drive route' })).toBeInTheDocument()
+   })
+ 
+-  it('sits the segments in a recessed gradient well', () => {
++  it('sits the segments in a recessed well', () => {
+     render(
+       <Toggle label="Drive route" options={prePost} value="PRE" onChange={() => {}} />
+     )
+ 
+     const group = screen.getByRole('group', { name: 'Drive route' })
+-    expect(group).toHaveClass('bg-gradient-well', 'shadow-well')
+-    // Active segment carries the accent sheen over the inverted foreground.
++    expect(group).toHaveClass('bg-elev-1')
++    // Active segment carries the inverted foreground.
+     expect(screen.getByRole('button', { name: 'PRE' })).toHaveClass(
+-      'bg-gradient-accent'
++      'bg-fg'
+     )
+   })
+ 

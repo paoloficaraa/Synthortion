@@ -63,9 +63,8 @@ export function createMockCanvasContext(options?: {
     }),
     measureText: vi.fn((text: string) => ({
       width: text ? 8 : 0,
-      actualBoundingBoxAscent: 8,
-      actualBoundingBoxDescent: 0,
     })),
+    scale: vi.fn(),
     setTransform: vi.fn(),
     beginPath: vi.fn(),
     moveTo: vi.fn(),

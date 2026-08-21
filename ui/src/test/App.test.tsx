@@ -63,8 +63,8 @@ describe('App', () => {
     const leftRail = container.querySelector('.border-r')
     const rightRail = container.querySelector('.border-l')
 
-    expect(leftRail).toHaveClass('border-elev-6')
-    expect(rightRail).toHaveClass('border-elev-6')
+    expect(leftRail).toHaveClass('border-border')
+    expect(rightRail).toHaveClass('border-border')
     expect(leftRail).toHaveClass('w-[48px]')
     expect(rightRail).toHaveClass('w-[48px]')
     expect(leftRail).toContainElement(screen.getByText('IN'))

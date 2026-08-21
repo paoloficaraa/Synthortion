@@ -131,7 +131,11 @@ html, body, #root {
 }
 
 body {
-  margin: 0;
+  background-image:
+    linear-gradient(rgba(246, 246, 246, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(246, 246, 246, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: center center;
   padding: 0;
   background-color: var(--bg);
   color: var(--fg);
