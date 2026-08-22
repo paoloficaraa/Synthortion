@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { CornerBracket } from './CornerBracket'
+import { CalibrationTicks } from './CalibrationTicks'
 
 interface VstLayoutProps {
   /** Left column content (Input meter rail) */
@@ -17,31 +18,17 @@ interface MeterRailProps {
   children?: ReactNode
 }
 
-/** Micro-calibration ticks mirroring ModuleFrame — industrial xerox anchor for the flanking rails. */
-function RailTicks({ side }: { side: 'left' | 'right' }) {
-  const positionClass = side === 'left' ? 'right-0 items-end pr-0.5' : 'left-0 items-start pl-0.5'
-  return (
-    <div
-      className={`absolute top-2 bottom-2 w-1 flex flex-col justify-between pointer-events-none select-none text-ink-3 font-ascii text-[7px] leading-none opacity-50 ${positionClass}`}
-      aria-hidden="true"
-    >
-      <span>-</span>
-      <span>+</span>
-      <span>-</span>
-    </div>
-  )
-}
 
 /** Fixed-width meter rail that flanks the center hub — Cartesian terminal frame. */
 function MeterRail({ side, children }: MeterRailProps) {
   const borderClass = side === 'left' ? 'border-r' : 'border-l'
   return (
     <div
-      className={`w-[48px] shrink-0 bg-elev-0 flex flex-col items-center py-6 ${borderClass} border-border border-grid-rule z-10 relative overflow-hidden`}
+      className={`w-[48px] shrink-0 bg-elev-0 flex flex-col items-center py-6 ${borderClass} border-border z-10 relative`}
     >
-      {/* Cartesian rail ticks along the inner hairline */}
-      <RailTicks side={side} />
-      {/* Crosshair anchors at chassis top/bottom where rail meets horizontal rules */}
+      {/* Rail ticks along inner hairline — shared CalibrationTicks */}
+      <CalibrationTicks side={side === 'left' ? 'right' : 'left'} className="opacity-50" />
+      {/* Chassis corner crosshairs */}
       <div
         className={`absolute top-0 ${side === 'left' ? 'right-0 translate-x-[3px]' : 'left-0 -translate-x-[3px]'} -translate-y-[1px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none`}
         aria-hidden="true"
@@ -50,6 +37,19 @@ function MeterRail({ side, children }: MeterRailProps) {
       </div>
       <div
         className={`absolute bottom-0 ${side === 'left' ? 'right-0 translate-x-[3px]' : 'left-0 -translate-x-[3px]'} translate-y-[4px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none`}
+        aria-hidden="true"
+      >
+        +
+      </div>
+      {/* Shared-hairline crosshairs at header (54px) and visualizer (54+240=294px) intersections */}
+      <div
+        className={`absolute top-[54px] ${side === 'left' ? 'right-0 translate-x-[3px]' : 'left-0 -translate-x-[3px]'} -translate-y-[4px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none`}
+        aria-hidden="true"
+      >
+        +
+      </div>
+      <div
+        className={`absolute top-[294px] ${side === 'left' ? 'right-0 translate-x-[3px]' : 'left-0 -translate-x-[3px]'} -translate-y-[4px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none`}
         aria-hidden="true"
       >
         +

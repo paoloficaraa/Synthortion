@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Knob } from './Knob'
+import { CalibrationTicks } from './CalibrationTicks'
 import { initialState, type PluginState } from '../lib/pluginState'
 
 interface MatrixFaceplateProps {
@@ -23,20 +24,6 @@ interface ModuleFrameProps {
   children: ReactNode
 }
 
-/** Micro-calibration tick marks for module frame side rules. */
-function CalibrationTicks({ side }: { side: 'left' | 'right' }) {
-  const positionClass = side === 'left' ? 'left-0 items-start pl-0.5' : 'right-0 items-end pr-0.5'
-  return (
-    <div
-      className={`absolute top-2 bottom-2 w-1 flex flex-col justify-between pointer-events-none select-none text-ink-3 font-ascii text-[7px] leading-none opacity-60 ${positionClass}`}
-      aria-hidden="true"
-    >
-      <span>-</span>
-      <span>+</span>
-      <span>-</span>
-    </div>
-  )
-}
 
 /**
  * Module frame — the framed module title bar with a power switch.

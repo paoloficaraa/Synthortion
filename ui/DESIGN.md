@@ -91,15 +91,16 @@ Replaces naive ASCII loops (`│`/`─` repeated via string replication) and mis
 A single 240px canvas band sits between the status header and the module grid — `h-[240px] shrink-0` with `min-h-0` on the center hub so the band never shifts the grid.
 
 **Tiers (single canvas, 60fps):**
-1. **Upper scope (60% height):** Cartesian graticule (`+` crosshairs + 1px rules via `buildGraticule`) in `#333333`, phosphor trace in `#f6f6f6` (idle `#666666`), sub-pixel dither in `#888888`. Braille cells (`U+2800–28FF`) map the time-domain buffer (`OscilloscopeSignal`) at `CELL_PX=16` with `PHOSPHOR_ALPHAS=[0.15,0.3]` persistence (two retained generations). Glitch corruption (`applyGlitch`) is proportional to `GlitchPulser` intensity and decays ~300–500ms.
-2. **Divider row (1 cell):** `├ ┤` framed rule with log-frequency `+` ticks at 20Hz / 200Hz / 2kHz / 20kHz and inline labels, cached per `numCols`. Uses `freqCol(hz) = log(hz/MIN_HZ)/log(MAX_HZ/MIN_HZ)`.
-3. **Lower waterfall (remaining rows minus 1):** Scrolling `WaterfallHistory` (`depth = waterfallRows`) fed by `analyzeBands(samples, numCols-2)` multi-band energies, rendered with density glyphs ` ░▒▓█`, per-row age alpha `max(0.15, 1 - age/rows * 0.85)`, color `#c7c3ba`. Bypass clears history to idle line; animation stops.
+1. **Upper scope (60% height):** Cartesian graticule (`+` crosshairs + 1px rules) in `#333333`, phosphor trace in `#f6f6f6` (idle `#666666`), sub-pixel dither in `#888888`. Braille cells (`U+2800–28FF`) map the time-domain buffer at 16px cells with two-generation phosphor persistence. Glitch corruption is proportional to interaction intensity and decays ~300–500ms.
+2. **Divider row (1 cell):** `├ ┤` framed rule with log-frequency `+` ticks at 20Hz / 200Hz / 2kHz / 20kHz and inline labels, cached per column count.
+3. **Lower waterfall (remaining rows minus 1):** Scrolling history fed by multi-band energy analysis, rendered with density glyphs ` ░▒▓█`, per-row age alpha, color `#c7c3ba`. Bypass clears history to idle line; animation stops.
 
-**Graticule & calibration:** Frequency scale 20Hz→20kHz (log), amplitude dB, `+` crosshairs, phosphor scanline persistence via `globalAlpha`, static CRT scanline dual-gradient overlay (one `::before` pseudo-element on `.vst-container`, never animated).
+**Graticule & calibration:** Frequency scale 20Hz→20kHz (log), amplitude dB, `+` crosshairs, phosphor scanline persistence via canvas alpha, static CRT scanline dual-gradient overlay (one `::before` pseudo-element on `.vst-container`, never animated).
 
-**Reduced motion:** `prefers-reduced-motion: reduce` renders a single static clean frame (`drawFrame(false)`, one `step()`, no RAF loop); all glitch/flicker/stream animations disabled via `@media (prefers-reduced-motion: reduce) { animation: none }`.
+**Reduced motion:** `prefers-reduced-motion: reduce` renders a single static clean frame with one step and no RAF loop; all glitch/flicker/stream animations disabled.
 
-**Testing seam:** `signal?: OscilloscopeSignal`, `glitch?: GlitchPulser`, `random?: () => number` are injectable; tests never assert canvas pixels, only DOM: `data-active`, `data-mode="dual"`, `data-static`, canvas presence, bypass decay, glitch propagation, and resize via `ResizeObserver`.
+**Testing seam:** Signal, glitch pulser and PRNG are injectable; tests never assert canvas pixels, only DOM: `data-active`, `data-mode="dual"`, `data-static`, canvas presence, bypass decay, glitch propagation, and resize via `ResizeObserver`.
+
 
 ## Control Surface Physics
 
@@ -111,9 +112,9 @@ A single 240px canvas band sits between the status header and the module grid �
 ## Layout
 
 - **Chassis:** fluid `w-full h-full` with `1px solid var(--border)` on `.vst-container`, box-drawing corner brackets (`┌ ┐ └ ┘` at 16px `font-ascii` `text-ink-3`, `aria-hidden`), static CRT scanlines (`.vst-container::before` dual `repeating-linear-gradient` + `linear-gradient`, `z-index 40`, `pointer-events none`), and `noise-overlay` turbulence (`opacity 0.025`, `mix-blend-mode overlay`, `z-index 50`).
-- **Structure:** 3 columns — left IN rail (48px) · center hub · right OUT rail (48px). Center hub = status bar (54px `h-[54px]` `shrink-0` `border-b border-grid-rule`) + ASCII scope (240px `h-[240px]` `shrink-0` `border-b border-grid-rule`) + module grid (flexible, `flex-1 flex items-center justify-center p-8`, inner faceplate `grid grid-cols-5 border border-grid-rule`).
+- **Structure:** 3 columns — left IN rail (48px) · center hub · right OUT rail (48px). Center hub = status bar (54px `h-[54px]` `shrink-0` `border-b border-grid-rule`) + ASCII scope (240px `h-[240px]` `shrink-0` `border-b border-grid-rule`) + module grid (flexible, `flex-1 flex items-center justify-center px-6 py-6`, inner faceplate `grid grid-cols-5 border border-grid-rule`).
 - **Faceplate:** 5-column grid — DRV | BCR | DLY (×2) | CHR. Each section is a framed module: header `h-[24px]` `border-b` with `+ [ CODE ] + [ PWR: ON ] +` and LED power switch, control area with `CalibrationTicks`, bottom bar `h-[16px]` `border-t` with `+ ░▒ CAL.0CODE :: SYS.X ▒░ +`.
-- **Meter rails:** `w-[48px] shrink-0 bg-elev-0 flex flex-col items-center py-6 border-r/l border-border` with `CalibrationTicks` mirroring modules, ladder `w-[8px] h-[256px]` `bg-elev-0` `boxShadow: var(--shadow-well), 0 0 0 1px var(--elev-6)`, top `┌ IN ┐` / `0` / `│` gutters, bottom `└───┘`, bracketed dB readout `[ -INF ]`.
+- **Meter rails:** `w-[48px] shrink-0 bg-elev-0 flex flex-col items-center py-6 border-r/l border-border` with `CalibrationTicks` mirroring modules (plus `+` at header 54px and visualizer 294px shared hairlines), ladder `w-[8px] h-[256px]` `bg-elev-0` `boxShadow: var(--shadow-well), 0 0 0 1px var(--elev-6)`, top `+ ┌ IN ┐ +` / `0` / `│` gutters, bottom `+ ░▒ └─(1px hairline)─┘ ▒░ +` (CSS `h-px bg-ink-3`, never repeated `─`), bracketed dB readout `[ -INF ]`.
 - **Radius:** max 2px (`rounded-[1px]` on LEDs only).
 - **Border weight:** 1px (`#333333`) — the single hairline token.
 - **Spacing:** 2/4/8/16/24/32/48/64px.

@@ -15,6 +15,19 @@ const CANVAS_HEIGHT = 256
 const FONT_SIZE = 16
 const TEXT_BASELINE = 'hanging' as CanvasTextBaseline
 
+/** Gutter micro-ticks for the ladder well — deduped column. */
+function GutterTicks({ offset }: { offset: string }) {
+  return (
+    <div
+      className={`absolute top-1 bottom-1 left-1/2 ${offset} flex flex-col justify-between pointer-events-none select-none font-ascii text-[6px] leading-none text-ink-3 opacity-40`}
+      aria-hidden="true"
+    >
+      <span>-</span>
+      <span>+</span>
+      <span>-</span>
+    </div>
+  )
+}
 /** Colors matching the design tokens. */
 const METER_VOID = '#030303'
 const METER_WELL = '#0a0a0a'
@@ -169,23 +182,8 @@ export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
         0
       </div>
       <div className="flex-1 w-full flex justify-center z-10 shrink min-h-0 relative">
-        {/* Micro-calibration gutter ticks along the vertical well */}
-        <div
-          className="absolute top-1 bottom-1 left-1/2 -translate-x-[14px] flex flex-col justify-between pointer-events-none select-none font-ascii text-[6px] leading-none text-ink-3 opacity-40"
-          aria-hidden="true"
-        >
-          <span>-</span>
-          <span>+</span>
-          <span>-</span>
-        </div>
-        <div
-          className="absolute top-1 bottom-1 left-1/2 translate-x-[10px] flex flex-col justify-between pointer-events-none select-none font-ascii text-[6px] leading-none text-ink-3 opacity-40"
-          aria-hidden="true"
-        >
-          <span>-</span>
-          <span>+</span>
-          <span>-</span>
-        </div>
+        <GutterTicks offset="-translate-x-[14px]" />
+        <GutterTicks offset="translate-x-[10px]" />
         <div
           className="font-ascii text-[9px] text-ink-2 leading-none select-none opacity-60"
           aria-hidden="true"
@@ -202,15 +200,6 @@ export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
             height={CANVAS_HEIGHT}
             className="w-full h-full block"
           />
-          {/* Phosphor scanline sheen — inert, gated by monochrome discipline */}
-          <div
-            className="absolute inset-0 pointer-events-none opacity-[0.06]"
-            aria-hidden="true"
-            style={{
-              background:
-                'repeating-linear-gradient(to bottom, transparent 0px, transparent 2px, rgba(246,246,246,0.4) 2px, rgba(246,246,246,0.4) 3px)',
-            }}
-          />
         </div>
         <div
           className="font-ascii text-[9px] text-ink-2 leading-none select-none opacity-60"
@@ -219,7 +208,7 @@ export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
           │
         </div>
       </div>
-      {/* Bottom Cartesian anchor: + ░▒ └───┘ ▒░ + */}
+      {/* Bottom Cartesian anchor: + ░▒ └─(hairline)─┘ ▒░ + — no repeated ─ string, CSS 1px rule only */}
       <div
         className="font-ascii text-[9px] leading-none mt-1 flex items-center gap-1"
         aria-hidden="true"
@@ -227,7 +216,11 @@ export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
         <span className="text-ink-3">+</span>
         <span className="text-ink-3 opacity-40 text-[7px] tracking-tighter">░▒</span>
         <span className="text-ink-3">└</span>
-        <span className="text-ink-3">{'─'.repeat(label.length + 2)}</span>
+        <span
+          className="h-px bg-ink-3 inline-block"
+          style={{ width: `${(label.length + 2) * 4}px` }}
+          aria-hidden="true"
+        />
         <span className="text-ink-3">┘</span>
         <span className="text-ink-3 opacity-40 text-[7px] tracking-tighter">▒░</span>
         <span className="text-ink-3">+</span>

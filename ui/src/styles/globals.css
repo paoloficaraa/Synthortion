@@ -369,6 +369,7 @@ body {
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  /* Cartesian grid-rule alias — DESIGN.md domain term for the 1px #333 hairline; maps to same --elev-7 as --border for coherence */
   --color-grid-rule: var(--elev-7);
   --color-accent: var(--accent);
   --color-danger: var(--danger);

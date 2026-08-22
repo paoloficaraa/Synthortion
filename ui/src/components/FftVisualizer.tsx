@@ -296,18 +296,20 @@ export function FftVisualizer({
       data-active={active}
       data-mode="dual"
       data-static={staticFrame}
-      className="relative w-full h-[240px] min-h-[240px] max-h-[240px] shrink-0 bg-bg overflow-hidden border-b border-grid-rule"
+      className="relative w-full h-[240px] shrink-0 bg-bg border-b border-grid-rule"
     >
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" aria-hidden="true" />
-      {/* Cartesian bottom corners — + at the shared hairline where the scope band meets the flanking rails */}
+      <div className="absolute inset-0 overflow-hidden">
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" aria-hidden="true" />
+      </div>
+      {/* Cartesian bottom corners — + centered on shared hairline where scope band meets flanking rails */}
       <div
-        className="absolute bottom-0 left-0 -mb-[4px] -ml-[3px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none"
+        className="absolute bottom-0 left-0 translate-y-[4px] -translate-x-[3px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none"
         aria-hidden="true"
       >
         +
       </div>
       <div
-        className="absolute bottom-0 right-0 -mb-[4px] -mr-[3px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none"
+        className="absolute bottom-0 right-0 translate-y-[4px] translate-x-[3px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none"
         aria-hidden="true"
       >
         +
