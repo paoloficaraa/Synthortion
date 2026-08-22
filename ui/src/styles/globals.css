@@ -345,6 +345,27 @@ body {
   animation: knob-flicker 0.1s steps(1) infinite;
 }
 
+@keyframes crt-track-jitter {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(1px);
+  }
+  50% {
+    transform: translateX(-1px);
+  }
+  75% {
+    transform: translateX(1px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .track-jitter {
+    animation: crt-track-jitter 80ms steps(1) infinite;
+  }
+}
+
 .animate-vst-enter {
   animation: vst-enter 220ms cubic-bezier(0.2, 0, 0, 1) both;
 }
@@ -356,8 +377,10 @@ body {
     transform: none !important;
   }
   .knob-glitch,
-  .trim-glitch {
+  .trim-glitch,
+  .track-jitter {
     animation: none !important;
+    transform: none !important;
   }
 }
 

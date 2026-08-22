@@ -1,8 +1,8 @@
 import { useState, type ComponentProps } from 'react'
-import { render, screen, fireEvent, within } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent, within, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Knob } from '../components/Knob'
-
+import { CORRUPTION_GLYPHS } from '../lib/trackGlitch'
 /**
  * Renders a controlled Knob so repeated keyboard presses accumulate.
  * Returns the mock onChange plus the slider element scoped to this render
@@ -347,6 +347,164 @@ describe('Knob', () => {
       fireEvent.keyDown(slider, { key: 'Home' })
 
       expect(onChange).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('velocity-reactive track glitch & exponential decay', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('triggers corruption glyphs on fast pointer drag', () => {
+      const { slider } = renderKnob(50)
+      fireEvent.pointerDown(slider, { clientY: 200, timeStamp: 0, pointerId: 1 })
+
+      // Fast drag: dy = 60px over 20ms -> 3.0 px/ms
+      act(() => {
+        fireEvent.pointerMove(slider, { clientY: 140, timeStamp: 20, pointerId: 1 })
+      })
+
+      const track = screen.getByTestId('knob-track')
+      const text = track.textContent ?? ''
+      // Should contain at least one glyph from CORRUPTION_GLYPHS
+      const hasCorruption = CORRUPTION_GLYPHS.some((glyph) => text.includes(glyph))
+      expect(hasCorruption).toBe(true)
+    })
+
+    it('decays corruption glyphs back to clean dither state over ~120-150 ms', () => {
+      const { slider } = renderKnob(50)
+      fireEvent.pointerDown(slider, { clientY: 200, timeStamp: 0, pointerId: 1 })
+      act(() => {
+        fireEvent.pointerMove(slider, { clientY: 140, timeStamp: 20, pointerId: 1 })
+      })
+
+      // Advance timers past decay window (~150 ms)
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+
+      // Clean state at value 80: [███████░-]
+      const track = screen.getByTestId('knob-track')
+      // Should be clean (no glitch glyphs other than standard dither chars)
+      expect(track.textContent).toBe('[███████░-]')
+    })
+
+    it('produces zero track glitching on slow drag', () => {
+      const { slider } = renderKnob(50)
+      fireEvent.pointerDown(slider, { clientY: 200, timeStamp: 0, pointerId: 1 })
+
+      // Slow drag: dy = 2px over 50ms -> 0.04 px/ms (< threshold)
+      act(() => {
+        fireEvent.pointerMove(slider, { clientY: 198, timeStamp: 50, pointerId: 1 })
+      })
+
+      const track = screen.getByTestId('knob-track')
+      // Clean state at value 51: [████▒----]
+      expect(track.textContent).toBe('[████▒----]')
+    })
+
+    it('produces zero track glitching during fine adjustment (Shift key)', () => {
+      const { slider } = renderKnob(50)
+      fireEvent.pointerDown(slider, { clientY: 200, timeStamp: 0, pointerId: 1 })
+
+      // Fast displacement but Shift held: fine adjustment suppresses track glitch
+      act(() => {
+        fireEvent.pointerMove(slider, {
+          clientY: 140,
+          timeStamp: 20,
+          shiftKey: true,
+          pointerId: 1,
+        })
+      })
+
+      const track = screen.getByTestId('knob-track')
+      // Clean state at value 53: [████▓----]
+      expect(track.textContent).toBe('[████▓----]')
+    })
+  })
+
+  describe('numeric decoding hex flip animation', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('scrambles value label into terminal hex characters on rapid adjustment for 30-50 ms', () => {
+      const { slider } = renderKnob(50)
+      fireEvent.pointerDown(slider, { clientY: 200, timeStamp: 0, pointerId: 1 })
+
+      // Rapid adjustment
+      act(() => {
+        fireEvent.pointerMove(slider, { clientY: 140, timeStamp: 20, pointerId: 1 })
+      })
+
+      // Slider role accessibility stays strictly intact
+      expect(slider).toHaveAttribute('aria-valuenow', '80')
+      expect(slider).toHaveAttribute('aria-valuetext', '80%')
+
+      // Advance past 50ms scramble window
+      act(() => {
+        vi.advanceTimersByTime(50)
+      })
+
+      expect(screen.getByText('80%')).toBeInTheDocument()
+    })
+
+    it('does not trigger hex scramble on slow adjustment', () => {
+      const { slider } = renderKnob(50)
+      fireEvent.pointerDown(slider, { clientY: 200, timeStamp: 0, pointerId: 1 })
+
+      act(() => {
+        fireEvent.pointerMove(slider, { clientY: 198, timeStamp: 50, pointerId: 1 })
+      })
+
+      // Immediately shows clean formatted display value
+      expect(screen.getByText('51%')).toBeInTheDocument()
+    })
+
+    it('triggers hex flip animation on double-click reset', () => {
+      const onChange = vi.fn()
+      render(
+        <Knob
+          label="Drive"
+          value={80}
+          defaultValue={40}
+          displayValue="80%"
+          onChange={onChange}
+        />
+      )
+
+      const slider = screen.getByRole('slider', { name: 'Drive' })
+      act(() => {
+        fireEvent.doubleClick(slider)
+      })
+
+      expect(onChange).toHaveBeenCalledWith(40)
+
+      // Settle scramble window
+      act(() => {
+        vi.advanceTimersByTime(50)
+      })
+    })
+  })
+
+  describe('CRT scanline jitter', () => {
+    it('applies track-jitter class to the track during active dragging', () => {
+      const { slider } = renderKnob(50)
+
+      fireEvent.pointerDown(slider, { clientY: 200, pointerId: 1 })
+      const track = screen.getByTestId('knob-track')
+      expect(track).toHaveClass('track-jitter')
+
+      fireEvent.pointerUp(slider, { pointerId: 1 })
+      expect(track).not.toHaveClass('track-jitter')
     })
   })
 })

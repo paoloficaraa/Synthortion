@@ -1,4 +1,14 @@
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import {
+  calculateDragVelocity,
+  corruptTrackCells,
+  FAST_DRAG_VELOCITY_THRESHOLD,
+  GLITCH_DECAY_TAU_MS,
+} from '../lib/trackGlitch'
+import {
+  generateHexScramble,
+  HEX_SCRAMBLE_DURATION_MS,
+} from '../lib/hexScramble'
 
 interface KnobProps {
   /** Label displayed below the knob */
@@ -67,6 +77,48 @@ export function Knob({
   const [isDraggingState, setIsDraggingState] = useState(false)
   const startY = useRef(0)
   const startVal = useRef(0)
+  const lastY = useRef(0)
+  const lastTime = useRef(0)
+
+  const [glitchIntensity, setGlitchIntensity] = useState(0)
+  const glitchDecayTimer = useRef<number | null>(null)
+
+  const [isScrambling, setIsScrambling] = useState(false)
+  const [scrambledText, setScrambledText] = useState('')
+  const scrambleTimer = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      clearInterval(glitchDecayTimer.current!)
+      clearTimeout(scrambleTimer.current!)
+    }
+  }, [])
+
+  const triggerGlitch = (initialIntensity = 1.0) => {
+    clearInterval(glitchDecayTimer.current!)
+    setGlitchIntensity(initialIntensity)
+    let current = initialIntensity
+    const stepMs = 20
+    glitchDecayTimer.current = window.setInterval(() => {
+      current *= Math.exp(-stepMs / GLITCH_DECAY_TAU_MS)
+      if (current < 0.05) {
+        current = 0
+        clearInterval(glitchDecayTimer.current!)
+        glitchDecayTimer.current = null
+      }
+      setGlitchIntensity(current)
+    }, stepMs)
+  }
+
+  const triggerHexScramble = (targetText: string) => {
+    clearTimeout(scrambleTimer.current!)
+    setScrambledText(generateHexScramble(targetText))
+    setIsScrambling(true)
+    scrambleTimer.current = window.setTimeout(() => {
+      setIsScrambling(false)
+      scrambleTimer.current = null
+    }, HEX_SCRAMBLE_DURATION_MS)
+  }
 
   const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (!enabled) return
@@ -74,6 +126,8 @@ export function Knob({
     setIsDraggingState(true)
     startY.current = e.clientY
     startVal.current = value
+    lastY.current = e.clientY
+    lastTime.current = e.timeStamp > 0 ? e.timeStamp : performance.now()
     // jsdom and some embedders lack pointer capture; guard so tests/harnesses
     // can exercise drag math without a real pointer session.
     if (e.currentTarget.setPointerCapture) {
@@ -83,6 +137,22 @@ export function Knob({
 
   const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!isDragging.current) return
+    const currentTime = e.timeStamp > 0 ? e.timeStamp : performance.now()
+    const velocity = calculateDragVelocity({
+      currentY: e.clientY,
+      lastY: lastY.current,
+      currentTime,
+      lastTime: lastTime.current,
+      shiftKey: e.shiftKey,
+    })
+    lastY.current = e.clientY
+    lastTime.current = currentTime
+
+    if (velocity >= FAST_DRAG_VELOCITY_THRESHOLD && !e.shiftKey) {
+      triggerGlitch(Math.min(1.0, Math.max(0.5, velocity / 1.5)))
+      triggerHexScramble(displayValue)
+    }
+
     const dy = startY.current - e.clientY
     const sensitivity =
       DRAG_SENSITIVITY * (e.shiftKey ? FINE_STEP_FACTOR : 1)
@@ -102,8 +172,8 @@ export function Knob({
   const handleDoubleClick = () => {
     if (!enabled || defaultValue === undefined) return
     onChange(defaultValue)
+    triggerHexScramble(displayValue)
   }
-
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!enabled) return
     const step = (max - min) / 100
@@ -180,12 +250,12 @@ export function Knob({
         <span
           className={`font-ascii leading-none inline-block whitespace-nowrap overflow-hidden ${
             size === 'small' ? 'text-[8px]' : 'text-[16px]'
-          } ${enabled ? '' : 'opacity-40'}`}
+          } ${enabled ? '' : 'opacity-40'} ${isDraggingState ? 'track-jitter' : ''}`}
           aria-hidden="true"
           data-testid="knob-track"
         >
           <span className={`text-ink-3 ${isDraggingState ? 'knob-glitch' : ''}`}>[</span>
-          {cells.map((cell, i) => (
+          {corruptTrackCells(cells, glitchIntensity).map((cell, i) => (
             <span key={i} className={cell.filled ? 'text-fg' : 'text-ink-3'}>
               {cell.char}
             </span>
@@ -202,7 +272,7 @@ export function Knob({
             size === 'small' ? 'text-[9px]' : 'text-[10px]'
           } ${enabled ? 'text-fg' : 'text-ink-3'}`}
         >
-          {enabled ? displayValue : '--'}
+          {enabled ? (isScrambling ? scrambledText : displayValue) : '--'}
         </span>
         <span
           className={`font-display text-muted uppercase-tracked select-none mt-1 ${
