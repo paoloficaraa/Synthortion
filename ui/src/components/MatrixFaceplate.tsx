@@ -43,11 +43,11 @@ function ModuleFrame({
 }: ModuleFrameProps) {
   return (
     <section
-      className={`p-0 flex flex-col items-stretch justify-between relative bg-elev-0 border-r border-grid-rule last:border-r-0 ${className ?? ''}`}
+      className={`p-0 flex flex-col items-stretch justify-between relative bg-elev-0 border-r border-grid-rule last:border-r-0 h-full min-h-0 ${className ?? ''}`}
     >
       {/* Cartesian Header: + [ DRV ] + [ PWR: ON ] + */}
       <div
-        className="flex items-center justify-between px-2 h-[24px] font-ascii text-[9px] leading-none select-none border-b border-grid-rule bg-elev-0 text-muted relative"
+        className="flex items-center justify-between px-2 h-[24px] shrink-0 font-ascii text-[9px] leading-none select-none border-b border-grid-rule bg-elev-0 text-muted relative"
         aria-hidden="true"
       >
         <div className="flex items-center gap-1">
@@ -91,11 +91,11 @@ function ModuleFrame({
 
       {/* Module Interior (controls + calibration ticks + bottom bar) */}
       <div
-        className={`flex-1 flex flex-col items-stretch justify-between w-full transition-opacity duration-150 ${
+        className={`flex-1 flex flex-col items-stretch justify-between w-full min-h-0 transition-opacity duration-150 ${
           powerOn ? '' : 'opacity-30 pointer-events-none'
         }`}
       >
-        <div className="relative flex-1 flex flex-col items-center justify-between px-3 pt-4 pb-3 min-w-0 w-full overflow-hidden">
+        <div className="relative flex-1 flex flex-col items-center justify-center px-2 sm:px-3 py-2 sm:py-3 min-w-0 w-full overflow-hidden">
           <CalibrationTicks side="left" />
           <CalibrationTicks side="right" />
           {children}
@@ -103,7 +103,7 @@ function ModuleFrame({
 
         {/* Cartesian Bottom Calibration Bar */}
         <div
-          className="flex items-center justify-between px-2 h-[16px] font-ascii text-[8px] leading-none select-none border-t border-grid-rule text-ink-3 bg-elev-0"
+          className="flex items-center justify-between px-2 h-[16px] shrink-0 font-ascii text-[8px] leading-none select-none border-t border-grid-rule text-ink-3 bg-elev-0"
           aria-hidden="true"
         >
           <div className="flex items-center gap-1">
@@ -156,14 +156,14 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
   } = state
 
   return (
-    <div className="grid grid-cols-5 w-full border border-grid-rule bg-elev-0">
+    <div className="grid grid-cols-5 w-full h-full border border-grid-rule bg-elev-0 flex-1 min-h-0">
       {/* DRV — Drive with PRE/POST route toggle */}
       <ModuleFrame
         code="DRV"
         powerOn={driveOn}
         onTogglePower={() => onChange({ driveOn: !driveOn })}
       >
-        <div className="flex-1 flex flex-col justify-center items-center mt-6 w-full">
+        <div className="flex-1 flex flex-col justify-center items-center w-full">
           <Knob
             label="Drive"
             value={drive}
@@ -177,13 +177,13 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
         </div>
       </ModuleFrame>
 
-      {/* BCR — Bitcrush step-count knob with a spacer to keep knobs aligned */}
+      {/* BCR — Bitcrush step-count knob */}
       <ModuleFrame
         code="BCR"
         powerOn={bitcrushOn}
         onTogglePower={() => onChange({ bitcrushOn: !bitcrushOn })}
       >
-        <div className="flex-1 flex flex-col justify-center items-center mt-6 w-full">
+        <div className="flex-1 flex flex-col justify-center items-center w-full">
           <Knob
             label="Bitcrush"
             value={bitcrush}
@@ -195,14 +195,6 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             onChange={(value) => onChange({ bitcrush: value })}
           />
         </div>
-        <div
-          className="w-full flex gap-1 mt-8 opacity-0 pointer-events-none"
-          aria-hidden="true"
-        >
-          <span className="flex-1 border font-mono text-[9px] py-1.5 uppercase border-border">
-            -
-          </span>
-        </div>
       </ModuleFrame>
 
       {/* DLY — dual-column delay: Mix knob + Time/Fbk small knobs + timebase tie */}
@@ -212,7 +204,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
         onTogglePower={() => onChange({ delayOn: !delayOn })}
         className="col-span-2"
       >
-        <div className="flex-1 flex flex-col items-center justify-center w-full mt-2">
+        <div className="flex-1 flex flex-col items-center justify-center w-full gap-3 sm:gap-5">
           <Knob
             label="Mix"
             value={delayMix}
@@ -223,13 +215,14 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             enabled={delayOn}
             onChange={(value) => onChange({ delayMix: value })}
           />
-          <div className="flex gap-10 mt-6">
+          <div className="flex gap-6 sm:gap-10 items-center justify-center">
             <Knob
               label="Time"
               value={delayTime}
               min={0}
               max={1000}
               displayValue={`${Math.round(delayTime)}`}
+              size="small"
               enabled={delayOn}
               defaultValue={initialState.delayTime}
               onChange={(value) => onChange({ delayTime: value })}
@@ -255,7 +248,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
         powerOn={chorusOn}
         onTogglePower={() => onChange({ chorusOn: !chorusOn })}
       >
-        <div className="flex-1 flex flex-col justify-center items-center mt-6 w-full">
+        <div className="flex-1 flex flex-col justify-center items-center w-full">
           <Knob
             label="Chorus"
             value={chorus}

@@ -85,16 +85,16 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
         leftColumn={<GainMeter label="IN" active={state.engineActive} delay={50} />}
         rightColumn={<GainMeter label="OUT" active={state.engineActive} delay={260} />}
       >
-        {/* Center hub — Header (54px) → Visualizer (240px) → Faceplate share one Cartesian grid */}
+        {/* Center hub — Header (50px) → Visualizer (~35%) → Faceplate (~65%) share one Cartesian grid */}
         <main className="flex-1 flex flex-col bg-bg min-h-0 overflow-hidden relative">
           <Header
             engineActive={state.engineActive}
             onToggleBypass={(active) => update({ engineActive: active })}
           />
-          {/* Dual-mode band locked to 240px — shrink-0 prevents grid shift on bypass/tweak */}
+          {/* Dual-mode visualizer band allocated ~35% of center hub height */}
           <FftVisualizer active={state.engineActive} glitch={pulser} />
-          {/* Faceplate plateau — 1px-separated from the scope band, centered on the same grid */}
-          <div className="flex-1 flex items-center justify-center px-6 py-6 min-h-0 overflow-hidden bg-bg">
+          {/* Faceplate plateau allocated ~65% of center hub height, expanding to 100% height */}
+          <div data-testid="faceplate-plateau" className="basis-[65%] flex-grow flex flex-col p-3 sm:p-4 min-h-0 overflow-hidden bg-bg">
             <MatrixFaceplate state={state} onChange={update} />
           </div>
         </main>

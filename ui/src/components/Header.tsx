@@ -21,7 +21,7 @@ const ACTIONS = ['SAVE', 'LOAD'] as const
  */
 export function Header({ engineActive, onToggleBypass }: HeaderProps) {
   return (
-    <header className="h-[54px] bg-bg flex items-center justify-between px-6 shrink-0 relative z-10 border-b border-grid-rule">
+    <header className="h-[50px] bg-bg flex items-center justify-between px-6 shrink-0 relative z-10 border-b border-grid-rule">
       {/* Cartesian Coordinate Corner Marks */}
       <div className="absolute bottom-0 left-0 -mb-[4px] -ml-[3px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none" aria-hidden="true">
         +

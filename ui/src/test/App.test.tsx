@@ -222,6 +222,21 @@ describe('App', () => {
     )
   })
 
+  it('allocates fixed 50px for header, ~35% for visualizer, and ~65% for faceplate in the center hub', () => {
+    const { container } = render(<App />)
+    const main = container.querySelector('main')
+    expect(main).toBeInTheDocument()
+
+    const header = main?.querySelector('header')
+    expect(header).toHaveClass('h-[50px]', 'shrink-0')
+
+    const viz = main?.querySelector('[data-testid="fft-visualizer"]')
+    expect(viz).toHaveClass('basis-[35%]', 'flex-grow')
+
+    const faceplateSection = main?.querySelector('[data-testid="faceplate-plateau"]')
+    expect(faceplateSection).toHaveClass('basis-[65%]', 'flex-grow')
+  })
+
   it('pulses the glitch pulser on a knob drag, proportional to the delta', () => {
     render(<App />)
     const pulser = appPulser()

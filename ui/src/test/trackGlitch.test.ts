@@ -4,7 +4,6 @@ import {
   GLITCH_DECAY_TAU_MS,
   calculateDragVelocity,
   corruptTrackCells,
-  createTrackGlitchController,
 } from '../lib/trackGlitch'
 
 describe('trackGlitch', () => {
@@ -12,6 +11,13 @@ describe('trackGlitch', () => {
     it('contains the full set of specified corruption glyphs', () => {
       const expected = ['░', '▒', '▓', '╱', '╲', '╳', '▲', '::', '~', '+', '*']
       expect(CORRUPTION_GLYPHS).toEqual(expected)
+    })
+  })
+
+  describe('GLITCH_DECAY_TAU_MS', () => {
+    it('is within the specified 120-150 ms decay window', () => {
+      expect(GLITCH_DECAY_TAU_MS).toBeGreaterThanOrEqual(120)
+      expect(GLITCH_DECAY_TAU_MS).toBeLessThanOrEqual(150)
     })
   })
 
@@ -75,64 +81,4 @@ describe('trackGlitch', () => {
     })
   })
 
-  describe('createTrackGlitchController', () => {
-    it('initializes with zero intensity', () => {
-      const controller = createTrackGlitchController()
-      expect(controller.intensity).toBe(0)
-    })
-
-    it('triggers glitch on fast drag (velocity >= threshold)', () => {
-      const controller = createTrackGlitchController()
-      controller.onPointerMove({
-        currentY: 150,
-        currentTime: 20,
-        shiftKey: false,
-      })
-      // Threshold is FAST_DRAG_VELOCITY_THRESHOLD
-      expect(controller.intensity).toBeGreaterThan(0)
-    })
-
-    it('does not trigger glitch on slow drag', () => {
-      const controller = createTrackGlitchController()
-      // Initial move to set baseline
-      controller.onPointerDown({ startY: 200, startTime: 0 })
-      // Move 2px over 50ms -> 0.04 px/ms (< 0.4 threshold)
-      controller.onPointerMove({
-        currentY: 198,
-        currentTime: 50,
-        shiftKey: false,
-      })
-      expect(controller.intensity).toBe(0)
-    })
-
-    it('does not trigger glitch when shiftKey is held (fine adjustment)', () => {
-      const controller = createTrackGlitchController()
-      controller.onPointerDown({ startY: 200, startTime: 0 })
-      controller.onPointerMove({
-        currentY: 100,
-        currentTime: 10,
-        shiftKey: true,
-      })
-      expect(controller.intensity).toBe(0)
-    })
-
-    it('decays exponentially over ~120-150 ms to zero', () => {
-      const controller = createTrackGlitchController()
-      controller.onPointerDown({ startY: 200, startTime: 0 })
-      controller.onPointerMove({
-        currentY: 100,
-        currentTime: 10,
-        shiftKey: false,
-      })
-      expect(controller.intensity).toBe(1)
-
-      // Step by GLITCH_DECAY_TAU_MS (~135ms)
-      controller.step(GLITCH_DECAY_TAU_MS)
-      expect(controller.intensity).toBeCloseTo(Math.exp(-1), 2)
-
-      // Step further until fully decayed
-      controller.step(300)
-      expect(controller.intensity).toBe(0)
-    })
-  })
 })

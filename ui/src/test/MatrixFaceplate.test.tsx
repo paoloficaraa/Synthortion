@@ -186,4 +186,31 @@ describe('MatrixFaceplate', () => {
     const dly = sections[2]
     expect(dly).toHaveClass('col-span-2')
   })
+
+  it('expands all module frames to 100% vertical height without clipping', () => {
+    const { container } = render(
+      <MatrixFaceplate state={initialState} onChange={() => {}} />
+    )
+
+    const grid = container.firstChild as HTMLElement
+    expect(grid).toHaveClass('h-full')
+
+    const sections = container.querySelectorAll('section')
+    expect(sections).toHaveLength(4)
+    sections.forEach((section) => {
+      expect(section).toHaveClass('h-full')
+    })
+  })
+
+  it('renders DLY section with Mix knob and Time/Feedback sub-knobs with dual-row spacing', () => {
+    render(<MatrixFaceplate state={initialState} onChange={() => {}} />)
+
+    const mixSlider = screen.getByRole('slider', { name: 'Mix' })
+    const timeSlider = screen.getByRole('slider', { name: 'Time' })
+    const fbkSlider = screen.getByRole('slider', { name: 'Fbk' })
+
+    expect(mixSlider).toBeInTheDocument()
+    expect(timeSlider).toBeInTheDocument()
+    expect(fbkSlider).toBeInTheDocument()
+  })
 })

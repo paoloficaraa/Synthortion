@@ -41,15 +41,9 @@ function MeterRail({ side, children }: MeterRailProps) {
       >
         +
       </div>
-      {/* Shared-hairline crosshairs at header (54px) and visualizer (54+240=294px) intersections */}
+      {/* Shared-hairline crosshairs at header (50px) intersection */}
       <div
-        className={`absolute top-[54px] ${side === 'left' ? 'right-0 translate-x-[3px]' : 'left-0 -translate-x-[3px]'} -translate-y-[4px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none`}
-        aria-hidden="true"
-      >
-        +
-      </div>
-      <div
-        className={`absolute top-[294px] ${side === 'left' ? 'right-0 translate-x-[3px]' : 'left-0 -translate-x-[3px]'} -translate-y-[4px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none`}
+        className={`absolute top-[50px] ${side === 'left' ? 'right-0 translate-x-[3px]' : 'left-0 -translate-x-[3px]'} -translate-y-[4px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none`}
         aria-hidden="true"
       >
         +

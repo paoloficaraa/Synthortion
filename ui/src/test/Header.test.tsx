@@ -69,4 +69,10 @@ describe('Header', () => {
     const allText = container.textContent ?? ''
     expect(allText).not.toMatch(/─{2,}/)
   })
+
+  it('renders with fixed 50px height allocation for DAW window scaling', () => {
+    const { container } = render(<Header engineActive onToggleBypass={() => {}} />)
+    const header = container.querySelector('header')
+    expect(header).toHaveClass('h-[50px]', 'shrink-0')
+  })
 })
