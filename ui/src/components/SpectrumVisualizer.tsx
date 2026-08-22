@@ -95,7 +95,6 @@ export function SpectrumVisualizer({
     let rafId = 0
     let w = 0
     let h = 0
-    let isDecaying = false
     const graticuleCache = new Map<string, string>()
 
     const resize = () => {
@@ -139,15 +138,12 @@ export function SpectrumVisualizer({
         }
         if (maxVal > 0.0005) {
           hasActiveSignal = true
-          isDecaying = true
         } else {
           display.fill(0)
-          isDecaying = false
         }
       } else {
         // Live mode: update display buffer
         hasActiveSignal = true
-        isDecaying = true
         for (let i = 0; i < NUM_BANDS; i++) {
           const t = target[i] ?? 0
           const curr = display[i] ?? 0

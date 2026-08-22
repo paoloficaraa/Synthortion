@@ -31,7 +31,7 @@ The UI is a **digital instrument**: flat, precise, data-dense, with information 
 - **Tweak-driven glitch** — the signature behavior: the scope's ASCII field corrupts proportionally to live interaction intensity (drag velocity × amplitude), decaying in ~300–500ms. Idle = clean trace. Power toggles fire a short burst; bypass fires one heavy corruption frame. No dedicated glitch control exists.
 - **Boot sequence** — the mount-time terminal overlay: one-shot, staged lines with real values and aligned `[ OK ]` columns, ending on `[READY]`. Skippable by click/Enter. Reduced-motion renders the final state immediately.
 - **Cartesian frame** — the structural panel boundary system: 1px hairlines (`#333333`), coordinate crosshairs (`+`) at every intersection, micro-scale calibration ticks (`-`/`+`) and dithered corner anchors. Replaces naive repeated `─`/`│` loops with authentic industrial xerox precision.
-- **Dual-mode visualizer** — the real-time analyzer band: upper Braille/dither waveform scope (60fps) and lower scrolling waterfall spectrogram (density ` ░▒▓█`) unified on a single canvas with a shared Cartesian graticule.
+- **Real-time spectrum analyzer** — the frequency-domain visualization band: hybrid Braille peak curve with Xerox dither fill (`░▒▓`) on a 20Hz–20kHz logarithmic scale at 60 FPS with instant attack and exponential decay ballistics.
 - **Smooth ASCII knob** — continuous sub-cell dithered slider in canonical `[....]` bracket format with 36+ gradient states, vertical-drag physics, Shift fine-step (0.1×), and non-destructive border micro-glitch.
 
 ## Color Palette
@@ -86,21 +86,22 @@ Replaces naive ASCII loops (`│`/`─` repeated via string replication) and mis
 - **No repeated character spans.** A divider is a CSS `border` or an `h-px`/`w-px` `bg-grid-rule` element, not a repeated `─` string. The sole exception is the visualizer frequency divider, which builds its `─` row cell-by-cell to embed `+` ticks and `20Hz` labels without collision. Tests enforce `not.toMatch(/─{2,}/)` in header text content.
 - **Accessibility.** All `+`, `─`, `│`, `░▒▓`, `┌┐` chrome is `aria-hidden="true"`; interactive semantics live on `role="slider"` / `role="meter"` / `aria-pressed` exclusively.
 
-## Dual-Mode Visualizer Architecture
+## Real-Time Spectrum Analyzer Architecture
 
 A real-time canvas band sits between the status header and the module grid — proportional ~35% height (`basis-[35%]` `flex-grow` with `min-h-0` on the center hub so the band scales smoothly with DAW window resizing).
 
-**Tiers (single canvas, 60fps):**
-1. **Upper scope (60% height):** Cartesian graticule (`+` crosshairs + 1px rules) in `#333333`, phosphor trace in `#f6f6f6` (idle `#666666`), sub-pixel dither in `#888888`. Braille cells (`U+2800–28FF`) map the time-domain buffer at 16px cells with two-generation phosphor persistence. Glitch corruption is proportional to interaction intensity and decays ~300–500ms.
-2. **Divider row (1 cell):** `├ ┤` framed rule with log-frequency `+` ticks at 20Hz / 200Hz / 2kHz / 20kHz and inline labels, cached per column count.
-3. **Lower waterfall (remaining rows minus 1):** Scrolling history fed by multi-band energy analysis, rendered with density glyphs ` ░▒▓█`, per-row age alpha, color `#c7c3ba`. Bypass clears history to idle line; animation stops.
+**Display layers (single canvas, 60fps):**
+1. **Graticule field:** Cartesian coordinate grid (`+` crosshairs + 1px rules) in `#333333` with log-spaced frequency calibrations (`20Hz`, `100Hz`, `1kHz`, `10kHz`, `20kHz`) and amplitude markers (`-INF`, `-24dB`, `-12dB`, `0dB`), cached per column/row count.
+2. **Halftone dither fill:** Dynamic Xerox dither gradient fill (`░▒▓`) below the peak curve rendered in warm grey (`#c7c3ba`), fading to floor.
+3. **Braille peak contour:** 60 FPS hybrid Braille (`U+2800–28FF`) peak tracking curve in stark white (`#f6f6f6`, idle `#666666`) mapping 80 log-spaced frequency magnitude bins with instantaneous attack and smooth exponential decay ballistics (~180ms).
 
-**Graticule & calibration:** Frequency scale 20Hz→20kHz (log), amplitude dB, `+` crosshairs, phosphor scanline persistence via canvas alpha, static CRT scanline dual-gradient overlay (one `::before` pseudo-element on `.vst-container`, never animated).
+**Ballistics & bypass:** Peak tracking applies instantaneous attack and smooth exponential decay (~180ms) to incoming frequency magnitude bins. Bypassed engine smoothly decays the trace to 0 floor (~120ms) and halts the RAF loop when settled.
 
-**Reduced motion:** `prefers-reduced-motion: reduce` renders a single static clean frame with one step and no RAF loop; all glitch/flicker/stream animations disabled.
+**Glitch pulser:** Tweak-driven parameter interactions inject digital corruption glyphs into the trace and dither layers, decaying exponentially in ~300–500ms.
 
-**Testing seam:** Signal, glitch pulser and PRNG are injectable; tests never assert canvas pixels, only DOM: `data-active`, `data-mode="dual"`, `data-static`, canvas presence, bypass decay, glitch propagation, and resize via `ResizeObserver`.
+**Reduced motion:** `prefers-reduced-motion: reduce` renders a single static clean frame with no RAF loop; all glitch/flicker animations disabled.
 
+**Testing seam:** Spectrum stream subscriber, glitch pulser and PRNG are injectable; tests verify DOM contracts (`data-active`, `data-mode="spectrum"`, `data-static`, canvas presence) and lifecycle subscription/unsubscription.
 
 ## Control Surface Physics
 

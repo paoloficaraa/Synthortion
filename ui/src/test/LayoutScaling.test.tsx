@@ -24,7 +24,7 @@ describe('Layout Scaling & 16:10 DAW Window Calibration', () => {
         expect(header).toBeInTheDocument()
         expect(header).toHaveClass('h-[50px]', 'shrink-0')
 
-        const viz = container.querySelector('[data-testid="spectrum-visualizer"], [data-testid="fft-visualizer"]')
+        const viz = container.querySelector('[data-testid="spectrum-visualizer"]')
         expect(viz).toBeInTheDocument()
         expect(viz).toHaveClass('basis-[35%]', 'flex-grow')
 

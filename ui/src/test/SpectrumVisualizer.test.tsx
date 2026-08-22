@@ -1,5 +1,5 @@
 import { render, screen, act } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { SpectrumVisualizer } from '../components/SpectrumVisualizer'
 import { createGlitchPulser } from '../lib/glitchPulser'
 import { NUM_BANDS } from '../lib/spectrumBraille'
@@ -83,7 +83,6 @@ describe('SpectrumVisualizer', () => {
     })
 
     expect(rafSpy).toHaveBeenCalled()
-    const callCountBeforeBypass = rafSpy.mock.calls.length
 
     // Switch to bypassed mode
     rerender(<SpectrumVisualizer active={false} subscribeSpectrum={subscribeMock} />)

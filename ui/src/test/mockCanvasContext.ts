@@ -20,7 +20,7 @@ export interface CanvasTextOp {
  * Builds a fake 2D canvas context for jsdom, which has no real canvas backing.
  *
  * GainMeter's draw loop only touches `fillStyle` and `fillRect`; the
- * oscilloscope (FftVisualizer) additionally draws text via `fillText`,
+ * spectrum visualizer (SpectrumVisualizer) additionally draws text via `fillText`,
  * measures glyph advance for column layout, and reads `font`/`textBaseline`.
  * Pass `ops` to record every fillRect together with the fillStyle active at
  * call time, or `textOps` to record every fillText — both optional for a

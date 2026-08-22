@@ -29,8 +29,8 @@ interface AppProps {
  * Every parameter the faceplate exposes lives here as controlled props and is
  * pushed to the injected DSP bridge on change. Child components keep no
  * silent state, so binding the real C++ backend is a matter of swapping the
- * bridge. The center hub locks the dual-mode visualizer (240px) between the
- * status header (54px) and the module grid, each separated by a single 1px
+ * bridge. The center hub locks the spectrum visualizer (~35%) between the
+ * status header (50px) and the module grid, each separated by a single 1px
  * Cartesian hairline (`#333333`) that meets the flanking 48px meter rails at
  * `+` crosshairs — no layout shift on bypass, no double borders, no AI-slop
  * repeated-rule strings. The high-contrast monochrome xerox aesthetic
