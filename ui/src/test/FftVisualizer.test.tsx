@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { FftVisualizer } from '../components/FftVisualizer'
 import { createOscilloscopeSignal } from '../lib/oscilloscopeSignal'
 import { applyGlitch, createGlitchPulser } from '../lib/glitchPulser'
+import { buildGraticule, buildTrace, buildDither, CELL_ROWS } from '../lib/fftBraille'
 
 /* ------------------------------------------------------------------ */
 /*  applyGlitch unit tests                                             */
@@ -84,6 +85,111 @@ describe('FftVisualizer', () => {
     const pulser = createGlitchPulser()
     const { container } = render(<FftVisualizer active glitch={pulser} />)
     expect(container.querySelector('canvas')).toBeInTheDocument()
+  })
+
+  it('declares dual-mode on the container', () => {
+    render(<FftVisualizer active />)
+    expect(screen.getByTestId('fft-visualizer')).toHaveAttribute(
+      'data-mode',
+      'dual',
+    )
+  })
+
+  it('renders a static frame when reduced motion is preferred', () => {
+    const original = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    try {
+      const rafSpy = vi.spyOn(window, 'requestAnimationFrame')
+      render(<FftVisualizer active />)
+      expect(screen.getByTestId('fft-visualizer')).toHaveAttribute(
+        'data-static',
+        'true',
+      )
+      // No rAF loop at all — the frame is drawn once, statically.
+      expect(rafSpy).not.toHaveBeenCalled()
+      rafSpy.mockRestore()
+    } finally {
+      window.matchMedia = original
+    }
+  })
+
+  it('animates when motion is allowed', () => {
+    render(<FftVisualizer active />)
+    expect(screen.getByTestId('fft-visualizer')).toHaveAttribute(
+      'data-static',
+      'false',
+    )
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/*  Graticule / trace / dither helpers                                */
+/* ------------------------------------------------------------------ */
+describe('buildGraticule', () => {
+  it('frames the grid with box-drawing corners', () => {
+    const rows = buildGraticule(40).split('\n')
+    expect(rows).toHaveLength(CELL_ROWS)
+    expect(rows[0][0]).toBe('┌')
+    expect(rows[0].at(-1)).toBe('┐')
+    expect(rows[rows.length - 1][0]).toBe('└')
+    expect(rows[rows.length - 1].at(-1)).toBe('┘')
+  })
+
+  it('renders Cartesian crosshairs on the centre row at every division', () => {
+    const rows = buildGraticule(41, 9).split('\n')
+    const mid = rows[Math.floor(9 / 2)]
+    expect(mid[0]).toBe('+')
+    expect(mid.at(-1)).toBe('+')
+    // Interior intersections: one per vertical division.
+    expect((mid.match(/\+/g) ?? []).length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('embeds calibration labels in the top border when supplied', () => {
+    const top = buildGraticule(60, 9, ['20Hz', '200Hz', '2kHz']).split('\n')[0]
+    expect(top).toContain('20Hz')
+    expect(top).toContain('200Hz')
+    expect(top).toContain('2kHz')
+  })
+})
+
+describe('buildTrace / buildDither', () => {
+  it('builds one braille string per grid row at the requested height', () => {
+    const rows = buildTrace(new Float32Array(240), 30, 9)
+    expect(rows).toHaveLength(9)
+    for (const row of rows) expect(row).toHaveLength(30)
+  })
+
+  it('keeps braille glyphs inside the U+2800–U+28FF block', () => {
+    const samples = new Float32Array(240).map((_, i) => Math.sin(i * 0.1))
+    for (const row of buildTrace(samples, 30, 9)) {
+      for (const ch of row) {
+        const cp = ch.codePointAt(0)!
+        expect(cp === 0x20 || (cp >= 0x2800 && cp <= 0x28ff)).toBe(true)
+      }
+    }
+  })
+
+  it('lights the top dot row for a full-scale positive DC signal', () => {
+    const rows = buildTrace(new Float32Array(240).fill(1), 8, 4)
+    expect(rows[0]).toContain('⠉')
+  })
+
+  it('dithers fractional positions but leaves exact hits clean', () => {
+    // y = 1 lands exactly on dot row 0 for any height → no dither glyphs.
+    const exact = buildDither(new Float32Array(240).fill(1), 8, 4)
+    for (const row of exact) expect(row).toBe(' '.repeat(8))
+    // y = 0.07 lands part-way between dots (absRow 16.275 of 35) → dither.
+    const fuzzy = buildDither(new Float32Array(240).fill(0.07), 8, 9)
+    expect(fuzzy.join('')).toContain('░')
   })
 })
 
