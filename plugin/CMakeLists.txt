@@ -19,6 +19,7 @@ PRIVATE
     src/PingPongDelay.cpp
     src/BitCrusher.cpp
     src/SynthortionChorus.cpp
+    src/SpectrumAnalyzer.cpp
 )
 
 target_include_directories(Synthortion
@@ -84,6 +85,7 @@ PRIVATE
     src/PingPongDelay.cpp
     src/BitCrusher.cpp
     src/SynthortionChorus.cpp
+    src/SpectrumAnalyzer.cpp
 )
 
 target_include_directories(SynthortionTests

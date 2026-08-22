@@ -167,10 +167,15 @@ namespace synthortion
         if (auto* boundsConstrainer = getConstrainer())
             boundsConstrainer->setFixedAspectRatio (kAspectRatio);
         setSize (kDefaultWidth, kDefaultHeight);
+        const double sr = processorRef.getSampleRate() > 0.0 ? processorRef.getSampleRate() : 48000.0;
+        spectrumAnalyzer.prepare (sr, 60.0f);
+        analysisBuffer.fill (0.0f);
+        startTimerHz (60);
     }
 
     AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
     {
+        stopTimer();
         for (auto* param : processorRef.getParameters())
         {
             if (auto* pWithId = dynamic_cast<juce::AudioProcessorParameterWithID*> (param))
@@ -179,7 +184,6 @@ namespace synthortion
             }
         }
     }
-
     void AudioPluginAudioProcessorEditor::parameterChanged (const juce::String& parameterID, float newValue)
     {
         juce::Component::SafePointer<AudioPluginAudioProcessorEditor> safeThis (this);
@@ -226,6 +230,66 @@ namespace synthortion
                 sendParameterChange (pWithId->paramID, pWithId->getValue());
             }
         }
+    }
+    void AudioPluginAudioProcessorEditor::timerCallback()
+    {
+        auto& fifo = processorRef.getAudioFifo();
+        const int ready = fifo.getNumReady();
+
+        if (ready > 0)
+        {
+            if (ready >= SpectrumAnalyzer::kFftSize)
+            {
+                if (ready > SpectrumAnalyzer::kFftSize)
+                {
+                    fifo.discard (ready - SpectrumAnalyzer::kFftSize);
+                }
+
+                fifo.pop (analysisBuffer.data(), SpectrumAnalyzer::kFftSize);
+            }
+            else
+            {
+                std::copy (analysisBuffer.begin() + ready, analysisBuffer.end(), analysisBuffer.begin());
+                fifo.pop (analysisBuffer.data() + (SpectrumAnalyzer::kFftSize - ready), ready);
+            }
+
+            const auto& magnitudes = spectrumAnalyzer.process (analysisBuffer.data(), SpectrumAnalyzer::kFftSize);
+            sendSpectrumFrame (magnitudes);
+        }
+        else
+        {
+            const auto& magnitudes = spectrumAnalyzer.process (nullptr, 0);
+            sendSpectrumFrame (magnitudes);
+        }
+    }
+
+    void AudioPluginAudioProcessorEditor::sendSpectrumFrame (const std::array<float, SpectrumAnalyzer::kNumBands>& magnitudes)
+    {
+        if (webView == nullptr)
+            return;
+
+        juce::Array<juce::var> varArray;
+        varArray.ensureStorageAllocated (SpectrumAnalyzer::kNumBands);
+        for (float m : magnitudes)
+            varArray.add (m);
+
+        webView->emitEventIfBrowserIsVisible ("spectrumFrame", juce::var (varArray));
+
+        juce::String jsonArray;
+        jsonArray.preallocateBytes (SpectrumAnalyzer::kNumBands * 8 + 16);
+        jsonArray << "[";
+        for (size_t i = 0; i < magnitudes.size(); ++i)
+        {
+            if (i > 0)
+                jsonArray << ",";
+            jsonArray << juce::String (magnitudes[i], 4);
+        }
+        jsonArray << "]";
+
+        webView->evaluateJavascript (
+            "if (window.__SYNTORTION_BRIDGE__ && window.__SYNTORTION_BRIDGE__.onSpectrumFrame) { "
+            "window.__SYNTORTION_BRIDGE__.onSpectrumFrame(" + jsonArray + "); }"
+        );
     }
 
     void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)

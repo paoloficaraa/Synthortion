@@ -222,7 +222,7 @@ namespace synthortion
     {
         jassert(sampleRate > 0.0);
         jassert(samplesPerBlock > 0);
-
+        setRateAndBufferSizeDetails (sampleRate, samplesPerBlock);
         juce::dsp::ProcessSpec spec{sampleRate, static_cast<juce::uint32>(samplesPerBlock), static_cast<juce::uint32>(getTotalNumOutputChannels())};
 
         warmDistortion.prepare(spec);
@@ -245,6 +245,7 @@ namespace synthortion
         setLatencySamples(distortionLatency);
 
         updateAllDSPParameters();
+        audioFifo.reset();
     }
 
     void AudioPluginAudioProcessor::releaseResources()
@@ -387,6 +388,7 @@ namespace synthortion
         currentTotalLatency.store(distortionLatency);
         setLatencySamples(distortionLatency);
 
+        audioFifo.push(buffer);
         updateAllDSPParameters();
     }
 

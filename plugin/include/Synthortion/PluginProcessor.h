@@ -10,7 +10,7 @@
 #include "Synthortion/SynthortionChorus.h"
 #include "Synthortion/PingPongDelay.h"
 #include "Synthortion/BitCrusher.h"
-
+#include "Synthortion/AudioCaptureFifo.h"
 namespace synthortion
 {
     // Main audio processor: warm distortion, chorus, delay, bit-crusher
@@ -51,6 +51,9 @@ namespace synthortion
 
         juce::AudioProcessorValueTreeState& getAPVTS() noexcept { return apvts; }
 
+        AudioCaptureFifo& getAudioFifo() noexcept { return audioFifo; }
+        const AudioCaptureFifo& getAudioFifo() const noexcept { return audioFifo; }
+
     private:
         static constexpr float kSmootherRampTime = 0.05f;
         static constexpr float kBooleanThreshold = 0.5f;
@@ -64,6 +67,7 @@ namespace synthortion
         PingPongDelay pingPongDelay;
         BitCrusher bitCrusher;
 
+        AudioCaptureFifo audioFifo;
         juce::AudioProcessorValueTreeState apvts;
 
         std::atomic<float>* inputGainParam = nullptr;
