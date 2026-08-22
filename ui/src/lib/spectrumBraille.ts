@@ -176,11 +176,6 @@ export function buildSpectrumGraticule(numCols: number, numRows: number): string
   const safeRows = Math.max(3, numRows)
 
   const tickCols = FREQ_TICKS.map((t) => freqToCol(t.hz, safeCols))
-  const tickMap: Record<number, true> = {}
-  tickCols.forEach((col) => {
-    tickMap[col] = true
-  })
-
   const lines: string[] = []
 
   // Middle horizontal reference lines (e.g., -20 dB, -40 dB levels)

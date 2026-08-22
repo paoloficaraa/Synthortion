@@ -11,7 +11,7 @@ import { type GlitchPulser, applyGlitch } from '../lib/glitchPulser'
 /* ------------------------------------------------------------------ */
 /*  Canvas palette                                                     */
 /* ------------------------------------------------------------------ */
-const SCOPE_BG = '#000000'
+const SCOPE_BG = '#0f0e0e'
 const GRAT_FG = '#333333'
 const TRACE_FG = '#f6f6f6'
 const TRACE_IDLE = '#666666'
@@ -25,8 +25,6 @@ const CELL_W_FALLBACK = 8
 const FONT_VGA = `${CELL_PX}px "Px437 IBM VGA 8x16", "JetBrains Mono", monospace`
 const FONT_BRAILLE = `${CELL_PX}px "Braille Terminal", "Px437 IBM VGA 8x16", monospace`
 
-/** Phosphor persistence: alpha per retained trace generation (oldest first). */
-const PHOSPHOR_ALPHAS = [0.15, 0.3]
 
 export interface SpectrumVisualizerProps {
   /** Whether the engine is live; a bypassed engine decays the trace to floor. */
@@ -97,8 +95,7 @@ export function SpectrumVisualizer({
     let rafId = 0
     let w = 0
     let h = 0
-    let wasActive = active
-    const phosphor: string[][] = []
+    let isDecaying = false
     const graticuleCache = new Map<string, string>()
 
     const resize = () => {
@@ -121,7 +118,7 @@ export function SpectrumVisualizer({
 
     let lastFrameTime = performance.now()
 
-    const drawFrame = (animate: boolean) => {
+    const drawFrame = (): boolean => {
       const now = performance.now()
       const dt = Math.min(50, Math.max(1, now - lastFrameTime))
       lastFrameTime = now
@@ -129,16 +126,28 @@ export function SpectrumVisualizer({
       // Smooth ballistics and bypass decay
       const target = targetMagsRef.current
       const display = displayMagsRef.current
+      let hasActiveSignal = false
 
       if (!active) {
         // Bypass mode: exponential decay to 0 floor
         const decay = Math.exp(-dt / 120)
+        let maxVal = 0
         for (let i = 0; i < NUM_BANDS; i++) {
-          display[i] = (display[i] ?? 0) * decay
+          const v = (display[i] ?? 0) * decay
+          display[i] = v
+          if (v > maxVal) maxVal = v
         }
-        phosphor.length = 0
+        if (maxVal > 0.0005) {
+          hasActiveSignal = true
+          isDecaying = true
+        } else {
+          display.fill(0)
+          isDecaying = false
+        }
       } else {
         // Live mode: update display buffer
+        hasActiveSignal = true
+        isDecaying = true
         for (let i = 0; i < NUM_BANDS; i++) {
           const t = target[i] ?? 0
           const curr = display[i] ?? 0
@@ -152,8 +161,6 @@ export function SpectrumVisualizer({
           }
         }
       }
-
-      wasActive = active
 
       const cellW =
         (ctx.measureText?.('█') as { width?: number } | undefined)?.width || CELL_W_FALLBACK
@@ -186,12 +193,6 @@ export function SpectrumVisualizer({
         ditherRows = applyGlitch(ditherRows, glitchIntensity, random)
       }
 
-      // Phosphor trace history
-      if (active) {
-        phosphor.push(traceRows)
-        while (phosphor.length > PHOSPHOR_ALPHAS.length + 1) phosphor.shift()
-      }
-
       // Render halftone dither gradient fill under the curve in warm grey
       ctx.font = FONT_VGA
       ctx.fillStyle = DITHER_FG
@@ -201,36 +202,28 @@ export function SpectrumVisualizer({
         }
       })
 
-      // Render phosphor persistence trail
-      ctx.font = FONT_BRAILLE
-      phosphor.slice(0, -1).forEach((rows, i) => {
-        ctx.globalAlpha = PHOSPHOR_ALPHAS[i] ?? 0.2
-        ctx.fillStyle = active ? TRACE_FG : TRACE_IDLE
-        rows.forEach((row, r) => {
-          if (row.trim().length > 0) {
-            ctx.fillText(row, 0, r * CELL_PX)
-          }
-        })
-      })
-      ctx.globalAlpha = 1
-
       // Render primary Braille peak contour in stark white
+      ctx.font = FONT_BRAILLE
       ctx.fillStyle = active ? TRACE_FG : TRACE_IDLE
       traceRows.forEach((row, r) => {
         if (row.trim().length > 0) {
           ctx.fillText(row, 0, r * CELL_PX)
         }
       })
+
+      return active || hasActiveSignal || (glitchIntensity > 0)
     }
 
     if (motionQuery?.matches) {
       // Static clean frame: one draw, no animation loop
       glitch?.step(1000)
-      drawFrame(false)
+      drawFrame()
     } else {
       const loop = () => {
-        rafId = requestAnimationFrame(loop)
-        drawFrame(true)
+        const shouldContinue = drawFrame()
+        if (shouldContinue) {
+          rafId = requestAnimationFrame(loop)
+        }
       }
       rafId = requestAnimationFrame(loop)
     }

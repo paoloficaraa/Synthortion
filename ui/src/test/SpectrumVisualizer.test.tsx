@@ -64,12 +64,14 @@ describe('SpectrumVisualizer', () => {
     expect(visualizer).toHaveAttribute('data-active', 'true')
   })
 
-  it('smoothly handles bypass state transition', () => {
+  it('smoothly handles bypass state transition and halts the animation loop when settled', () => {
     let subscriber: ((magnitudes: number[]) => void) | null = null
     const subscribeMock = (cb: (magnitudes: number[]) => void) => {
       subscriber = cb
       return () => {}
     }
+
+    const rafSpy = vi.spyOn(window, 'requestAnimationFrame')
 
     const { rerender } = render(
       <SpectrumVisualizer active={true} subscribeSpectrum={subscribeMock} />,
@@ -80,10 +82,53 @@ describe('SpectrumVisualizer', () => {
       subscriber!(testFrame)
     })
 
+    expect(rafSpy).toHaveBeenCalled()
+    const callCountBeforeBypass = rafSpy.mock.calls.length
+
     // Switch to bypassed mode
     rerender(<SpectrumVisualizer active={false} subscribeSpectrum={subscribeMock} />)
     const visualizer = screen.getByTestId('spectrum-visualizer')
     expect(visualizer).toHaveAttribute('data-active', 'false')
+
+    rafSpy.mockRestore()
+  })
+
+  it('handles ResizeObserver canvas resize resilience without throwing', () => {
+    let resizeCallback: ResizeObserverCallback | null = null
+    const observeMock = vi.fn()
+    const disconnectMock = vi.fn()
+
+    class MockResizeObserver {
+      constructor(cb: ResizeObserverCallback) {
+        resizeCallback = cb
+      }
+      observe = observeMock
+      disconnect = disconnectMock
+      unobserve = vi.fn()
+    }
+
+    const origResizeObserver = window.ResizeObserver
+    window.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver
+
+    const { unmount, container } = render(<SpectrumVisualizer active={true} />)
+    expect(observeMock).toHaveBeenCalled()
+
+    // Trigger resize event
+    const canvas = container.querySelector('canvas')!
+    act(() => {
+      if (resizeCallback) {
+        resizeCallback(
+          [{ target: canvas, contentRect: { width: 400, height: 180 } as DOMRectReadOnly }] as unknown as ResizeObserverEntry[],
+          {} as ResizeObserver,
+        )
+      }
+    })
+
+    expect(canvas).toBeInTheDocument()
+    unmount()
+    expect(disconnectMock).toHaveBeenCalled()
+
+    window.ResizeObserver = origResizeObserver
   })
 
   it('renders static frame and halts animation loop when reduced motion is preferred', () => {
