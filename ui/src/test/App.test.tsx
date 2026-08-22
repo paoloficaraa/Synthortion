@@ -204,10 +204,10 @@ describe('App', () => {
     expect(bridge.calls).toContainEqual({ parameterId: 'PLUGIN_BYPASS', value: 1 })
   })
 
-  it('renders the FFT visualizer above the faceplate, toggling with the engine', () => {
+  it('renders the spectrum visualizer above the faceplate, toggling with the engine', () => {
     const { container } = render(<App />)
 
-    const viz = screen.getByTestId('fft-visualizer')
+    const viz = screen.getByTestId('spectrum-visualizer')
     expect(viz).toHaveAttribute('data-active', 'true')
     // The braille scope is a canvas-backed band; the graticule labels live on
     // the canvas (buildGraticule), not in DOM text.
@@ -216,7 +216,7 @@ describe('App', () => {
     const bypass = screen.getByRole('button', { name: 'Disable main DSP' })
     fireEvent.click(bypass)
 
-    expect(screen.getByTestId('fft-visualizer')).toHaveAttribute(
+    expect(screen.getByTestId('spectrum-visualizer')).toHaveAttribute(
       'data-active',
       'false'
     )
@@ -230,7 +230,7 @@ describe('App', () => {
     const header = main?.querySelector('header')
     expect(header).toHaveClass('h-[50px]', 'shrink-0')
 
-    const viz = main?.querySelector('[data-testid="fft-visualizer"]')
+    const viz = main?.querySelector('[data-testid="spectrum-visualizer"]')
     expect(viz).toHaveClass('basis-[35%]', 'flex-grow')
 
     const faceplateSection = main?.querySelector('[data-testid="faceplate-plateau"]')

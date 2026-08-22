@@ -4,7 +4,7 @@ import { Header } from './components/Header'
 import { SystemBoot } from './components/SystemBoot'
 import { GainMeter } from './components/GainMeter'
 import { MatrixFaceplate } from './components/MatrixFaceplate'
-import { FftVisualizer } from './components/FftVisualizer'
+import { SpectrumVisualizer } from './components/SpectrumVisualizer'
 import { initialState, diffPluginState, type PluginState } from './lib/pluginState'
 import { noopDspBridge, type DspBridge, PARAMETER_IDS } from './lib/dspBridge'
 import { toAPVTS } from './lib/parameterSpecs'
@@ -91,8 +91,8 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
             engineActive={state.engineActive}
             onToggleBypass={(active) => update({ engineActive: active })}
           />
-          {/* Dual-mode visualizer band allocated ~35% of center hub height */}
-          <FftVisualizer active={state.engineActive} glitch={pulser} />
+          {/* Real-time spectrum visualizer band allocated ~35% of center hub height */}
+          <SpectrumVisualizer active={state.engineActive} glitch={pulser} />
           {/* Faceplate plateau allocated ~65% of center hub height, expanding to 100% height */}
           <div data-testid="faceplate-plateau" className="basis-[65%] flex-grow flex flex-col p-3 sm:p-4 min-h-0 overflow-hidden bg-bg">
             <MatrixFaceplate state={state} onChange={update} />
