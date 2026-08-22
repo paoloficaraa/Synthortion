@@ -38,9 +38,16 @@ namespace synthortion
         {
             juce::File::getCurrentWorkingDirectory().getChildFile ("ui/dist"),
             juce::File::getSpecialLocation (juce::File::currentApplicationFile).getChildFile ("../ui/dist"),
+            juce::File::getSpecialLocation (juce::File::currentApplicationFile).getChildFile ("../Resources/dist"),
+            juce::File::getSpecialLocation (juce::File::currentApplicationFile).getChildFile ("../Resources"),
             juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory().getChildFile ("ui/dist"),
+            juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory().getChildFile ("../Resources/dist"),
+            juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory().getChildFile ("../Resources"),
             juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory().getParentDirectory().getChildFile ("ui/dist"),
-            juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory().getParentDirectory().getParentDirectory().getChildFile ("ui/dist")
+            juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory().getParentDirectory().getParentDirectory().getChildFile ("ui/dist"),
+            juce::File ("C:/Program Files/Common Files/VST3/Synthortion.vst3/Contents/Resources/dist"),
+            juce::File ("C:/Program Files/Common Files/VST3/Synthortion.vst3/Contents/Resources"),
+            juce::File ("C:/Users/paolo/Synthortion/ui/dist")
         };
 
         for (const auto& path : searchPaths)
