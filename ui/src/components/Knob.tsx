@@ -172,7 +172,10 @@ export function Knob({
   const handleDoubleClick = () => {
     if (!enabled || defaultValue === undefined) return
     onChange(defaultValue)
-    triggerHexScramble(displayValue)
+    const unitMatch = displayValue.match(/[%a-zA-Z]+$/)
+    const unit = unitMatch ? unitMatch[0] : ''
+    const targetText = `${Math.round(defaultValue)}${unit}`
+    triggerHexScramble(targetText)
   }
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!enabled) return

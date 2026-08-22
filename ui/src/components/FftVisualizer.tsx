@@ -296,7 +296,7 @@ export function FftVisualizer({
       data-active={active}
       data-mode="dual"
       data-static={staticFrame}
-      className="relative w-full basis-[35%] flex-grow shrink-0 min-h-0 bg-bg border-b border-grid-rule"
+      className="relative w-full basis-[35%] flex-grow min-h-0 bg-bg border-b border-grid-rule"
     >
       <div className="absolute inset-0 overflow-hidden">
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" aria-hidden="true" />

@@ -88,7 +88,7 @@ Replaces naive ASCII loops (`│`/`─` repeated via string replication) and mis
 
 ## Dual-Mode Visualizer Architecture
 
-A single 240px canvas band sits between the status header and the module grid — `h-[240px] shrink-0` with `min-h-0` on the center hub so the band never shifts the grid.
+A real-time canvas band sits between the status header and the module grid — proportional ~35% height (`basis-[35%]` `flex-grow` with `min-h-0` on the center hub so the band scales smoothly with DAW window resizing).
 
 **Tiers (single canvas, 60fps):**
 1. **Upper scope (60% height):** Cartesian graticule (`+` crosshairs + 1px rules) in `#333333`, phosphor trace in `#f6f6f6` (idle `#666666`), sub-pixel dither in `#888888`. Braille cells (`U+2800–28FF`) map the time-domain buffer at 16px cells with two-generation phosphor persistence. Glitch corruption is proportional to interaction intensity and decays ~300–500ms.
