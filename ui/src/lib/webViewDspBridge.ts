@@ -74,14 +74,13 @@ export function subscribeToDspChanges(
         }
       }
     })
+  } else {
+    // 2. Register global function callback fallback
+    if (!window.__SYNTORTION_BRIDGE__) {
+      window.__SYNTORTION_BRIDGE__ = {}
+    }
+    window.__SYNTORTION_BRIDGE__.onParameterChange = handleParamChange
   }
-
-  // 2. Register global function callback fallback
-  if (!window.__SYNTORTION_BRIDGE__) {
-    window.__SYNTORTION_BRIDGE__ = {}
-  }
-  window.__SYNTORTION_BRIDGE__.onParameterChange = handleParamChange
-
   // Notify backend of connection
   if (window.__JUCE__?.backend?.emitEvent) {
     window.__JUCE__.backend.emitEvent('connect', {})

@@ -58,7 +58,7 @@ function MeterRail({ side, children }: MeterRailProps) {
  *
  * Renders a horizontal flex-row layout with:
  * - Left: Input gain meter rail (48px, Cartesian ticks, 1px #333 hairline on inner edge)
- * - Center: Main controls hub (Header 54px → Dual-Mode Visualizer 240px → Faceplate grid, each separated by a single 1px grid-rule)
+ * - Center: Main controls hub (Header 50px → Real-Time Visualizer ~35% → Faceplate grid ~65%, each separated by a single 1px grid-rule)
  * - Right: Output gain meter rail (48px, mirrored)
  *
  * The `+` crosshairs at rail/header and rail/visualizer intersections tie the flanking rails
