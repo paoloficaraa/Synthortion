@@ -4,8 +4,17 @@ import {
   type OscilloscopeSignal,
 } from '../lib/oscilloscopeSignal'
 import { type GlitchPulser, applyGlitch } from '../lib/glitchPulser'
-import { buildGraticule, buildTrace, buildDither, CELL_PX } from '../lib/fftBraille'
-import { analyzeBands, createWaterfallHistory } from '../lib/spectrogram'
+import {
+  buildGraticule,
+  buildTraceAndDither,
+  CELL_PX,
+} from '../lib/fftBraille'
+import {
+  analyzeBands,
+  createWaterfallHistory,
+  MIN_HZ,
+  MAX_HZ,
+} from '../lib/spectrogram'
 
 /* ------------------------------------------------------------------ */
 /*  Canvas palette                                                     */
@@ -24,7 +33,6 @@ const MAX_DPR = 2
 const CELL_W_FALLBACK = 8
 const FONT_VGA = `${CELL_PX}px "Px437 IBM VGA 8x16", "JetBrains Mono", monospace`
 const FONT_BRAILLE = `${CELL_PX}px "Braille Terminal", "Px437 IBM VGA 8x16", monospace`
-const FONT_LABEL = `${CELL_PX - 6}px "JetBrains Mono", monospace`
 
 /** Share of the band height given to the waveform scope tier. */
 const SCOPE_SHARE = 0.6
@@ -33,7 +41,12 @@ const SCOPE_SHARE = 0.6
 const PHOSPHOR_ALPHAS = [0.15, 0.3]
 
 /** Frequency calibration ticks on the waterfall axis. */
-const FREQ_TICKS = ['20Hz', '200Hz', '2kHz', '20kHz'] as const
+const FREQ_TICKS = [
+  { hz: MIN_HZ, label: '20Hz' },
+  { hz: 200, label: '200Hz' },
+  { hz: 2000, label: '2kHz' },
+  { hz: MAX_HZ, label: '20kHz' },
+] as const
 
 /* ================================================================== */
 /*  Component                                                          */
@@ -117,27 +130,38 @@ export function FftVisualizer({
     }
     resize()
 
-    /** Log-frequency x position (cells) for f in 20Hz–20kHz. */
+    /** Log-frequency x position (cells) between MIN_HZ and MAX_HZ. */
     const freqCol = (hz: number, cols: number) =>
-      Math.round((Math.log(hz / 20) / Math.log(1000)) * (cols - 1))
+      Math.round((Math.log(hz / MIN_HZ) / Math.log(MAX_HZ / MIN_HZ)) * (cols - 1))
 
-    /** Divider row between tiers: rules, '+' ticks, freq labels. */
+    /** Divider row between tiers: rules, '+' ticks, freq labels without collision. */
     const buildDivider = (cols: number): string => {
       const cells = new Array<string>(cols).fill('─')
       cells[0] = '├'
       cells[cols - 1] = '┤'
-      const hz = [20, 200, 2000, 20000]
-      for (let i = 0; i < hz.length; i++) {
-        const tick = 1 + freqCol(hz[i], cols - 2)
-        cells[tick] = '+'
-        const label = FREQ_TICKS[i]
-        const start = Math.min(tick + 1, cols - 1 - label.length)
-        for (let j = 0; j < label.length; j++) cells[start + j] = label[j]
+
+      for (let i = 0; i < FREQ_TICKS.length; i++) {
+        const { hz, label } = FREQ_TICKS[i]
+        const tick = 1 + freqCol(hz, cols - 2)
+
+        if (i === FREQ_TICKS.length - 1) {
+          // Rightmost tick (20kHz): place label to the left so '+' stays visible at the boundary.
+          const start = Math.max(1, tick - label.length)
+          for (let j = 0; j < label.length; j++) cells[start + j] = label[j]
+          cells[tick] = '+'
+        } else {
+          cells[tick] = '+'
+          const start = tick + 1
+          if (start + label.length < cols - 1) {
+            for (let j = 0; j < label.length; j++) cells[start + j] = label[j]
+          }
+        }
       }
       return cells.join('')
     }
 
     let dividerCache = { cols: 0, text: '' }
+    let lastFrameTime = performance.now()
 
     const drawFrame = (animate: boolean) => {
       const now = performance.now()
@@ -154,7 +178,7 @@ export function FftVisualizer({
       const numCols = Math.max(8, Math.floor(w / cellW))
       const totalRows = Math.max(6, Math.floor(h / CELL_PX))
       const scopeRows = Math.max(4, Math.round(totalRows * SCOPE_SHARE))
-      const fallsRows = Math.max(2, totalRows - scopeRows - 1)
+      const waterfallRows = Math.max(2, totalRows - scopeRows - 1)
 
       ctx.fillStyle = SCOPE_BG
       ctx.fillRect(0, 0, w, h)
@@ -171,27 +195,27 @@ export function FftVisualizer({
       ctx.fillStyle = GRAT_FG
       grat.split('\n').forEach((row, i) => ctx.fillText(row, 0, i * CELL_PX))
 
-      // Amplitude calibration readouts along the left rail.
-      ctx.font = FONT_LABEL
-      ctx.fillText('+6dB', 2, 2)
-      ctx.fillText('0dB', 2, (Math.floor(scopeRows / 2) - 1) * CELL_PX + 5)
-      ctx.fillText('-INF', 2, (scopeRows - 1) * CELL_PX + 5)
-
       // ── Upper tier: braille trace + sub-pixel dither + phosphor ──
       const glitchIntensity = glitch ? glitch.step(dt) : 0
-      let traceRows = buildTrace(resolvedSignal.samples, numCols, scopeRows)
-      const ditherRows = buildDither(resolvedSignal.samples, numCols, scopeRows)
+      const generated = buildTraceAndDither(resolvedSignal.samples, numCols, scopeRows)
+      let traceRows = generated.trace
+      let ditherRows = generated.dither
+
       if (glitchIntensity > 0) {
         traceRows = applyGlitch(traceRows, glitchIntensity, random)
+        ditherRows = applyGlitch(ditherRows, glitchIntensity, random)
       }
+
       if (!active) {
         phosphor.length = 0
       } else {
         phosphor.push(traceRows)
-        while (phosphor.length > PHOSPHOR_ALPHAS.length) phosphor.shift()
+        // Keep active frame plus historical frames for each configured decay alpha.
+        while (phosphor.length > PHOSPHOR_ALPHAS.length + 1) phosphor.shift()
       }
 
       ctx.font = FONT_BRAILLE
+      // Render historical frames from oldest to newest with configured alpha decay.
       phosphor.slice(0, -1).forEach((rows, i) => {
         ctx.globalAlpha = PHOSPHOR_ALPHAS[i]
         ctx.fillStyle = active ? TRACE_FG : TRACE_IDLE
@@ -215,7 +239,7 @@ export function FftVisualizer({
 
       // ── Lower tier: scrolling waterfall spectrogram ──
       if (active && animate) {
-        if (waterfall.depth !== fallsRows) waterfall = createWaterfallHistory(fallsRows)
+        if (waterfall.depth !== waterfallRows) waterfall = createWaterfallHistory(waterfallRows)
         waterfall.push(analyzeBands(resolvedSignal.samples, numCols - 2))
       }
       const lines = waterfall.lines()
@@ -226,17 +250,15 @@ export function FftVisualizer({
       ctx.fillStyle = WATERFALL_FG
       display.forEach((line, i) => {
         const age = display.length - 1 - i // 0 = newest
-        ctx.globalAlpha = Math.max(0.15, 1 - (age / fallsRows) * 0.85)
+        ctx.globalAlpha = Math.max(0.15, 1 - (age / waterfallRows) * 0.85)
         ctx.fillText(
           line,
           cellW,
-          (scopeRows + 1 + (fallsRows - display.length) + i) * CELL_PX,
+          (scopeRows + 1 + (waterfallRows - display.length) + i) * CELL_PX,
         )
       })
       ctx.globalAlpha = 1
     }
-
-    let lastFrameTime = performance.now()
 
     if (motionQuery?.matches) {
       // Static clean frame: one settled step, no glitch, no loop.
@@ -253,7 +275,6 @@ export function FftVisualizer({
     }
 
     const onMotionChange = () => {
-      // Re-run the whole effect on preference flips.
       cancelAnimationFrame(rafId)
       resizeObserver?.disconnect()
       motionQuery?.removeEventListener('change', onMotionChange)

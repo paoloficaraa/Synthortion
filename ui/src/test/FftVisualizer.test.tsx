@@ -2,8 +2,14 @@ import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { FftVisualizer } from '../components/FftVisualizer'
 import { createOscilloscopeSignal } from '../lib/oscilloscopeSignal'
+import {
+  buildGraticule,
+  buildTrace,
+  buildDither,
+  buildTraceAndDither,
+  CELL_ROWS,
+} from '../lib/fftBraille'
 import { applyGlitch, createGlitchPulser } from '../lib/glitchPulser'
-import { buildGraticule, buildTrace, buildDither, CELL_ROWS } from '../lib/fftBraille'
 
 /* ------------------------------------------------------------------ */
 /*  applyGlitch unit tests                                             */
@@ -153,11 +159,11 @@ describe('buildGraticule', () => {
     expect((mid.match(/\+/g) ?? []).length).toBeGreaterThanOrEqual(5)
   })
 
-  it('embeds calibration labels in the top border when supplied', () => {
-    const top = buildGraticule(60, 9, ['20Hz', '200Hz', '2kHz']).split('\n')[0]
-    expect(top).toContain('20Hz')
-    expect(top).toContain('200Hz')
-    expect(top).toContain('2kHz')
+  it('renders a crisp top border frame with ┬ ticks', () => {
+    const top = buildGraticule(60, 9).split('\n')[0]
+    expect(top[0]).toBe('┌')
+    expect(top.at(-1)).toBe('┐')
+    expect(top).toContain('┬')
   })
 })
 
@@ -190,6 +196,12 @@ describe('buildTrace / buildDither', () => {
     // y = 0.07 lands part-way between dots (absRow 16.275 of 35) → dither.
     const fuzzy = buildDither(new Float32Array(240).fill(0.07), 8, 9)
     expect(fuzzy.join('')).toContain('░')
+  })
+  it('builds combined trace and dither in one single pass', () => {
+    const { trace, dither } = buildTraceAndDither(new Float32Array(240).fill(0.07), 8, 9)
+    expect(trace).toHaveLength(9)
+    expect(dither).toHaveLength(9)
+    expect(dither.join('')).toContain('░')
   })
 })
 
