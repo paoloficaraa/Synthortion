@@ -14,14 +14,14 @@
 - **Tweak-driven glitch** — the signature behavior of the visualizer: the scope's ASCII field corrupts proportionally to live parameter-interaction intensity (drag velocity × amplitude) and decays in ~300–500ms. At rest the trace is clean; module power toggles fire a short burst; bypass fires one heavy corruption frame. No dedicated glitch control exists on the faceplate.
 - **WebView bridge** — the IPC mechanism facilitating communication between the UI's `DspBridge` interface and the plugin's `AudioProcessor`.
 - **Parameter ID** — a unique string identifier mapping a `PluginState` property to an `AudioProcessorValueTreeState` parameter.
-- **Control micro-glitch** — during active dragging of a knob or fader, subtle character noise pulses on the control borders/track while preserving 100% legibility of the numeric readout.
+- **Control micro-glitch** — during active dragging of a knob, subtle border flicker and ±1px CRT scanline jitter pulse on the track; rapid dragging triggers intermittent digital corruption glyphs that decay exponentially in ~120–150ms, while rapid adjustments and double-click reset trigger a 30–50ms terminal hex decoding animation on the value readout before cleanly settling.
 - **Boot sequence** — the mount-time terminal overlay: one-shot, staged lines with real values and aligned `[ OK ]` columns, ending on `[READY]`. Skippable by click/Enter; reduced-motion renders the final state immediately.
 - **Trim Fader** — the vertical ASCII block fader located in the 48px flanking meter rails (IN/OUT TRIM), replacing horizontal track knobs on the rails to preserve strict vertical alignment and prevent rail overflow.
 - **Real-Time Spectrum Analyzer** — the real-time frequency-domain visualization band replacing the dual-mode oscilloscope and waterfall. Receives log-spaced frequency magnitude bins from the C++ DSP engine via the WebView bridge at 60 FPS, rendered on a proportional ~35% height canvas as a hybrid Braille peak curve with Xerox dither fill (`░▒▓`) on a 20Hz–20kHz logarithmic scale with instant attack and exponential decay ballistics.
 - **FFT Bridge Stream** — the lock-free C++ to WebView IPC stream pushing normalized frequency bin data (`spectrumFrame`) from JUCE to the React visualizer at 60Hz.
 - **Spectrum Ballistics** — peak tracking with instantaneous attack and smooth exponential decay (~200–300ms) applied to magnitude bins for fluid transient visualization.
 - **Cartesian Frame System** — the structural panel boundary system replacing repetitive mock ASCII with precise 1px coordinate rules, crosshairs (`+`), micro-scale calibration ticks, and dithered corner anchors derived from industrial xerox/photocopy aesthetics.
-- **Smooth ASCII Knob Slider** — a continuous sub-cell dithered horizontal block slider preserving the canonical bracketed format (`[...]`) while delivering sub-pixel vertical drag responsiveness, fine-step scaling, and jitter-free micro-glitch tactile feedback.
+- **Smooth ASCII Knob Slider** — a continuous sub-cell dithered horizontal block slider preserving the canonical bracketed format (`[...]`) while delivering sub-pixel vertical drag responsiveness, fine-step scaling, velocity-reactive track glitch decay, and terminal hex numeric decoding.
 
 ## Bridge & Integration Terms
 

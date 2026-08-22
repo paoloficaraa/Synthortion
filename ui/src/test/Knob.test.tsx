@@ -469,19 +469,28 @@ describe('Knob', () => {
       expect(screen.getByText('51%')).toBeInTheDocument()
     })
 
-    it('triggers hex flip animation on double-click reset', () => {
+    it('triggers hex flip animation on double-click reset to default value', () => {
       const onChange = vi.fn()
-      render(
-        <Knob
-          label="Drive"
-          value={80}
-          defaultValue={40}
-          displayValue="80%"
-          onChange={onChange}
-        />
-      )
+      function ControlledHarness() {
+        const [val, setVal] = useState(80)
+        return (
+          <Knob
+            label="Drive"
+            value={val}
+            defaultValue={40}
+            displayValue={`${Math.round(val)}%`}
+            onChange={(next) => {
+              setVal(next)
+              onChange(next)
+            }}
+          />
+        )
+      }
+      render(<ControlledHarness />)
 
       const slider = screen.getByRole('slider', { name: 'Drive' })
+      expect(screen.getByText('80%')).toBeInTheDocument()
+
       act(() => {
         fireEvent.doubleClick(slider)
       })
@@ -492,6 +501,8 @@ describe('Knob', () => {
       act(() => {
         vi.advanceTimersByTime(50)
       })
+
+      expect(screen.getByText('40%')).toBeInTheDocument()
     })
   })
 

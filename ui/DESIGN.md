@@ -106,7 +106,8 @@ A real-time canvas band sits between the status header and the module grid — p
 
 - **Continuous drag:** Normalized float `0..1` without discrete stepping; `DRAG_SENSITIVITY=0.5%` per px, `FINE_STEP_FACTOR=0.1` while `Shift` held. `dy = startY - clientY` → `value = startVal + dy * sensitivity * (range/100)`, clamped `[min,max]`.
 - **Sub-cell dither:** 9-cell bracketed track `[.........]` → `totalSteps=36` (4 dither levels per cell via `░▒▓█`), `currentStep=round(pct*36)`, per-cell `cellStep` selects `█` / `░▒▓` / `-`.
-- **Micro-glitch:** Outer `[` `]` carry `.knob-glitch` (`knob-flicker 0.1s steps(1) infinite`, `opacity 0.7` at 50%); numeric readout and dither cells stay 100% legible, never corrupted.
+- **Micro-glitch & velocity-reactive track glitch:** Outer `[` `]` carry `.knob-glitch` (`knob-flicker 0.1s steps(1) infinite`, `opacity 0.7` at 50%); active dragging introduces a ±1 px horizontal CRT track jitter (`.track-jitter`, gated behind `prefers-reduced-motion: no-preference`). Fast dragging ($v \ge 0.4\text{ px/ms}$) injects intermittent corruption glyphs (`░`, `▒`, `▓`, `╱`, `╲`, `╳`, `▲`, `::`, `~`, `+`, `*`) along the track that decay exponentially over ~120–150 ms back to clean dither state. Slow dragging and fine adjustment (Shift key) produce zero track glitching.
+- **Numeric hex decoding:** Rapid adjustments and double-click reset trigger a 30–50 ms terminal hex character flip animation (`0123456789ABCDEF`) on the visible value label before settling cleanly to the formatted display value, while semantic slider ARIA contracts (`aria-valuetext`, `aria-valuenow`) remain exact and accessible throughout.
 - **Keyboard & ARIA:** `role="slider"` `aria-valuemin/max/now/text` `aria-orientation="vertical"` `tabIndex=0` (disabled `-1`), `ArrowUp/Right` (+step), `Shift+Arrow` (+largeStep), `Home`/`End`, double-click resets to `defaultValue`.
 
 ## Layout
