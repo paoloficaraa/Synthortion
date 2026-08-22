@@ -33,9 +33,6 @@ const DRAG_SENSITIVITY = 0.5
 /** Shift held during drag scales normal sensitivity by this (fine step, ×0.1). */
 const FINE_STEP_FACTOR = 0.1
 
-/** CRT noise symbols for character-scrambling glitch corruption during drag. */
-const GLITCH_CHARS = ['░', '▒', '▓', '█', '┼', '▚', '?', '#', '!', '&']
-
 /** Formats ASCII scale ruler indicators (e.g. `0% . . + . . 100%`, `2B . . + . . 24B`). */
 function formatRulerText(min: number, max: number, displayValue: string): string {
   const unitMatch = displayValue.match(/[%a-zA-Z]+$/)
@@ -45,14 +42,15 @@ function formatRulerText(min: number, max: number, displayValue: string): string
   return `${minStr} . . + . . ${maxStr}`
 }
 /**
- * Knob — horizontal ASCII block control with live numeric readout.
+ * Knob — horizontal ASCII block slider with live numeric readout.
  *
- * Replaces the rotary knob face: the value renders as a `[====+----]` track
- * (filled `=`, pointer `+`, empty `-`) in the VGA voice with a mono readout
- * beneath. The drag gesture stays vertical and the whole track width is a hit
- * area; Shift held during drag applies a fine step (×0.1 of normal) so wide
- * ranges stay reachable. Keyboard navigation (arrows, Home/End) is unchanged.
- * When `enabled` is false the track is dimmed and the readout shows `--`.
+ * Continuous vertical drag maps to a normalized float (0..1) without discrete
+ * stepping; the 9-cell bracketed track ([...]) renders sub-cell dither
+ * (4 levels per cell → 36 states) via `█`/`░`/`▒`/`▓`/`-`. Shift scales
+ * sensitivity ×0.1 for fine control. Micro-glitch is confined to the outer
+ * brackets (CSS flicker) so the numeric readout and dither fill stay 100%
+ * legible at all times. Keyboard and ARIA slider contracts are preserved.
+ * Monochrome terminal discipline per DESIGN.md; reduced-motion disables flicker.
  */
 export function Knob({
   label,
@@ -144,8 +142,8 @@ export function Knob({
   const cells: Array<{ char: string; filled: boolean }> = []
   for (let i = 0; i < TRACK_CELLS; i++) {
     const cellStep = currentStep - i * 4
-    let char = '-'
-    let filled = false
+    let char: string
+    let filled: boolean
     if (cellStep >= 4) {
       char = '█'
       filled = true
@@ -155,10 +153,6 @@ export function Knob({
     } else {
       char = ditherChars[cellStep]
       filled = true
-    }
-
-    if (isDraggingState) {
-      char = GLITCH_CHARS[(i + Math.round(value)) % GLITCH_CHARS.length]
     }
     cells.push({ char, filled })
   }
@@ -175,11 +169,7 @@ export function Knob({
         aria-valuemax={max}
         aria-valuenow={Math.round(value)}
         aria-valuetext={enabled ? displayValue : '--'}
-        className="relative cursor-ns-resize px-2 py-1 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-        style={{
-          transform: isDraggingState ? 'scale(1.05)' : 'scale(1)',
-          transition: 'transform 0.14s ease-out'
-        }}
+        className="relative cursor-ns-resize touch-none px-2 py-1 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg transition-colors duration-100 hover:bg-elev-1/40"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
@@ -188,7 +178,7 @@ export function Knob({
         onKeyDown={handleKeyDown}
       >
         <span
-          className={`font-ascii leading-none inline-block whitespace-nowrap ${
+          className={`font-ascii leading-none inline-block whitespace-nowrap overflow-hidden ${
             size === 'small' ? 'text-[8px]' : 'text-[16px]'
           } ${enabled ? '' : 'opacity-40'}`}
           aria-hidden="true"
@@ -202,13 +192,13 @@ export function Knob({
           ))}
           <span className={`text-ink-3 ${isDraggingState ? 'knob-glitch' : ''}`}>]</span>
         </span>
-        <div className="text-[6px] text-ink-3 mt-0.5 whitespace-nowrap">
+        <div className="text-[6px] text-ink-3 mt-0.5 whitespace-nowrap select-none">
           {formatRulerText(min, max, displayValue)}
         </div>
       </div>
       <div className="flex flex-col items-center mt-1">
         <span
-          className={`font-mono uppercase-tracked select-none ${
+          className={`font-mono uppercase-tracked select-none tabular-nums ${
             size === 'small' ? 'text-[9px]' : 'text-[10px]'
           } ${enabled ? 'text-fg' : 'text-ink-3'}`}
         >
