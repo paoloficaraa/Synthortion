@@ -24,12 +24,19 @@ interface AppProps {
   dspBridge?: DspBridge
 }
 /**
- * App — single top-level state boundary for the whole plugin.
+ * App — single top-level state boundary for the whole plugin with Cartesian faceplate integration.
  *
  * Every parameter the faceplate exposes lives here as controlled props and is
  * pushed to the injected DSP bridge on change. Child components keep no
  * silent state, so binding the real C++ backend is a matter of swapping the
- * bridge.
+ * bridge. The center hub locks the dual-mode visualizer (240px) between the
+ * status header (54px) and the module grid, each separated by a single 1px
+ * Cartesian hairline (`#333333`) that meets the flanking 48px meter rails at
+ * `+` crosshairs — no layout shift on bypass, no double borders, no AI-slop
+ * repeated-rule strings. The high-contrast monochrome xerox aesthetic
+ * (pitch-black, stark-white, warm-grey signal, 1px grid-rule) and static CRT
+ * scanline texture are shared through `VstLayout`'s `noise-overlay` /
+ * `vst-container::before`, keeping all UI surfaces cohesive per DESIGN.md.
  */
 function App({ dspBridge = noopDspBridge }: AppProps) {
   const [state, setState] = useState<PluginState>(initialState)
@@ -73,22 +80,21 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
     return () => unsubscribe()
   }, [])
   return (
-    <div className="w-full h-full flex flex-col min-h-0 min-w-0 overflow-hidden relative select-none">
+    <div className="w-full h-full flex flex-col min-h-0 min-w-0 overflow-hidden relative select-none bg-void">
       <VstLayout
-        leftColumn={
-          <GainMeter label="IN" active={state.engineActive} delay={50} />
-        }
-        rightColumn={
-          <GainMeter label="OUT" active={state.engineActive} delay={260} />
-        }
+        leftColumn={<GainMeter label="IN" active={state.engineActive} delay={50} />}
+        rightColumn={<GainMeter label="OUT" active={state.engineActive} delay={260} />}
       >
+        {/* Center hub — Header (54px) → Visualizer (240px) → Faceplate share one Cartesian grid */}
         <main className="flex-1 flex flex-col bg-bg min-h-0 overflow-hidden relative">
           <Header
             engineActive={state.engineActive}
             onToggleBypass={(active) => update({ engineActive: active })}
           />
+          {/* Dual-mode band locked to 240px — shrink-0 prevents grid shift on bypass/tweak */}
           <FftVisualizer active={state.engineActive} glitch={pulser} />
-          <div className="flex-1 flex items-center justify-center p-8">
+          {/* Faceplate plateau — 1px-separated from the scope band, centered on the same grid */}
+          <div className="flex-1 flex items-center justify-center px-6 py-6 min-h-0 overflow-hidden bg-bg">
             <MatrixFaceplate state={state} onChange={update} />
           </div>
         </main>

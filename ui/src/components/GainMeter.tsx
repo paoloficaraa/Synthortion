@@ -31,11 +31,17 @@ interface GainMeterProps {
 }
 
 /**
- * GainMeter - 16-row vertical block character ladder meter.
+ * GainMeter — 16-row vertical block-character ladder meter with Cartesian xerox framing.
  *
- * Renders a character-cell ladder using fillText with ▁▂▃▄▅▆▇█ block characters
- * (one char per 8px column). Peak rows (top 2) use ▲ when fully filled.
- * Animation uses the same smoothed random signal as the previous implementation.
+ * Renders a character-cell ladder on a 8×256 canvas using fillText with ▁▂▃▄▅▆▇█
+ * block characters (one char per 8px column). Peak rows (top 2) use ▲ when fully
+ * filled. The chassis carries the Cartesian coordinate discipline: 1px hairline
+ * well (`--elev-6`), micro calibration ticks (`-`/`+`) along the rail, `+`
+ * crosshairs at the top/bottom where the ladder meets the horizontal rules,
+ * and a dithered halftone anchor (`░▒`/`▒░`) tying the meter into the high-
+ * contrast xerox instrument language. Animation uses a smoothed random signal;
+ * bypass decays to void; `aria-hidden` hides every decorative glyph while
+ * `role="meter"` exposes dB semantics. Monochrome discipline per DESIGN.md.
  */
 export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -143,19 +149,51 @@ export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
 
   return (
     <div
-      className="w-full flex flex-col items-center animate-vst-enter"
+      className="w-full flex flex-col items-center animate-vst-enter relative"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="font-ascii text-[9px] text-ink-3 whitespace-pre leading-none flex items-center" aria-hidden="true">
-        <span>┌</span><span> </span><span className="text-fg">{label}</span><span> </span><span>┐</span>
+      {/* Top Cartesian frame: + ┌ IN ┐ + */}
+      <div
+        className="font-ascii text-[9px] whitespace-pre leading-none flex items-center gap-1"
+        aria-hidden="true"
+      >
+        <span className="text-ink-3">+</span>
+        <span>┌</span>
+        <span> </span>
+        <span className="text-fg font-bold tracking-widest">{label}</span>
+        <span> </span>
+        <span>┐</span>
+        <span className="text-ink-3">+</span>
       </div>
-      <div className="font-mono text-[7px] text-ink-1 mb-1 font-bold leading-none">0</div>
-      <div className="flex-1 w-full flex justify-center z-10 shrink min-h-0">
-        <div className="font-ascii text-[9px] text-ink-2 leading-none select-none" aria-hidden="true">
+      <div className="font-mono text-[7px] text-ink-1 mb-1 font-bold leading-none tracking-widest">
+        0
+      </div>
+      <div className="flex-1 w-full flex justify-center z-10 shrink min-h-0 relative">
+        {/* Micro-calibration gutter ticks along the vertical well */}
+        <div
+          className="absolute top-1 bottom-1 left-1/2 -translate-x-[14px] flex flex-col justify-between pointer-events-none select-none font-ascii text-[6px] leading-none text-ink-3 opacity-40"
+          aria-hidden="true"
+        >
+          <span>-</span>
+          <span>+</span>
+          <span>-</span>
+        </div>
+        <div
+          className="absolute top-1 bottom-1 left-1/2 translate-x-[10px] flex flex-col justify-between pointer-events-none select-none font-ascii text-[6px] leading-none text-ink-3 opacity-40"
+          aria-hidden="true"
+        >
+          <span>-</span>
+          <span>+</span>
+          <span>-</span>
+        </div>
+        <div
+          className="font-ascii text-[9px] text-ink-2 leading-none select-none opacity-60"
+          aria-hidden="true"
+        >
           │
         </div>
         <div
-          className="w-[8px] h-[256px] bg-elev-0"
+          className="w-[8px] h-[256px] bg-elev-0 relative"
           style={{ boxShadow: 'var(--shadow-well), 0 0 0 1px var(--elev-6)' }}
         >
           <canvas
@@ -164,13 +202,35 @@ export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
             height={CANVAS_HEIGHT}
             className="w-full h-full block"
           />
+          {/* Phosphor scanline sheen — inert, gated by monochrome discipline */}
+          <div
+            className="absolute inset-0 pointer-events-none opacity-[0.06]"
+            aria-hidden="true"
+            style={{
+              background:
+                'repeating-linear-gradient(to bottom, transparent 0px, transparent 2px, rgba(246,246,246,0.4) 2px, rgba(246,246,246,0.4) 3px)',
+            }}
+          />
         </div>
-        <div className="font-ascii text-[9px] text-ink-2 leading-none select-none" aria-hidden="true">
+        <div
+          className="font-ascii text-[9px] text-ink-2 leading-none select-none opacity-60"
+          aria-hidden="true"
+        >
           │
         </div>
       </div>
-      <div className="font-ascii text-[9px] text-ink-3 whitespace-pre leading-none mt-1" aria-hidden="true">
-        └{'─'.repeat(label.length + 2)}┘
+      {/* Bottom Cartesian anchor: + ░▒ └───┘ ▒░ + */}
+      <div
+        className="font-ascii text-[9px] leading-none mt-1 flex items-center gap-1"
+        aria-hidden="true"
+      >
+        <span className="text-ink-3">+</span>
+        <span className="text-ink-3 opacity-40 text-[7px] tracking-tighter">░▒</span>
+        <span className="text-ink-3">└</span>
+        <span className="text-ink-3">{'─'.repeat(label.length + 2)}</span>
+        <span className="text-ink-3">┘</span>
+        <span className="text-ink-3 opacity-40 text-[7px] tracking-tighter">▒░</span>
+        <span className="text-ink-3">+</span>
       </div>
       <div
         ref={meterRef}
@@ -179,7 +239,7 @@ export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
         aria-valuemin={-120}
         aria-valuemax={0}
         aria-valuetext="-INF"
-        className="font-mono text-[7px] text-ink-1 mt-2 font-bold leading-none"
+        className="font-mono text-[7px] text-ink-1 mt-2 font-bold leading-none tracking-widest"
       >
         <span aria-hidden="true">[ </span>
         <span ref={readoutTextRef}>-INF</span>

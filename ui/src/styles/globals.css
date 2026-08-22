@@ -369,6 +369,7 @@ body {
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  --color-grid-rule: var(--elev-7);
   --color-accent: var(--accent);
   --color-danger: var(--danger);
   --color-void: var(--void);
