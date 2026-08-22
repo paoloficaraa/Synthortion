@@ -59,7 +59,7 @@ export function SystemBoot() {
       onKeyDown={(event) => {
         if (event.key === 'Enter') setVisible(false)
       }}
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-void cursor-pointer outline-none"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-void cursor-pointer outline-none select-none"
     >
       {/* Soft overlay (gradient removed for slop) */}
       <div className="absolute inset-0 pointer-events-none opacity-[0.12]" />

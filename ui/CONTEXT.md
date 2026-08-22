@@ -17,6 +17,9 @@
 - **Control micro-glitch** — during active dragging of a knob or fader, subtle character noise pulses on the control borders/track while preserving 100% legibility of the numeric readout.
 - **Boot sequence** — the mount-time terminal overlay: one-shot, staged lines with real values and aligned `[ OK ]` columns, ending on `[READY]`. Skippable by click/Enter; reduced-motion renders the final state immediately.
 - **Trim Fader** — the vertical ASCII block fader located in the 48px flanking meter rails (IN/OUT TRIM), replacing horizontal track knobs on the rails to preserve strict vertical alignment and prevent rail overflow.
+- **Dual-Mode Visualizer** — the real-time audio visualization band combining a high-resolution Braille/dither ASCII waveform trace with a scrolling multi-band waterfall spectrogram, inspired by Minimeters and rendered on an ASCII/raster surface.
+- **Cartesian Frame System** — the structural panel boundary system replacing repetitive mock ASCII with precise 1px coordinate rules, crosshairs (`+`), micro-scale calibration ticks, and dithered corner anchors derived from industrial xerox/photocopy aesthetics.
+- **Smooth ASCII Knob Slider** — a continuous sub-cell dithered horizontal block slider preserving the canonical bracketed format (`[...]`) while delivering sub-pixel vertical drag responsiveness, fine-step scaling, and jitter-free micro-glitch tactile feedback.
 
 ## Bridge & Integration Terms
 

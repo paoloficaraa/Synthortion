@@ -11,7 +11,7 @@ namespace synthortion
 
         auto makeGainRange = []()
         {
-            juce::NormalisableRange<float> r(-60.0f, 12.0f, 0.1f);
+            auto r = juce::NormalisableRange<float>(-60.0f, 12.0f, 0.1f);
             r.setSkewForCentre(0.0f);
             return r;
         };
@@ -180,11 +180,13 @@ namespace synthortion
         auto json = juce::JSON::parse(message);
         if (auto* obj = json.getDynamicObject())
         {
-            auto parameterId = obj->getProperty("parameterId").toString();
-            auto value = obj->getProperty("value");
+            auto parameterId = obj->hasProperty("parameterId")
+                ? obj->getProperty("parameterId").toString()
+                : obj->getProperty("id").toString();
+            auto value = static_cast<float>(obj->getProperty("value"));
             if (auto* param = apvts.getParameter(parameterId))
             {
-                param->setValueNotifyingHost(param->getNormalisableRange().convertTo0to1(static_cast<float>(value)));
+                param->setValueNotifyingHost(value);
             }
         }
     }

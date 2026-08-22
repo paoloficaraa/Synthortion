@@ -21,10 +21,13 @@ const ACTIONS = ['SAVE', 'LOAD'] as const
  */
 export function Header({ engineActive, onToggleBypass }: HeaderProps) {
   return (
-    <header className="h-[54px] bg-bg flex items-center justify-between px-6 shrink-0 relative z-10">
-      {/* ASCII Bottom Border Partition */}
-      <div className="absolute bottom-0 left-0 right-0 font-ascii text-[10px] text-ink-3 leading-none flex overflow-hidden pointer-events-none" aria-hidden="true">
-        {Array.from({ length: 120 }).map((_, i) => <span key={i}>─</span>)}
+    <header className="h-[54px] bg-bg flex items-center justify-between px-6 shrink-0 relative z-10 border-b border-grid-rule">
+      {/* Cartesian Coordinate Corner Marks */}
+      <div className="absolute bottom-0 left-0 -mb-[4px] -ml-[3px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none" aria-hidden="true">
+        +
+      </div>
+      <div className="absolute bottom-0 right-0 -mb-[4px] -mr-[3px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none" aria-hidden="true">
+        +
       </div>
       <div className="flex items-center gap-3">
         <button
@@ -38,7 +41,7 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
             backgroundColor: engineActive ? 'var(--fg)' : 'var(--elev-5)',
             borderColor: engineActive ? 'var(--fg)' : undefined,
             boxShadow: engineActive
-              ? '0 0 8px rgba(255,255,255,0.7)'
+              ? '0 0 0 1px var(--fg)'
               : undefined,
           }}
         />

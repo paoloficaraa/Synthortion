@@ -41,6 +41,7 @@ PUBLIC
 target_compile_definitions(Synthortion
 PUBLIC
     JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_USE_WIN_WEBVIEW2=1
 )
 
 if(UNIX AND NOT APPLE)
@@ -55,6 +56,7 @@ endif()
 
 juce_add_console_app(SynthortionTests
     PRODUCT_NAME "Synthortion Tests"
+    NEEDS_WEBVIEW2 TRUE
 )
 
 juce_generate_juce_header(SynthortionTests)
@@ -78,7 +80,7 @@ PRIVATE
 
 target_compile_definitions(SynthortionTests
 PRIVATE
-    JUCE_WEB_BROWSER=0
+    JUCE_USE_WIN_WEBVIEW2=1
     JUCE_USE_CURL=0
     JUCE_UNIT_TESTS=1
     JUCE_MODAL_LOOPS_PERMITTED=1

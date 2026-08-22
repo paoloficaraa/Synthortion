@@ -371,7 +371,7 @@ body {
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-danger: var(--danger);
-
+  --color-void: var(--void);
   /* Elevation ramp utilities (bg-elev-0 … bg-elev-7) */
   --color-elev-0: var(--elev-0);
   --color-elev-1: var(--elev-1);

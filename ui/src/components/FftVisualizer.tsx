@@ -3,7 +3,7 @@ import {
   createOscilloscopeSignal,
   type OscilloscopeSignal,
 } from '../lib/oscilloscopeSignal'
-import { applyGlitch, type GlitchPulser } from '../lib/glitchPulser'
+import { type GlitchPulser } from '../lib/glitchPulser'
 const CELL_PX = 16
 
 /* ------------------------------------------------------------------ */
@@ -89,17 +89,19 @@ export function FftVisualizer({
     }
     resize()
 
+    let lastFrameTime = performance.now()
+
     const drawGraticule = () => {
       ctx.strokeStyle = GRAT_FG
       ctx.lineWidth = 1
       ctx.beginPath()
-      // Vertical lines
+      // Vertical division lines
       const NUM_DIVS = 4
       for (let i = 1; i < NUM_DIVS; i++) {
         const x = (w / NUM_DIVS) * i
         ctx.moveTo(x, 0)
         ctx.lineTo(x, h)
-        // Crosshairs
+        // Crosshairs at midpoint
         ctx.moveTo(x - 4, h / 2)
         ctx.lineTo(x + 4, h / 2)
       }
@@ -108,31 +110,43 @@ export function FftVisualizer({
       ctx.lineTo(w, h / 2)
       ctx.stroke()
 
-      // Readouts
+      // Frequency and calibration readouts
       ctx.fillStyle = GRAT_FG
       ctx.font = FONT_GRAT
       ctx.textAlign = 'center'
       ctx.textBaseline = 'top'
-      const labels = ['20', '200', '2k', '20k']
+      const freqLabels = ['20Hz', '200Hz', '2kHz', '20kHz']
       for (let i = 1; i < NUM_DIVS; i++) {
         const x = (w / NUM_DIVS) * i
-        ctx.fillText(labels[i-1], x, 4)
+        ctx.fillText(freqLabels[i - 1], x, 4)
       }
+
+      // dB scale readout at left edge
+      ctx.textAlign = 'left'
+      ctx.fillText('+6dB', 4, 4)
+      ctx.fillText('0dB', 4, h / 2 - 10)
+      ctx.fillText('-INF', 4, h - 14)
     }
 
     const drawTrace = () => {
+      const now = performance.now()
+      const dt = Math.min(50, Math.max(1, now - lastFrameTime))
+      lastFrameTime = now
+
       const samples = resolvedSignal.samples
       const len = samples.length
       
-      // Phosphor decay: dim existing canvas instead of clear
+      // Fill canvas background
+      ctx.fillStyle = SCOPE_BG
+      ctx.fillRect(0, 0, w, h)
 
       drawGraticule()
 
-      // Calculate glitch offset
-      const g = glitch?.step() ?? 0
+      // Calculate glitch offset using delta time
+      const glitchIntensity = glitch ? glitch.step(dt) : 0
       let yOffset = 0
-      if (g > 0 && random() > 0.5) {
-        yOffset = (random() - 0.5) * h * g * 0.2
+      if (glitchIntensity > 0 && random() > 0.5) {
+        yOffset = (random() - 0.5) * h * glitchIntensity * 0.2
       }
 
       ctx.beginPath()
@@ -173,12 +187,8 @@ export function FftVisualizer({
     <div
       data-testid="fft-visualizer"
       data-active={active}
-      className="relative w-full h-[136px] shrink-0 bg-bg overflow-hidden"
+      className="relative w-full h-[136px] shrink-0 bg-bg overflow-hidden border-b border-grid-rule"
     >
-      {/* ASCII Bottom Border Partition */}
-      <div className="absolute bottom-0 left-0 right-0 font-ascii text-[10px] text-ink-3 leading-none flex overflow-hidden pointer-events-none z-10" aria-hidden="true">
-        {Array.from({ length: 120 }).map((_, i) => <span key={i}>─</span>)}
-      </div>
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full"

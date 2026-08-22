@@ -9,10 +9,11 @@ interface MatrixFaceplateProps {
   onChange: (patch: Partial<PluginState>) => void
 }
 
+export type ModuleCode = 'DRV' | 'BCR' | 'DLY' | 'CHR'
 
 interface ModuleFrameProps {
   /** Module code rendered in the title bar (DRV/BCR/DLY/CHR). */
-  code: string
+  code: ModuleCode
   /** Whether the module's power switch is on. */
   powerOn: boolean
   /** Flips the module power flag; called with the new value. */
@@ -20,6 +21,21 @@ interface ModuleFrameProps {
   /** Extra section classes (grid span, inner shadow). */
   className?: string
   children: ReactNode
+}
+
+/** Micro-calibration tick marks for module frame side rules. */
+function CalibrationTicks({ side }: { side: 'left' | 'right' }) {
+  const positionClass = side === 'left' ? 'left-0 items-start pl-0.5' : 'right-0 items-end pr-0.5'
+  return (
+    <div
+      className={`absolute top-2 bottom-2 w-1 flex flex-col justify-between pointer-events-none select-none text-ink-3 font-ascii text-[7px] leading-none opacity-60 ${positionClass}`}
+      aria-hidden="true"
+    >
+      <span>-</span>
+      <span>+</span>
+      <span>-</span>
+    </div>
+  )
 }
 
 /**
@@ -40,29 +56,34 @@ function ModuleFrame({
 }: ModuleFrameProps) {
   return (
     <section
-      className={`p-0 flex flex-col items-stretch justify-between relative group ${className ?? ''}`}
+      className={`p-0 flex flex-col items-stretch justify-between relative bg-elev-0 border-r border-grid-rule last:border-r-0 ${className ?? ''}`}
     >
-      {/* ASCII box-drawing header: ┌──[ DRV ]──[ PWR: ON ]──┐ */}
+      {/* Cartesian Header: + [ DRV ] + [ PWR: ON ] + */}
       <div
-        className="flex items-center justify-between px-2 h-[24px] font-ascii text-[10px] leading-none select-none"
+        className="flex items-center justify-between px-2 h-[24px] font-ascii text-[9px] leading-none select-none border-b border-grid-rule bg-elev-0 text-muted relative"
         aria-hidden="true"
       >
-        <span className="text-ink-3 whitespace-pre">┌──[ </span>
-        <span className="text-fg">{code}</span>
-        <span className="text-ink-3 whitespace-pre"> ]</span>
-        <span className="flex-1 text-ink-3 text-center px-1 truncate">
-          {'─'.repeat(8)}
-        </span>
-        <span className="text-ink-3 whitespace-pre">[ PWR: </span>
-        <span className={powerOn ? 'text-fg' : 'text-ink-3'}>
-          {powerOn ? 'ON ' : 'OFF'}
-        </span>
-        <span className="text-ink-3 whitespace-pre">]──┐</span>
+        <div className="flex items-center gap-1">
+          <span className="text-ink-3 font-bold">+</span>
+          <span className="text-ink-3">[</span>
+          <span className="text-fg font-bold tracking-widest">{code}</span>
+          <span className="text-ink-3">]</span>
+        </div>
+        <div className="flex-1 h-px bg-grid-rule mx-2 relative flex items-center justify-center">
+          <span className="text-ink-3 text-[8px] bg-elev-0 px-1">+</span>
+        </div>
+        <div className="flex items-center gap-1 mr-4">
+          <span className="text-ink-3">[ PWR:</span>
+          <span className={powerOn ? 'text-fg font-bold' : 'text-ink-3'}>
+            {powerOn ? 'ON' : 'OFF'}
+          </span>
+          <span className="text-ink-3">]</span>
+          <span className="text-ink-3 font-bold">+</span>
+        </div>
       </div>
 
-      {/* Box-drawing left border is implied by section edges; keep the
-          interactive title controls absolutely positioned for keyboard/a11y. */}
-      <div className="absolute top-1 right-2 z-10 flex items-center">
+      {/* Power switch button */}
+      <div className="absolute top-1.5 right-2 z-10 flex items-center">
         <button
           type="button"
           onClick={onTogglePower}
@@ -70,42 +91,52 @@ function ModuleFrame({
           aria-label={powerOn ? `Turn off ${code} module` : `Turn on ${code} module`}
           title={powerOn ? 'Power off' : 'Power on'}
           data-testid={`power-${code}`}
-          className="w-2.5 h-2.5 rounded-full border border-border outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-bg transition-transform duration-150 hover:scale-[1.25] active:scale-[0.8]"
+          className="w-2.5 h-2.5 rounded-[1px] border border-border outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-bg transition-transform duration-150 hover:scale-[1.25] active:scale-[0.8]"
           style={{
             backgroundColor: powerOn ? 'var(--fg)' : 'var(--elev-5)',
             borderColor: powerOn ? 'var(--fg)' : undefined,
             boxShadow: powerOn
-              ? '0 0 6px rgba(255,255,255,0.6)'
+              ? '0 0 0 1px var(--fg)'
               : 'inset 0 1px 2px rgba(0,0,0,0.8)',
           }}
         />
       </div>
-      <div className="relative flex-1 flex items-stretch w-full min-h-0 overflow-hidden">
-        <div className="font-ascii text-[10px] leading-[10px] text-ink-3 select-none py-1 px-0.5 flex flex-col justify-start overflow-hidden" aria-hidden="true">
-          {Array.from({ length: 20 }).map((_, i) => <span key={i}>│</span>)}
+
+      {/* Module Interior (controls + calibration ticks + bottom bar) */}
+      <div
+        className={`flex-1 flex flex-col items-stretch justify-between w-full transition-opacity duration-150 ${
+          powerOn ? '' : 'opacity-30 pointer-events-none'
+        }`}
+      >
+        <div className="relative flex-1 flex flex-col items-center justify-between px-3 pt-4 pb-3 min-w-0 w-full overflow-hidden">
+          <CalibrationTicks side="left" />
+          <CalibrationTicks side="right" />
+          {children}
         </div>
-        <div className="px-2 pt-4 pb-3 flex-1 flex flex-col items-center justify-between min-w-0">
-          <div
-            className={`flex-1 flex flex-col items-center justify-between w-full ${
-              powerOn ? '' : 'opacity-30 pointer-events-none'
-            }`}
-          >
-            {children}
+
+        {/* Cartesian Bottom Calibration Bar */}
+        <div
+          className="flex items-center justify-between px-2 h-[16px] font-ascii text-[8px] leading-none select-none border-t border-grid-rule text-ink-3 bg-elev-0"
+          aria-hidden="true"
+        >
+          <div className="flex items-center gap-1">
+            <span>+</span>
+            <span className="text-[7px] text-ink-3 tracking-tighter opacity-50">░▒</span>
+          </div>
+          <div className="flex-1 flex items-center justify-center gap-1 overflow-hidden px-2">
+            <span className="h-px w-2 bg-grid-rule" />
+            <span className="text-[7px] text-ink-3 tracking-tighter font-mono">CAL.0{code}</span>
+            <span className="h-px flex-1 bg-grid-rule" />
+            <span className="text-[7px] text-ink-3">::</span>
+            <span className="h-px flex-1 bg-grid-rule" />
+            <span className="text-[7px] text-ink-3 tracking-tighter font-mono">SYS.X</span>
+            <span className="h-px w-2 bg-grid-rule" />
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[7px] text-ink-3 tracking-tighter opacity-50">▒░</span>
+            <span>+</span>
           </div>
         </div>
-        <div className="font-ascii text-[10px] leading-[10px] text-ink-3 select-none py-1 px-0.5 flex flex-col justify-start overflow-hidden" aria-hidden="true">
-          {Array.from({ length: 20 }).map((_, i) => <span key={i}>│</span>)}
-        </div>
-      </div>
-      <div
-        className="flex items-center px-2 h-[18px] font-ascii text-[10px] leading-none select-none"
-        aria-hidden="true"
-      >
-        <span className="text-ink-3 whitespace-pre">└</span>
-        <span className="flex-1 text-ink-3 text-center truncate">
-          {'─'.repeat(20)}
-        </span>
-        <span className="text-ink-3 whitespace-pre">┘</span>
       </div>
     </section>
   )
@@ -138,7 +169,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
   } = state
 
   return (
-    <div className="grid grid-cols-5 w-full">
+    <div className="grid grid-cols-5 w-full border border-grid-rule bg-elev-0">
       {/* DRV — Drive with PRE/POST route toggle */}
       <ModuleFrame
         code="DRV"
@@ -192,6 +223,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
         code="DLY"
         powerOn={delayOn}
         onTogglePower={() => onChange({ delayOn: !delayOn })}
+        className="col-span-2"
       >
         <div className="flex-1 flex flex-col items-center justify-center w-full mt-2">
           <Knob
@@ -200,6 +232,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             min={0}
             max={100}
             displayValue={`${Math.round(delayMix)}%`}
+            defaultValue={initialState.delayMix}
             enabled={delayOn}
             onChange={(value) => onChange({ delayMix: value })}
           />
@@ -221,6 +254,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
               max={100}
               displayValue={`${Math.round(delayFbk)}%`}
               size="small"
+              defaultValue={initialState.delayFbk}
               enabled={delayOn}
               onChange={(value) => onChange({ delayFbk: value })}
             />

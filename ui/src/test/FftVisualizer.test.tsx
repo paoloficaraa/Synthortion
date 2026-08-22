@@ -1,9 +1,8 @@
-import { render, screen, act } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { describe, it, expect } from 'vitest'
 import { FftVisualizer } from '../components/FftVisualizer'
 import { createOscilloscopeSignal } from '../lib/oscilloscopeSignal'
 import { applyGlitch, createGlitchPulser } from '../lib/glitchPulser'
-import { createMockCanvasContext, type CanvasTextOp } from './mockCanvasContext'
 
 /* ------------------------------------------------------------------ */
 /*  applyGlitch unit tests                                             */

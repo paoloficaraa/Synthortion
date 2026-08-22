@@ -73,7 +73,7 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
     return () => unsubscribe()
   }, [])
   return (
-    <div className="flex items-start justify-center min-h-screen py-8">
+    <div className="w-full h-full flex flex-col min-h-0 min-w-0 overflow-hidden relative select-none">
       <VstLayout
         leftColumn={
           <GainMeter label="IN" active={state.engineActive} delay={50} />
@@ -82,11 +82,7 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
           <GainMeter label="OUT" active={state.engineActive} delay={260} />
         }
       >
-            <main className="flex-1 flex flex-col bg-bg min-h-0 overflow-hidden relative">
-              {/* ASCII Top Border Partition */}
-              <div className="absolute top-0 left-0 right-0 font-ascii text-[10px] text-ink-3 leading-none flex overflow-hidden pointer-events-none z-10" aria-hidden="true">
-                {Array.from({ length: 120 }).map((_, i) => <span key={i}>─</span>)}
-              </div>
+        <main className="flex-1 flex flex-col bg-bg min-h-0 overflow-hidden relative">
           <Header
             engineActive={state.engineActive}
             onToggleBypass={(active) => update({ engineActive: active })}

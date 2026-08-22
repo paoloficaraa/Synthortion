@@ -59,4 +59,14 @@ describe('Header', () => {
       4
     )
   })
+
+  it('renders Cartesian 1px structural divider without repeated character loops', () => {
+    const { container } = render(<Header engineActive onToggleBypass={() => {}} />)
+
+    const header = container.querySelector('header')
+    expect(header).toHaveClass('border-b', 'border-grid-rule')
+
+    const allText = container.textContent ?? ''
+    expect(allText).not.toMatch(/─{2,}/)
+  })
 })

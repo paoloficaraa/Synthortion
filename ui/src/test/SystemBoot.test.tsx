@@ -149,7 +149,7 @@ describe('SystemBoot', () => {
       ).toBeInTheDocument()
     } finally {
       // Clean up the mock
-      // @ts-ignore
+      // @ts-expect-error test cleanup
       delete window.matchMedia
     }
   })

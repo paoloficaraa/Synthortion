@@ -155,4 +155,35 @@ describe('MatrixFaceplate', () => {
     const chr = sections[3]
     expect(chr.querySelector('div.opacity-30')).toBeNull()
   })
+
+  it('renders Cartesian crosshairs (+) and technical coordinate codes without naive character loops', () => {
+    const { container } = render(
+      <MatrixFaceplate state={initialState} onChange={() => {}} />
+    )
+
+    // No naive ASCII loop spans with repeated │ or ─
+    const allText = container.textContent ?? ''
+    expect(allText).not.toMatch(/│{2,}/)
+    expect(allText).not.toMatch(/─{2,}/)
+
+    // Cartesian coordinate crosshairs (+) are rendered
+    const crosshairs = screen.getAllByText('+')
+    expect(crosshairs.length).toBeGreaterThanOrEqual(4)
+
+    // All decorative framing elements carry aria-hidden="true"
+    const ariaHiddenElements = container.querySelectorAll('[aria-hidden="true"]')
+    expect(ariaHiddenElements.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('allocates 2 columns to the DLY module in the 5-column grid', () => {
+    const { container } = render(
+      <MatrixFaceplate state={initialState} onChange={() => {}} />
+    )
+
+    const sections = container.querySelectorAll('section')
+    expect(sections).toHaveLength(4)
+    // DLY is the 3rd module (index 2) and spans 2 columns
+    const dly = sections[2]
+    expect(dly).toHaveClass('col-span-2')
+  })
 })
