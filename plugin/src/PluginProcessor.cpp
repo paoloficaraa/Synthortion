@@ -333,7 +333,7 @@ namespace synthortion {
             const float inputGainLinear = juce::Decibels::decibelsToGain(inputGainSmoother.getCurrentValue());
             buffer.applyGain(inputGainLinear);
         }
-        inputPeak.store(bypass ? 0.0f : computeMaxPeak(buffer));
+        inputPeak.store(computeMaxPeak(buffer));
 
         juce::dsp::AudioBlock<float> block(buffer);
         juce::dsp::ProcessContextReplacing<float> context(block);
@@ -393,7 +393,7 @@ namespace synthortion {
             const float outputGainLinear = juce::Decibels::decibelsToGain(outputGainSmoother.getCurrentValue());
             buffer.applyGain(outputGainLinear);
         }
-        outputPeak.store(bypass ? 0.0f : computeMaxPeak(buffer));
+        outputPeak.store(computeMaxPeak(buffer));
 
         const int distortionLatency = warmDistortion.getLatencySamples();
         currentTotalLatency.store(distortionLatency);
@@ -401,6 +401,26 @@ namespace synthortion {
 
         audioFifo.push(buffer);
         updateAllDSPParameters();
+    }
+
+    void AudioPluginAudioProcessor::processBlockBypassed(juce::AudioBuffer<float> &buffer,
+        [[maybe_unused]] juce::MidiBuffer &midiMessages)
+    {
+        juce::ignoreUnused(midiMessages);
+        if (buffer.getNumSamples() == 0 || buffer.getNumChannels() == 0)
+            return;
+
+        for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
+            buffer.clear(i, 0, buffer.getNumSamples());
+
+        inputPeak.store(computeMaxPeak(buffer));
+        outputPeak.store(computeMaxPeak(buffer));
+        audioFifo.push(buffer);
+    }
+
+    juce::AudioProcessorParameter* AudioPluginAudioProcessor::getBypassParameter() const
+    {
+        return apvts.getParameter("PLUGIN_BYPASS");
     }
 
     void AudioPluginAudioProcessor::updateAllDSPParameters()

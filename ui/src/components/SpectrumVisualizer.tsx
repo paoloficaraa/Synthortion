@@ -14,9 +14,10 @@ import { type GlitchPulser, applyGlitch } from '../lib/glitchPulser'
 const SCOPE_BG = '#0a0a0a'
 const GRAT_FG = '#262626'
 const TRACE_FG = '#ffffff'
-const TRACE_IDLE = '#444444'
+const TRACE_IDLE = '#666666'
 const DITHER_FG = '#888888'
-
+const DITHER_GHOST = '#3a3a3a'
+const BYPASS_TAG_FG = '#888888'
 /* ------------------------------------------------------------------ */
 /*  Grid geometry & Typography                                         */
 /* ------------------------------------------------------------------ */
@@ -122,42 +123,26 @@ export function SpectrumVisualizer({
       const dt = Math.min(50, Math.max(1, now - lastFrameTime))
       lastFrameTime = now
 
-      // Smooth ballistics and bypass decay
+      // Smooth ballistics: in live mode tracks wet post-fx; in bypass mode tracks dry ghost signal
       const target = targetMagsRef.current
       const display = displayMagsRef.current
       let hasActiveSignal = false
 
-      if (!active) {
-        // Bypass mode: exponential decay to 0 floor
-        const decay = Math.exp(-dt / 120)
-        let maxVal = 0
-        for (let i = 0; i < NUM_BANDS; i++) {
-          const v = (display[i] ?? 0) * decay
-          display[i] = v
-          if (v > maxVal) maxVal = v
-        }
-        if (maxVal > 0.0005) {
-          hasActiveSignal = true
+      for (let i = 0; i < NUM_BANDS; i++) {
+        const t = target[i] ?? 0
+        const curr = display[i] ?? 0
+        if (t >= curr) {
+          // Instant attack
+          display[i] = t
         } else {
-          display.fill(0)
+          // Smooth decay (~180 ms in active, ~220 ms in bypass)
+          const decay = Math.exp(-dt / (active ? 180 : 220))
+          display[i] = curr * decay + t * (1 - decay)
         }
-      } else {
-        // Live mode: update display buffer
-        hasActiveSignal = true
-        for (let i = 0; i < NUM_BANDS; i++) {
-          const t = target[i] ?? 0
-          const curr = display[i] ?? 0
-          if (t >= curr) {
-            // Instant attack
-            display[i] = t
-          } else {
-            // Smooth decay (~180 ms)
-            const decay = Math.exp(-dt / 180)
-            display[i] = curr * decay + t * (1 - decay)
-          }
+        if (display[i] > 0.0005) {
+          hasActiveSignal = true
         }
       }
-
       const cellW =
         (ctx.measureText?.('█') as { width?: number } | undefined)?.width || CELL_W_FALLBACK
       const numCols = Math.max(8, Math.floor(w / cellW))
@@ -189,16 +174,16 @@ export function SpectrumVisualizer({
         ditherRows = applyGlitch(ditherRows, glitchIntensity, random)
       }
 
-      // Render halftone dither gradient fill under the curve in warm grey
+      // Render halftone dither gradient fill under the curve (muted ghost in bypass)
       ctx.font = FONT_VGA
-      ctx.fillStyle = DITHER_FG
+      ctx.fillStyle = active ? DITHER_FG : DITHER_GHOST
       ditherRows.forEach((row, r) => {
         if (row.trim().length > 0) {
           ctx.fillText(row, 0, r * CELL_PX)
         }
       })
 
-      // Render primary Braille peak contour in stark white
+      // Render primary Braille peak contour (stark white in active, technical grey in bypass)
       ctx.font = FONT_BRAILLE
       ctx.fillStyle = active ? TRACE_FG : TRACE_IDLE
       traceRows.forEach((row, r) => {
@@ -207,6 +192,14 @@ export function SpectrumVisualizer({
         }
       })
 
+      // ── Layer 3: Terminal Dry Passthrough indicator on Bypass ──
+      if (!active) {
+        ctx.font = FONT_VGA
+        ctx.fillStyle = BYPASS_TAG_FG
+        const bypassTag = '[ DRY PASSTHROUGH // DSP BYPASS ]'
+        const tagX = Math.max(8, Math.floor((w - bypassTag.length * cellW) / 2))
+        ctx.fillText(bypassTag, tagX, 2)
+      }
       return active || hasActiveSignal || (glitchIntensity > 0)
     }
 

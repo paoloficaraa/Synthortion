@@ -156,7 +156,13 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
   } = state
 
   return (
-    <div className="grid grid-cols-5 w-full h-full border border-grid-rule bg-elev-0 flex-1 min-h-0">
+    <div
+      data-testid="matrix-faceplate"
+      data-engine-active={state.engineActive}
+      className={`grid grid-cols-5 w-full h-full border border-grid-rule bg-elev-0 flex-1 min-h-0 transition-opacity duration-150 ${
+        state.engineActive ? '' : 'opacity-85'
+      }`}
+    >
       {/* DRV — Drive with PRE/POST route toggle */}
       <ModuleFrame
         code="DRV"

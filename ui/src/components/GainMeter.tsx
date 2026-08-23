@@ -99,7 +99,6 @@ export function GainMeter({ label, active, channel = 'input', delay = 0 }: GainM
 
     const ctx = canvas.getContext('2d', { alpha: false })
     if (!ctx) return
-
     let raf: number
 
     const draw = () => {
@@ -108,7 +107,6 @@ export function GainMeter({ label, active, channel = 'input', delay = 0 }: GainM
       // Clear background
       ctx.fillStyle = METER_VOID
       ctx.fillRect(0, 0, canvas.width, canvas.height)
-
       // Set up font for block characters
       ctx.font = `${FONT_SIZE}px "Px437 IBM VGA8", "IBM VGA 8", monospace`
       ctx.textBaseline = TEXT_BASELINE

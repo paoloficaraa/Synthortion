@@ -32,6 +32,7 @@ namespace synthortion
             testSpectrumAnalyzerDecibelNormalization();
             testSpectrumAnalyzerBallistics();
             testEditorTimerAndSpectrumFrame();
+            testProcessorBypassParameterAndPassthrough();
         }
     private:
         void testEditorSizeIs960x600()
@@ -152,6 +153,36 @@ namespace synthortion
             {
                 expectWithinAbsoluteError (param->getValue(), 0.42f, 0.001f, "BITCRUSH normalized value via 'id' should be 0.42");
             }
+        }
+        void testProcessorBypassParameterAndPassthrough()
+        {
+            beginTest ("PluginProcessor overrides getBypassParameter and processBlockBypassed captures audio");
+
+            AudioPluginAudioProcessor processor;
+            processor.prepareToPlay (48000.0, 512);
+
+            auto* bypassParam = processor.getBypassParameter();
+            expect (bypassParam != nullptr, "getBypassParameter should return a valid parameter");
+            if (auto* pWithId = dynamic_cast<juce::AudioProcessorParameterWithID*> (bypassParam))
+            {
+                expect (pWithId->paramID == "PLUGIN_BYPASS", "Bypass parameter ID must be PLUGIN_BYPASS");
+            }
+
+            auto& fifo = processor.getAudioFifo();
+            fifo.reset();
+
+            juce::AudioBuffer<float> testBuffer (2, 512);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int s = 0; s < 512; ++s)
+                    testBuffer.setSample (ch, s, 0.6f);
+
+            juce::MidiBuffer midi;
+            processor.processBlockBypassed (testBuffer, midi);
+
+            expect (fifo.getNumReady() >= 512, "processBlockBypassed must push dry audio into FIFO");
+            auto peaks = processor.getMeterPeaks();
+            expectWithinAbsoluteError (peaks.input, 0.6f, 0.01f, "processBlockBypassed should measure input peak");
+            expectWithinAbsoluteError (peaks.output, 0.6f, 0.01f, "processBlockBypassed should measure output peak");
         }
         void testDistResourceProvider()
         {
