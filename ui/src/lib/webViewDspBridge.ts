@@ -24,6 +24,7 @@ declare global {
     __SYNTORTION_BRIDGE__?: {
       onParameterChange?: (parameterId: string, value: number) => void
       onSpectrumFrame?: (magnitudes: number[]) => void
+      onMeterFrame?: (payload: MeterFrame) => void
     }
   }
 }
@@ -99,6 +100,59 @@ export function subscribeToDspChanges(
 
 /** Callback type for real-time 80-band spectrum analyzer frames. */
 export type SpectrumFrameCallback = (magnitudes: number[]) => void
+
+/** Real-time peak levels for input and output rails. */
+export interface MeterFrame {
+  /** Normalized peak [0.0, 1.0] for input stage. */
+  input: number
+  /** Normalized peak [0.0, 1.0] for output stage. */
+  output: number
+}
+
+/** Callback type for real-time meter updates. */
+export type MeterFrameCallback = (frame: MeterFrame) => void
+
+/**
+ * Register listener for incoming 60 FPS C++ DSP meter frames (`meterFrame` event).
+ * Designed for canvas/animation-frame subscribers to bypass React re-rendering.
+ *
+ * @param onFrame Callback receiving MeterFrame with input/output peaks [0.0, 1.0].
+ * @returns Cleanup function to unsubscribe.
+ */
+export function subscribeToDspMeters(onFrame: MeterFrameCallback): () => void {
+  const handleFrame = (data: unknown) => {
+    if (data && typeof data === 'object' && 'input' in data && 'output' in data) {
+      const frame = data as unknown as MeterFrame
+      if (typeof frame.input === 'number' && typeof frame.output === 'number') {
+        onFrame(frame)
+      }
+    }
+  }
+
+  // 1. Register JUCE 8 event listener if available
+  let juceCleanup: (() => void) | undefined
+  if (window.__JUCE__?.backend?.addEventListener) {
+    juceCleanup = window.__JUCE__.backend.addEventListener('meterFrame', (payload: unknown) => {
+      handleFrame(payload)
+    })
+  } else {
+    // 2. Register global function callback fallback
+    if (!window.__SYNTORTION_BRIDGE__) {
+      window.__SYNTORTION_BRIDGE__ = {}
+    }
+    window.__SYNTORTION_BRIDGE__.onMeterFrame = (payload: MeterFrame) => {
+      handleFrame(payload)
+    }
+  }
+
+  return () => {
+    if (juceCleanup) juceCleanup()
+    if (window.__SYNTORTION_BRIDGE__?.onMeterFrame) {
+      delete window.__SYNTORTION_BRIDGE__.onMeterFrame
+    }
+  }
+}
+
 
 /**
  * Register listener for incoming 60 FPS C++ DSP spectrum frames (`spectrumFrame` event).

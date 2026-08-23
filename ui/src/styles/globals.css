@@ -42,55 +42,52 @@
   font-display: swap;
 }
 
-/* Vintage Industrial Design Tokens */
+/* Pure Black & White ASCII Terminal Design Tokens */
 :root {
   /*
-   * Elevation scale — a monotone off-black ramp for hardware depth. Each step
-   * maps to a real surface in the vintage-industrial chrome, from the deepest
-   * recessed wells up to the most prominent borders.
+   * Elevation scale — true neutral off-black monotone ramp for depth.
+   * Clean 0% chroma values from deep recessed wells up to the 1px grid rules.
    */
   --elev-0: #050505; /* recessed wells (LCD readout, meter rails) */
   --elev-1: #0a0a0a; /* sunken troughs (FFT floor, meter void) */
-  --elev-2: #0f0e0e; /* base panel */
-  --elev-3: #111111; /* knob well */
-  --elev-4: #121212; /* raised surface */
-  --elev-5: #1a1a1a; /* elevated tracks (inactive LED, switch body) */
-  --elev-6: #222222; /* hairline edges / inset dividers */
+  --elev-2: #0e0e0e; /* base panel */
+  --elev-3: #121212; /* knob well */
+  --elev-4: #161616; /* raised surface */
+  --elev-5: #1c1c1c; /* elevated tracks (inactive LED, switch body) */
+  --elev-6: #262626; /* hairline edges / inset dividers */
   --elev-7: #333333; /* prominent borders */
 
-  /* App backdrop — darker than the panel, frames the chassis. */
-  --void: #030303;
+  /* App backdrop — pitch black framing the chassis. */
+  --void: #000000;
 
   /*
-   * Neutral ink ramp — intermediate grays for text and hairline hierarchy.
+   * Neutral ink ramp — pure neutral grays for text and hairline hierarchy.
    * Higher values read as more prominent; everything steps up to `--fg`.
    */
-  --ink-1: #444444; /* dim text (meter scale marks) */
+  --ink-1: #404040; /* dim text (meter scale marks) */
   --ink-2: #555555; /* low-priority labels (section codes, skip hint) */
-  --ink-3: #666666; /* secondary labels (meter legends) */
-  --ink-4: #888888; /* muted text */
-  --ink-5: #a0a0a0; /* elevated muted (hover hints) */
+  --ink-3: #737373; /* secondary labels (meter legends, crosshairs) */
+  --ink-4: #999999; /* muted text */
+  --ink-5: #cccccc; /* elevated muted (hover hints) */
 
   /*
-   * Brand Palette — DESIGN.md-compatible tokens. Values are unchanged; the
-   * neutral ones now resolve against the ramps above so the palette stays a
-   * single source of truth.
+   * Brand Palette — Pure Black & White ASCII Digital Instrument.
+   * Strictly monochrome with 0% chromatic saturation. High-contrast hierarchy
+   * is driven by typography, character density (░▒▓█), and luminance ramps.
    *
-   * T69 — panel surfaces are held at ~80-85% opacity so the chassis micro-grid
-   * and the CRT scanline overlay bleed through for an authentic synth-video
-   * feel. Text/ink and border tokens stay fully opaque for legibility.
+   * Panel surfaces are held at ~85% opacity so the chassis micro-grid
+   * and the CRT scanline overlay bleed through for an authentic terminal feel.
    */
-  --bg: rgba(15, 14, 14, 0.82);
-  --surface: rgba(18, 18, 18, 0.82);
-  --fg: #f6f6f6;
+  --bg: rgba(10, 10, 10, 0.85);
+  --surface: rgba(18, 18, 18, 0.85);
+  --fg: #ffffff;
   --muted: var(--ink-4);
   --border: var(--elev-7);
-  --accent: #c7c3ba;
-  --danger: #ff4444;
+  --accent: #ffffff;
+  --danger: #ffffff;
 
   /*
-   * Gradients — removed for true ASCII digital instrument aesthetics.
-   * Hard-coded values replaced with solid colors for now.
+   * Gradients — solid monochrome mappings for pure ASCII instrument purity.
    */
   --gradient-panel: var(--surface);
   --gradient-well: var(--elev-0);
@@ -99,15 +96,6 @@
   --gradient-danger: var(--danger);
   --gradient-glow: transparent;
   --gradient-bezel: transparent;
-  /*
-   * Contrast note (T06): the `--accent` (#c7c3ba) active value arc sits on
-   * `--bg` (#0f0e0e). Relative luminance is 0.547 vs 0.005, giving a contrast
-   * ratio of ~10.96:1 — well above WCAG AA 4.5:1 for normal text and the
-   * 3:1 non-text-contrast threshold. No adjustment needed; the warm grey was
-   * chosen over pure white to keep the vintage hardware feel without
-   * sacrificing accessibility.
-   */
-
   /* Typography */
   --font-display: 'Akira Expanded', Haettenschweiler, 'Arial Narrow Bold', sans-serif;
   --font-body: 'JetBrains Mono', 'Space Mono', ui-monospace, monospace;

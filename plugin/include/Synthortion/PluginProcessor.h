@@ -67,7 +67,6 @@ namespace synthortion
         PingPongDelay pingPongDelay;
         BitCrusher bitCrusher;
 
-        AudioCaptureFifo audioFifo;
         juce::AudioProcessorValueTreeState apvts;
 
         std::atomic<float>* inputGainParam = nullptr;
@@ -89,6 +88,8 @@ namespace synthortion
 
         juce::SmoothedValue<float> inputGainSmoother;
         juce::SmoothedValue<float> outputGainSmoother;
+        std::atomic<float> inputPeak{0.0f};
+        std::atomic<float> outputPeak{0.0f};
 
         std::atomic<int> currentTotalLatency{0};
 

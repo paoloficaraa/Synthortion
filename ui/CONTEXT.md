@@ -7,7 +7,7 @@
 - **Digital instrument** — the aesthetic direction of the UI: flat, precise, digital (luma-inspired). Explicitly *not* skeuomorphic hardware: no metal gradients, rack screws, bezels, or recessed-well shadows.
 - **ASCII surface** — any information display rendered in character glyphs (block-element meters, braille waveform, VGA-style readouts, box-drawing frames) rather than vector primitives. The voice of the terminal inside the digital instrument.
 - **Deadlock** — the legacy visual identity (dark industrial & glitch brutalism). Referenced as a stylistic ancestor, not the current direction.
-- **Monochrome discipline** — the UI stays high-contrast white/gray/black (Deadlock identity). Saturated color accents are deferred, not part of the current direction; only the existing warm-grey `--accent` and `--danger` red remain.
+- **Monochrome discipline** — the UI stays strict high-contrast white/gray/black. 0% chromatic saturation: no warm tints or red accents; hierarchy is expressed via typography, character density (░▒▓█), and luminance ramps.
 - **Module** — a processing unit on the faceplate, each with its own power state: **Drive** (DRV), **Bitcrush** (BCR), **Delay** (DLY), **Chorus** (CHR).
 - **Drive** — the distortion stage of the plugin (colloquially "warm distortion"); the canonical module name is Drive, not Warm Distortion.
 - **Power** — the per-module on/off state (each module can be powered independently, alongside the master `engineActive` bypass).

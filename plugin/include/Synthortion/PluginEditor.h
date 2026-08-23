@@ -24,6 +24,7 @@ namespace synthortion
         void sendAllParameters();
         void timerCallback() override;
         void sendSpectrumFrame (const std::array<float, SpectrumAnalyzer::kNumBands>& magnitudes);
+        void sendMeterFrame(float inputPeak, float outputPeak);
         SpectrumAnalyzer& getSpectrumAnalyzer() noexcept { return spectrumAnalyzer; }
         const SpectrumAnalyzer& getSpectrumAnalyzer() const noexcept { return spectrumAnalyzer; }
 

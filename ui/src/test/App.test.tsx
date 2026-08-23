@@ -80,6 +80,7 @@ describe('App', () => {
     // Each meter readout is bracketed: [ -INF ] / [ -06dB ].
     const readouts = [...meters].map((m) => m.textContent ?? '')
     const bracketPattern = /\[ (?:-INF|[-+]\d{2}dB) \]/
+    console.log('Readouts:', readouts)
     expect(readouts[0]).toMatch(bracketPattern)
     expect(readouts[1]).toMatch(bracketPattern)
     // Box-drawing frame glyphs frame the ladder.

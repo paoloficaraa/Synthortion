@@ -55,17 +55,17 @@ if(UNIX AND NOT APPLE)
     target_link_libraries(Synthortion PRIVATE ${WEBKIT2GTK_LIBRARIES} ${GTK3_LIBRARIES} ${CURL_LIBRARIES})
 endif()
 add_custom_command(TARGET Synthortion_VST3 POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory
+    COMMAND ${CMAKE_COMMAND} -E remove_directory
         "${CMAKE_BINARY_DIR}/plugin/Synthortion_artefacts/$<CONFIG>/VST3/Synthortion.vst3/Contents/Resources/dist"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/../ui/dist"
         "${CMAKE_BINARY_DIR}/plugin/Synthortion_artefacts/$<CONFIG>/VST3/Synthortion.vst3/Contents/Resources/dist"
-    COMMAND ${CMAKE_COMMAND} -E make_directory
+    COMMAND ${CMAKE_COMMAND} -E remove_directory
         "C:/Program Files/Common Files/VST3/Synthortion.vst3/Contents/Resources/dist"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/../ui/dist"
         "C:/Program Files/Common Files/VST3/Synthortion.vst3/Contents/Resources/dist"
-    COMMENT "Copying UI dist to VST3 bundle resources"
+    COMMENT "Copying UI dist to VST3 bundle resources (clean sync)"
 )
 
 juce_add_console_app(SynthortionTests

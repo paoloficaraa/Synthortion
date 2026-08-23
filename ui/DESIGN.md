@@ -4,13 +4,13 @@ category: Brand-derived UI System
 surface: web (VST host WebView)
 colors:
   pitch-black: "#000000"
-  scope-face: "#0f0e0e"
+  scope-face: "#0a0a0a"
   elevated-surface: "#121212"
-  stark-white: "#f6f6f6"
+  stark-white: "#ffffff"
   technical-grey: "#888888"
   grid-rule: "#333333"
-  accent-warm-grey: "#c7c3ba"
-  danger-red: "#ff4444"
+  accent-white: "#ffffff"
+  danger-white: "#ffffff"
 ---
 
 # Synthortion — Digital Instrument & ASCII Terminal Design System
@@ -39,17 +39,16 @@ The UI is a **digital instrument**: flat, precise, data-dense, with information 
 | Role | Name | Hex | Usage |
 | --- | --- | --- | --- |
 | background | Pitch Black | `#000000` | Page canvas, boot overlay, terminal fields |
-| scope face | Scope Face | `#0f0e0e` | Oscilloscope graticule field |
+| scope face | Scope Face | `#0a0a0a` | Oscilloscope graticule field |
 | surface | Elevated Surface | `#121212` | Panels, status bar, module frames |
-| foreground | Stark White | `#f6f6f6` | Trace, readouts, primary text, active LED |
+| foreground | Stark White | `#ffffff` | Trace, readouts, primary text, active LED |
 | muted | Technical Grey | `#888888` | Labels, idle traces, grid lines |
 | border | Grid Rule | `#333333` | 1px structural dividers |
-| accent | Warm Grey | `#c7c3ba` | Active arcs, focus rings, power-on markers |
-| danger | Danger Red | `#ff4444` | Clip/error states only |
+| accent | Stark White | `#ffffff` | Focus rings, active highlights, power-on markers |
+| danger | Contrast White | `#ffffff` | High-contrast inverse/peak glyph alerts (`▲`) |
 
 ### Monochrome discipline
-Strong black-and-white with **shades only where needed** (subtle surface separation, graticule dimming). No saturated colors: the warm-grey accent and the danger red are the only chromatic elements, and both are signal-only. Saturated palette expansion is deferred. The high-contrast xerox aesthetic relies on stark white on pitch black, with dither (`░▒▓█`) as the sole texture — never gradients, never blur shadows.
-
+Strict 100% black-and-white discipline with 0% chromatic saturation. High-contrast hierarchy is conveyed through stark luminance differences, typography, character density dither (`░▒▓█`), and 1px Cartesian rules. No warm/red/colored accents: pure stark white on pitch black.
 ## Typography
 
 Three self-hosted voices (no CDN dependency — the WebView may be offline):
@@ -92,7 +91,7 @@ A real-time canvas band sits between the status header and the module grid — p
 
 **Display layers (single canvas, 60fps):**
 1. **Graticule field:** Cartesian coordinate grid (`+` crosshairs + 1px rules) in `#333333` with log-spaced frequency calibrations (`20Hz`, `100Hz`, `1kHz`, `10kHz`, `20kHz`) and amplitude markers (`-INF`, `-24dB`, `-12dB`, `0dB`), cached per column/row count.
-2. **Halftone dither fill:** Dynamic Xerox dither gradient fill (`░▒▓`) below the peak curve rendered in warm grey (`#c7c3ba`), fading to floor.
+2. **Halftone dither fill:** Dynamic Xerox dither gradient fill (`░▒▓`) below the peak curve rendered in monochrome grey (`#888888`), fading to floor.
 3. **Braille peak contour:** 60 FPS hybrid Braille (`U+2800–28FF`) peak tracking curve in stark white (`#f6f6f6`, idle `#666666`) mapping 80 log-spaced frequency magnitude bins with instantaneous attack and smooth exponential decay ballistics (~180ms).
 
 **Ballistics & bypass:** Peak tracking applies instantaneous attack and smooth exponential decay (~180ms) to incoming frequency magnitude bins. Bypassed engine smoothly decays the trace to 0 floor (~120ms) and halts the RAF loop when settled.

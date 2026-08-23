@@ -323,7 +323,21 @@ namespace synthortion
         {
             const float inputGainLinear = juce::Decibels::decibelsToGain(inputGainSmoother.getCurrentValue());
             buffer.applyGain(inputGainLinear);
+        // Measure input peak immediately after input gain stage
+        // Stereo Max Peak Pooling: max(abs(L), abs(R))
+        float inputPeakValue = 0.0f;
+        if (!bypass)
+        {
+            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+            {
+                auto* channelData = buffer.getReadPointer(channel);
+                for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+                {
+                    inputPeakValue = std::max(inputPeakValue, std::abs(channelData[sample]));
+                }
+            }
         }
+        inputPeak.store(inputPeakValue);
 
         juce::dsp::AudioBlock<float> block(buffer);
         juce::dsp::ProcessContextReplacing<float> context(block);
@@ -382,7 +396,21 @@ namespace synthortion
         {
             const float outputGainLinear = juce::Decibels::decibelsToGain(outputGainSmoother.getCurrentValue());
             buffer.applyGain(outputGainLinear);
+        // Measure output peak after all processing
+        // Stereo Max Peak Pooling & Bypass Void: decays to 0.0 when bypassed
+        float outputPeakValue = 0.0f;
+        if (!bypass)
+        {
+            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+            {
+                auto* channelData = buffer.getReadPointer(channel);
+                for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+                {
+                    outputPeakValue = std::max(outputPeakValue, std::abs(channelData[sample]));
+                }
+            }
         }
+        outputPeak.store(outputPeakValue);
 
         const int distortionLatency = warmDistortion.getLatencySamples();
         currentTotalLatency.store(distortionLatency);

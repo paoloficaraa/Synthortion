@@ -33,8 +33,8 @@ interface AppProps {
  * status header (50px) and the module grid, each separated by a single 1px
  * Cartesian hairline (`#333333`) that meets the flanking 48px meter rails at
  * `+` crosshairs — no layout shift on bypass, no double borders, no AI-slop
- * repeated-rule strings. The high-contrast monochrome xerox aesthetic
- * (pitch-black, stark-white, warm-grey signal, 1px grid-rule) and static CRT
+ * repeated-rule strings. The high-contrast pure black and white xerox aesthetic
+ * (pitch-black, stark-white, monochrome signal, 1px grid-rule) and static CRT
  * scanline texture are shared through `VstLayout`'s `noise-overlay` /
  * `vst-container::before`, keeping all UI surfaces cohesive per DESIGN.md.
  */
@@ -82,8 +82,8 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
   return (
     <div className="w-full h-full flex flex-col min-h-0 min-w-0 overflow-hidden relative select-none bg-void">
       <VstLayout
-        leftColumn={<GainMeter label="IN" active={state.engineActive} delay={50} />}
-        rightColumn={<GainMeter label="OUT" active={state.engineActive} delay={260} />}
+        leftColumn={<GainMeter label="IN" active={state.engineActive} channel="input" delay={50} />}
+        rightColumn={<GainMeter label="OUT" active={state.engineActive} channel="output" delay={260} />}
       >
         {/* Center hub — Header (50px) → Visualizer (~35%) → Faceplate (~65%) share one Cartesian grid */}
         <main className="flex-1 flex flex-col bg-bg min-h-0 overflow-hidden relative">

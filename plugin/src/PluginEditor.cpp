@@ -262,6 +262,8 @@ namespace synthortion
             sendSpectrumFrame (magnitudes);
         }
     }
+        sendMeterFrame(processorRef.inputPeak.load(), processorRef.outputPeak.load());
+
 
     void AudioPluginAudioProcessorEditor::sendSpectrumFrame (const std::array<float, SpectrumAnalyzer::kNumBands>& magnitudes)
     {
@@ -289,6 +291,29 @@ namespace synthortion
         webView->evaluateJavascript (
             "if (window.__SYNTORTION_BRIDGE__ && window.__SYNTORTION_BRIDGE__.onSpectrumFrame) { "
             "window.__SYNTORTION_BRIDGE__.onSpectrumFrame(" + jsonArray + "); }"
+        );
+    }
+
+    void AudioPluginAudioProcessorEditor::sendMeterFrame(float inputPeak, float outputPeak)
+    {
+        if (webView == nullptr)
+            return;
+
+        juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+        obj->setProperty("input", inputPeak);
+        obj->setProperty("output", outputPeak);
+
+        webView->emitEventIfBrowserIsVisible("meterFrame", juce::var(obj.get()));
+
+        juce::String jsonObject;
+        jsonObject << "{"
+                   << "\"input\":" << juce::String(inputPeak, 4) << ","
+                   << "\"output\":" << juce::String(outputPeak, 4)
+                   << "}";
+
+        webView->evaluateJavascript(
+            "if (window.__SYNTORTION_BRIDGE__ && window.__SYNTORTION_BRIDGE__.onMeterFrame) { "
+            "window.__SYNTORTION_BRIDGE__.onMeterFrame(" + jsonObject + "); }"
         );
     }
 

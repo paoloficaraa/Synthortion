@@ -11,11 +11,11 @@ import { type GlitchPulser, applyGlitch } from '../lib/glitchPulser'
 /* ------------------------------------------------------------------ */
 /*  Canvas palette                                                     */
 /* ------------------------------------------------------------------ */
-const SCOPE_BG = '#0f0e0e'
-const GRAT_FG = '#333333'
-const TRACE_FG = '#f6f6f6'
-const TRACE_IDLE = '#666666'
-const DITHER_FG = '#c7c3ba'
+const SCOPE_BG = '#0a0a0a'
+const GRAT_FG = '#262626'
+const TRACE_FG = '#ffffff'
+const TRACE_IDLE = '#444444'
+const DITHER_FG = '#888888'
 
 /* ------------------------------------------------------------------ */
 /*  Grid geometry & Typography                                         */
@@ -50,8 +50,8 @@ export interface SpectrumVisualizerProps {
  * SpectrumVisualizer — 60 FPS Real-time Post-FX Frequency Spectrum Analyzer.
  *
  * Renders an 80-band log-frequency magnitude spectrum spanning 20 Hz to 20 kHz
- * as an upper Braille peak contour (U+2800..U+28FF) in stark white (#f6f6f6)
- * over a halftone dither gradient fill ( ░▒▓█) in warm grey (#c7c3ba) within a
+ * as an upper Braille peak contour (U+2800..U+28FF) in stark white (#ffffff)
+ * over a halftone dither gradient fill ( ░▒▓█) in pure monochrome gray (#888888) within a
  * 1px Cartesian graticule featuring '+' crosshairs and frequency calibration marks
  * at 20 Hz, 200 Hz, 2 kHz, and 20 kHz.
  */

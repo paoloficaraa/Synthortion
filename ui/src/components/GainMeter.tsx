@@ -1,4 +1,5 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
+import { subscribeToDspMeters } from '../lib/webViewDspBridge'
 
 /** Block characters for the 8 sub-segment levels (1/EIGHTHS_PER_ROW each). */
 const BLOCK_CHARS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
@@ -32,13 +33,15 @@ function GutterTicks({ offset }: { offset: string }) {
 const METER_VOID = '#030303'
 const METER_WELL = '#0a0a0a'
 const METER_LEVEL = '#888888'
-const METER_PEAK = '#f6f6f6'
+const METER_PEAK = '#ffffff'
 
 interface GainMeterProps {
   /** Label displayed above the meter */
   label: string
   /** Whether the meter is actively showing signal */
   active: boolean
+  /** "input" or "output" rail selector */
+  channel?: 'input' | 'output'
   /** Animation delay in ms */
   delay?: number
 }
@@ -56,22 +59,52 @@ interface GainMeterProps {
  * bypass decays to void; `aria-hidden` hides every decorative glyph while
  * `role="meter"` exposes dB semantics. Monochrome discipline per DESIGN.md.
  */
-export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
+export function GainMeter({ label, active, channel = 'input', delay = 0 }: GainMeterProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const meterRef = useRef<HTMLDivElement>(null)
   const readoutTextRef = useRef<HTMLSpanElement>(null)
   const levelRef = useRef(0)
+  const targetRef = useRef(0)
+
+  const updateLevel = useCallback(() => {
+    if (active) {
+      const target = targetRef.current
+      if (target > levelRef.current) {
+        // Instant attack
+        levelRef.current = target
+      } else {
+        // Exponential decay ~250ms half-life at 60fps (0.956 per 16ms frame)
+        levelRef.current *= 0.956
+        if (levelRef.current < 0.0005) levelRef.current = 0
+      }
+    } else {
+      // Bypass decay ~100ms half-life (0.895 per frame)
+      levelRef.current *= 0.895
+      if (levelRef.current < 0.0005) levelRef.current = 0
+    }
+  }, [active])
+  useEffect(() => {
+    if (!active) {
+      targetRef.current = 0
+      return
+    }
+    return subscribeToDspMeters((frame) => {
+      targetRef.current = channel === 'input' ? frame.input : frame.output
+    })
+  }, [active, channel])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', { alpha: false })
     if (!ctx) return
 
     let raf: number
 
     const draw = () => {
+      updateLevel()
+
       // Clear background
       ctx.fillStyle = METER_VOID
       ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -80,163 +113,94 @@ export function GainMeter({ label, active, delay = 0 }: GainMeterProps) {
       ctx.font = `${FONT_SIZE}px "Px437 IBM VGA8", "IBM VGA 8", monospace`
       ctx.textBaseline = TEXT_BASELINE
 
-      if (active) {
-        // Same signal logic as before: mostly 0.2-0.9 range, 5% spikes to 0.99
-        const rawTarget = Math.random() > 0.05 ? Math.random() * 0.7 + 0.2 : Math.random() * 0.99
-        levelRef.current += (rawTarget - levelRef.current) * 0.25
-      } else {
-        levelRef.current += (0 - levelRef.current) * 0.2
-      }
-
       const totalEighths = levelRef.current * METER_ROWS * EIGHTHS_PER_ROW
 
       for (let i = 0; i < METER_ROWS; i++) {
-        // Draw from bottom (i = METER_ROWS-1) to top (i = 0)
         const rowsBelow = METER_ROWS - 1 - i
-        const eighths = Math.max(
-          0,
-          Math.min(EIGHTHS_PER_ROW, totalEighths - rowsBelow * EIGHTHS_PER_ROW)
-        )
+        const eighths = Math.max(0, Math.min(EIGHTHS_PER_ROW, totalEighths - rowsBelow * EIGHTHS_PER_ROW))
 
         if (eighths <= 0) {
           if (active || levelRef.current > 0.01) {
             ctx.fillStyle = METER_WELL
-            const y = i * FONT_SIZE
-            ctx.fillText('·', 0, y)
+            ctx.fillText('·', 0, i * FONT_SIZE)
           }
           continue
         }
 
         const isPeak = i < PEAK_ROWS
         const fill = Math.max(1, Math.min(EIGHTHS_PER_ROW, Math.round(eighths)))
-
-        let char: string
-        if (isPeak && fill >= EIGHTHS_PER_ROW) {
-          char = PEAK_GLYPH
-        } else if (fill >= EIGHTHS_PER_ROW) {
-          char = BLOCK_CHARS[EIGHTHS_PER_ROW - 1]
-        } else {
-          char = BLOCK_CHARS[fill - 1]
-        }
-
-        const color =
-          isPeak && fill >= EIGHTHS_PER_ROW
-            ? METER_PEAK
-            : fill >= EIGHTHS_PER_ROW
-              ? METER_LEVEL
-              : METER_WELL
-        ctx.fillStyle = color
-
-        const y = i * FONT_SIZE
-        ctx.fillText(char, 0, y)
+        const char = isPeak && fill >= EIGHTHS_PER_ROW ? PEAK_GLYPH : BLOCK_CHARS[fill - 1]
+        ctx.fillStyle = isPeak && fill >= EIGHTHS_PER_ROW ? METER_PEAK : METER_LEVEL
+        ctx.fillText(char, 0, i * FONT_SIZE)
       }
 
       // Update dynamic ARIA attributes and bracketed dB readout
       if (meterRef.current && readoutTextRef.current) {
-        if (levelRef.current < 0.01) {
+        if (levelRef.current < 0.001) {
           meterRef.current.setAttribute('aria-valuenow', '-120')
           meterRef.current.setAttribute('aria-valuetext', '-INF')
-          readoutTextRef.current.textContent = '-INF'
+          readoutTextRef.current.textContent = '[ -INF ]'
         } else {
-          const db = Math.min(0, Math.max(-60, Math.round((levelRef.current - 1) * 60)))
+          const db = Math.min(0, Math.max(-60, Math.round(20 * Math.log10(levelRef.current + 1e-6))))
           const absVal = Math.abs(db).toString().padStart(2, '0')
-          const text = `${db < 0 ? '-' : '+'}${absVal}dB`
+          const text = db <= -60 ? '[ -INF ]' : `[ ${db < 0 ? '-' : '+'}${absVal}dB ]`
+
           meterRef.current.setAttribute('aria-valuenow', db.toString())
           meterRef.current.setAttribute('aria-valuetext', text)
           readoutTextRef.current.textContent = text
         }
       }
 
-      if (active || levelRef.current > 0.01) {
-        raf = requestAnimationFrame(draw)
-      } else {
-        ctx.fillStyle = METER_VOID
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-      }
+      raf = requestAnimationFrame(draw)
     }
-    if (active) draw()
-    else raf = requestAnimationFrame(draw)
 
+    raf = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(raf)
-  }, [active])
-
+  }, [updateLevel])
   return (
     <div
       className="w-full flex flex-col items-center animate-vst-enter relative"
       style={{ animationDelay: `${delay}ms` }}
+      role="meter"
+      aria-label={`${label} Meter`}
+      aria-valuemin={-60}
+      aria-valuemax={0}
+      ref={meterRef}
     >
-      {/* Top Cartesian frame: + ┌ IN ┐ + */}
-      <div
-        className="font-ascii text-[9px] whitespace-pre leading-none flex items-center gap-1"
-        aria-hidden="true"
-      >
-        <span className="text-ink-3">+</span>
-        <span>┌</span>
-        <span> </span>
-        <span className="text-fg font-bold tracking-widest">{label}</span>
-        <span> </span>
-        <span>┐</span>
-        <span className="text-ink-3">+</span>
-      </div>
-      <div className="font-mono text-[7px] text-ink-1 mb-1 font-bold leading-none tracking-widest">
-        0
-      </div>
-      <div className="flex-1 w-full flex justify-center z-10 shrink min-h-0 relative">
-        <GutterTicks offset="-translate-x-[14px]" />
-        <GutterTicks offset="translate-x-[10px]" />
-        <div
-          className="font-ascii text-[9px] text-ink-2 leading-none select-none opacity-60"
-          aria-hidden="true"
-        >
-          │
+      {/* Accessible readout text — visually hidden */}
+      <span className="sr-only" ref={readoutTextRef}>[ -INF ]</span>
+
+      {/* Visual meter rail — aria-hidden to decorative glyphs */}
+      <div aria-hidden="true" className="flex flex-col items-center">
+        <div className="font-ascii text-[9px] whitespace-pre leading-none flex items-center gap-1">
+          <span className="text-ink-3">+</span>
+          <span>┌</span>
+          <span> </span>
+          <span className="text-fg font-bold tracking-widest">{label}</span>
+          <span> </span>
+          <span>┐</span>
+          <span className="text-ink-3">+</span>
         </div>
-        <div
-          className="w-[8px] h-[256px] bg-elev-0 relative"
-          style={{ boxShadow: 'var(--shadow-well), 0 0 0 1px var(--elev-6)' }}
-        >
+
+        <div className="relative mt-1">
           <canvas
             ref={canvasRef}
             width={CANVAS_WIDTH}
             height={CANVAS_HEIGHT}
-            className="w-full h-full block"
+            className="block"
           />
+          <GutterTicks offset="right-1" />
         </div>
-        <div
-          className="font-ascii text-[9px] text-ink-2 leading-none select-none opacity-60"
-          aria-hidden="true"
-        >
-          │
+
+        <div className="font-ascii text-[9px] whitespace-pre leading-none flex items-center gap-1 mt-1">
+          <span className="text-ink-3">+</span>
+          <span>└</span>
+          <span> </span>
+          <span className="text-fg">dB</span>
+          <span> </span>
+          <span>┘</span>
+          <span className="text-ink-3">+</span>
         </div>
-      </div>
-      {/* Bottom Cartesian anchor: + ░▒ └─(hairline)─┘ ▒░ + — no repeated ─ string, CSS 1px rule only */}
-      <div
-        className="font-ascii text-[9px] leading-none mt-1 flex items-center gap-1"
-        aria-hidden="true"
-      >
-        <span className="text-ink-3">+</span>
-        <span className="text-ink-3 opacity-40 text-[7px] tracking-tighter">░▒</span>
-        <span className="text-ink-3">└</span>
-        <span
-          className="h-px bg-ink-3 inline-block"
-          style={{ width: `${(label.length + 2) * 4}px` }}
-          aria-hidden="true"
-        />
-        <span className="text-ink-3">┘</span>
-        <span className="text-ink-3 opacity-40 text-[7px] tracking-tighter">▒░</span>
-        <span className="text-ink-3">+</span>
-      </div>
-      <div
-        ref={meterRef}
-        role="meter"
-        aria-valuenow={-120}
-        aria-valuemin={-120}
-        aria-valuemax={0}
-        aria-valuetext="-INF"
-        className="font-mono text-[7px] text-ink-1 mt-2 font-bold leading-none tracking-widest"
-      >
-        <span aria-hidden="true">[ </span>
-        <span ref={readoutTextRef}>-INF</span>
-        <span aria-hidden="true"> ]</span>
       </div>
     </div>
   )
