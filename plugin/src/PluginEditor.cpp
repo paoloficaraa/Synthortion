@@ -261,60 +261,53 @@ namespace synthortion
             const auto& magnitudes = spectrumAnalyzer.process (nullptr, 0);
             sendSpectrumFrame (magnitudes);
         }
+        sendMeterFrame(processorRef.getMeterPeaks());
     }
-        sendMeterFrame(processorRef.inputPeak.load(), processorRef.outputPeak.load());
+
+    void AudioPluginAudioProcessorEditor::emitBridgeEvent(const juce::String& eventId, const juce::var& payload, const juce::String& js)
+    {
+        if (webView == nullptr) return;
+        webView->emitEventIfBrowserIsVisible(eventId, payload);
+        webView->evaluateJavascript(js);
+    }
 
 
     void AudioPluginAudioProcessorEditor::sendSpectrumFrame (const std::array<float, SpectrumAnalyzer::kNumBands>& magnitudes)
     {
-        if (webView == nullptr)
-            return;
-
         juce::Array<juce::var> varArray;
         varArray.ensureStorageAllocated (SpectrumAnalyzer::kNumBands);
-        for (float m : magnitudes)
-            varArray.add (m);
-
-        webView->emitEventIfBrowserIsVisible ("spectrumFrame", juce::var (varArray));
+        for (float m : magnitudes) varArray.add (m);
 
         juce::String jsonArray;
         jsonArray.preallocateBytes (SpectrumAnalyzer::kNumBands * 8 + 16);
         jsonArray << "[";
         for (size_t i = 0; i < magnitudes.size(); ++i)
         {
-            if (i > 0)
-                jsonArray << ",";
+            if (i > 0) jsonArray << ",";
             jsonArray << juce::String (magnitudes[i], 4);
         }
         jsonArray << "]";
 
-        webView->evaluateJavascript (
-            "if (window.__SYNTORTION_BRIDGE__ && window.__SYNTORTION_BRIDGE__.onSpectrumFrame) { "
-            "window.__SYNTORTION_BRIDGE__.onSpectrumFrame(" + jsonArray + "); }"
-        );
+        juce::String js = "if (window.__SYNTORTION_BRIDGE__ && window.__SYNTORTION_BRIDGE__.onSpectrumFrame) { "
+                          "window.__SYNTORTION_BRIDGE__.onSpectrumFrame(" + jsonArray + "); }";
+        emitBridgeEvent("spectrumFrame", juce::var(varArray), js);
     }
 
-    void AudioPluginAudioProcessorEditor::sendMeterFrame(float inputPeak, float outputPeak)
+    void AudioPluginAudioProcessorEditor::sendMeterFrame(AudioPluginAudioProcessor::MeterPeaks peaks)
     {
-        if (webView == nullptr)
-            return;
-
         juce::DynamicObject::Ptr obj = new juce::DynamicObject();
-        obj->setProperty("input", inputPeak);
-        obj->setProperty("output", outputPeak);
-
-        webView->emitEventIfBrowserIsVisible("meterFrame", juce::var(obj.get()));
+        obj->setProperty("input", peaks.input);
+        obj->setProperty("output", peaks.output);
 
         juce::String jsonObject;
         jsonObject << "{"
-                   << "\"input\":" << juce::String(inputPeak, 4) << ","
-                   << "\"output\":" << juce::String(outputPeak, 4)
+                   << "\"input\":" << juce::String(peaks.input, 4) << ","
+                   << "\"output\":" << juce::String(peaks.output, 4)
                    << "}";
 
-        webView->evaluateJavascript(
-            "if (window.__SYNTORTION_BRIDGE__ && window.__SYNTORTION_BRIDGE__.onMeterFrame) { "
-            "window.__SYNTORTION_BRIDGE__.onMeterFrame(" + jsonObject + "); }"
-        );
+        juce::String js = "if (window.__SYNTORTION_BRIDGE__ && window.__SYNTORTION_BRIDGE__.onMeterFrame) { "
+                          "window.__SYNTORTION_BRIDGE__.onMeterFrame(" + jsonObject + "); }";
+        emitBridgeEvent("meterFrame", juce::var(obj.get()), js);
     }
 
     void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)

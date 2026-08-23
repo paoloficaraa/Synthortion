@@ -24,7 +24,7 @@ namespace synthortion
         void sendAllParameters();
         void timerCallback() override;
         void sendSpectrumFrame (const std::array<float, SpectrumAnalyzer::kNumBands>& magnitudes);
-        void sendMeterFrame(float inputPeak, float outputPeak);
+        void sendMeterFrame(AudioPluginAudioProcessor::MeterPeaks peaks);
         SpectrumAnalyzer& getSpectrumAnalyzer() noexcept { return spectrumAnalyzer; }
         const SpectrumAnalyzer& getSpectrumAnalyzer() const noexcept { return spectrumAnalyzer; }
 
@@ -40,7 +40,7 @@ namespace synthortion
         static constexpr int kMaxHeight = 1200;
         static constexpr double kAspectRatio = static_cast<double> (kDefaultWidth) / static_cast<double> (kDefaultHeight);
         static juce::File getDistDirectory();
-
+        void emitBridgeEvent(const juce::String& eventId, const juce::var& payload, const juce::String& js);
         AudioPluginAudioProcessor& processorRef;
         std::unique_ptr<juce::WebBrowserComponent> webView;
 

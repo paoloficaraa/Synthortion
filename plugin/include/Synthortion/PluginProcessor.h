@@ -51,8 +51,8 @@ namespace synthortion
 
         juce::AudioProcessorValueTreeState& getAPVTS() noexcept { return apvts; }
 
-        AudioCaptureFifo& getAudioFifo() noexcept { return audioFifo; }
-        const AudioCaptureFifo& getAudioFifo() const noexcept { return audioFifo; }
+        struct MeterPeaks { float input = 0.0f; float output = 0.0f; };
+        MeterPeaks getMeterPeaks() const noexcept { return { inputPeak.load(), outputPeak.load() }; }
 
     private:
         static constexpr float kSmootherRampTime = 0.05f;

@@ -113,7 +113,16 @@ export function GainMeter({ label, active, channel = 'input', delay = 0 }: GainM
       ctx.font = `${FONT_SIZE}px "Px437 IBM VGA8", "IBM VGA 8", monospace`
       ctx.textBaseline = TEXT_BASELINE
 
-      const totalEighths = levelRef.current * METER_ROWS * EIGHTHS_PER_ROW
+      // Logarithmic dBFS mapping: -60..0 across 14 rows, >0 on peak 2 rows
+      let totalEighths: number
+      if (levelRef.current < 0.0009) {
+        totalEighths = 0
+      } else {
+        const db = 20 * Math.log10(levelRef.current)
+        if (db <= -60) totalEighths = 0
+        else if (db <= 0) totalEighths = ((db + 60) / 60) * (METER_ROWS - PEAK_ROWS) * EIGHTHS_PER_ROW
+        else totalEighths = (METER_ROWS - PEAK_ROWS) * EIGHTHS_PER_ROW + PEAK_ROWS * EIGHTHS_PER_ROW // full ladder incl. peak
+      }
 
       for (let i = 0; i < METER_ROWS; i++) {
         const rowsBelow = METER_ROWS - 1 - i
@@ -137,16 +146,17 @@ export function GainMeter({ label, active, channel = 'input', delay = 0 }: GainM
       // Update dynamic ARIA attributes and bracketed dB readout
       if (meterRef.current && readoutTextRef.current) {
         if (levelRef.current < 0.001) {
-          meterRef.current.setAttribute('aria-valuenow', '-120')
+          meterRef.current.setAttribute('aria-valuenow', '-60')
           meterRef.current.setAttribute('aria-valuetext', '-INF')
           readoutTextRef.current.textContent = '[ -INF ]'
         } else {
-          const db = Math.min(0, Math.max(-60, Math.round(20 * Math.log10(levelRef.current + 1e-6))))
-          const absVal = Math.abs(db).toString().padStart(2, '0')
-          const text = db <= -60 ? '[ -INF ]' : `[ ${db < 0 ? '-' : '+'}${absVal}dB ]`
-
-          meterRef.current.setAttribute('aria-valuenow', db.toString())
-          meterRef.current.setAttribute('aria-valuetext', text)
+          const dbRaw = 20 * Math.log10(levelRef.current + 1e-9)
+          const dbClamped = Math.max(-60, Math.min(12, dbRaw))
+          const formatted = dbClamped.toFixed(1)
+          const display = dbClamped > 0 ? `+${formatted}` : dbClamped < 0 ? formatted : ` ${formatted}`
+          const text = `[ ${display} ]`
+          meterRef.current.setAttribute('aria-valuenow', dbClamped.toFixed(1))
+          meterRef.current.setAttribute('aria-valuetext', display)
           readoutTextRef.current.textContent = text
         }
       }
@@ -164,7 +174,7 @@ export function GainMeter({ label, active, channel = 'input', delay = 0 }: GainM
       role="meter"
       aria-label={`${label} Meter`}
       aria-valuemin={-60}
-      aria-valuemax={0}
+      aria-valuemax={12}
       ref={meterRef}
     >
       {/* Accessible readout text — visually hidden */}

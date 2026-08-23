@@ -101,11 +101,30 @@ export function subscribeToDspChanges(
 /** Callback type for real-time 80-band spectrum analyzer frames. */
 export type SpectrumFrameCallback = (magnitudes: number[]) => void
 
+/** Shared helper: JUCE event listener with fallback to __SYNTORTION_BRIDGE__ */
+function bridgeSubscribe(
+  eventId: string,
+  handler: (payload: unknown) => void,
+  setupFallback: () => void,
+  clearFallback: () => void
+): () => void {
+  let juceCleanup: (() => void) | undefined
+  if (window.__JUCE__?.backend?.addEventListener) {
+    juceCleanup = window.__JUCE__.backend.addEventListener(eventId, handler)
+  } else {
+    setupFallback()
+  }
+  return () => {
+    if (juceCleanup) juceCleanup()
+    clearFallback()
+  }
+}
+
 /** Real-time peak levels for input and output rails. */
 export interface MeterFrame {
-  /** Normalized peak [0.0, 1.0] for input stage. */
+  /** Normalized peak [0.0, 4.0] for input stage ( >1.0 = clip). */
   input: number
-  /** Normalized peak [0.0, 1.0] for output stage. */
+  /** Normalized peak [0.0, 4.0] for output stage. */
   output: number
 }
 
@@ -116,42 +135,31 @@ export type MeterFrameCallback = (frame: MeterFrame) => void
  * Register listener for incoming 60 FPS C++ DSP meter frames (`meterFrame` event).
  * Designed for canvas/animation-frame subscribers to bypass React re-rendering.
  *
- * @param onFrame Callback receiving MeterFrame with input/output peaks [0.0, 1.0].
+ * @param onFrame Callback receiving MeterFrame with input/output peaks [0.0, 4.0] ( >1.0 clip).
  * @returns Cleanup function to unsubscribe.
  */
 export function subscribeToDspMeters(onFrame: MeterFrameCallback): () => void {
-  const handleFrame = (data: unknown) => {
+  const handler = (data: unknown) => {
     if (data && typeof data === 'object' && 'input' in data && 'output' in data) {
-      const frame = data as unknown as MeterFrame
-      if (typeof frame.input === 'number' && typeof frame.output === 'number') {
-        onFrame(frame)
+      const candidate = data as unknown as { input: unknown; output: unknown }
+      if (typeof candidate.input === 'number' && typeof candidate.output === 'number') {
+        onFrame({ input: candidate.input, output: candidate.output })
       }
     }
   }
-
-  // 1. Register JUCE 8 event listener if available
-  let juceCleanup: (() => void) | undefined
-  if (window.__JUCE__?.backend?.addEventListener) {
-    juceCleanup = window.__JUCE__.backend.addEventListener('meterFrame', (payload: unknown) => {
-      handleFrame(payload)
-    })
-  } else {
-    // 2. Register global function callback fallback
-    if (!window.__SYNTORTION_BRIDGE__) {
-      window.__SYNTORTION_BRIDGE__ = {}
+  return bridgeSubscribe(
+    'meterFrame',
+    handler,
+    () => {
+      if (!window.__SYNTORTION_BRIDGE__) window.__SYNTORTION_BRIDGE__ = {}
+      window.__SYNTORTION_BRIDGE__.onMeterFrame = (payload: MeterFrame) => handler(payload)
+    },
+    () => {
+      if (window.__SYNTORTION_BRIDGE__?.onMeterFrame) delete window.__SYNTORTION_BRIDGE__.onMeterFrame
     }
-    window.__SYNTORTION_BRIDGE__.onMeterFrame = (payload: MeterFrame) => {
-      handleFrame(payload)
-    }
-  }
-
-  return () => {
-    if (juceCleanup) juceCleanup()
-    if (window.__SYNTORTION_BRIDGE__?.onMeterFrame) {
-      delete window.__SYNTORTION_BRIDGE__.onMeterFrame
-    }
-  }
+  )
 }
+
 
 
 /**
@@ -162,7 +170,7 @@ export function subscribeToDspMeters(onFrame: MeterFrameCallback): () => void {
  * @returns Cleanup function to unsubscribe and release bridge bindings.
  */
 export function subscribeToDspSpectrum(onFrame: SpectrumFrameCallback): () => void {
-  const handleFrame = (data: unknown) => {
+  const handler = (data: unknown) => {
     if (Array.isArray(data)) {
       onFrame(data.filter((x): x is number => typeof x === 'number'))
     } else if (data && typeof data === 'object' && 'magnitudes' in data) {
@@ -172,30 +180,18 @@ export function subscribeToDspSpectrum(onFrame: SpectrumFrameCallback): () => vo
       }
     }
   }
-
-  // 1. Register JUCE 8 event listener if available
-  let juceCleanup: (() => void) | undefined
-  if (window.__JUCE__?.backend?.addEventListener) {
-    juceCleanup = window.__JUCE__.backend.addEventListener('spectrumFrame', (payload: unknown) => {
-      handleFrame(payload)
-    })
-  } else {
-    // 2. Register global function callback fallback when native JUCE backend is absent
-    if (!window.__SYNTORTION_BRIDGE__) {
-      window.__SYNTORTION_BRIDGE__ = {}
-    }
-    window.__SYNTORTION_BRIDGE__.onSpectrumFrame = (magnitudes: number[]) => {
-      handleFrame(magnitudes)
-    }
-  }
-
-  return () => {
-    if (juceCleanup) juceCleanup()
-    if (window.__SYNTORTION_BRIDGE__?.onSpectrumFrame) {
-      delete window.__SYNTORTION_BRIDGE__.onSpectrumFrame
-      if (!window.__SYNTORTION_BRIDGE__.onParameterChange) {
-        delete window.__SYNTORTION_BRIDGE__
+  return bridgeSubscribe(
+    'spectrumFrame',
+    handler,
+    () => {
+      if (!window.__SYNTORTION_BRIDGE__) window.__SYNTORTION_BRIDGE__ = {}
+      window.__SYNTORTION_BRIDGE__.onSpectrumFrame = (magnitudes: number[]) => handler(magnitudes)
+    },
+    () => {
+      if (window.__SYNTORTION_BRIDGE__?.onSpectrumFrame) {
+        delete window.__SYNTORTION_BRIDGE__.onSpectrumFrame
+        if (!window.__SYNTORTION_BRIDGE__.onParameterChange) delete (window as unknown as Record<string, unknown>).__SYNTORTION_BRIDGE__
       }
     }
-  }
+  )
 }

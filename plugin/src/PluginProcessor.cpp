@@ -3,8 +3,17 @@
 #include <thread>
 #include <vector>
 
-namespace synthortion
-{
+namespace {
+inline float computeMaxPeak(const juce::AudioBuffer<float>& buffer) {
+    float peak = 0.0f;
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch) {
+        const float* d = buffer.getReadPointer(ch);
+        for (int i = 0; i < buffer.getNumSamples(); ++i) peak = std::max(peak, std::abs(d[i]));
+    }
+    return peak;
+}
+} // namespace
+namespace synthortion {
     juce::AudioProcessorValueTreeState::ParameterLayout AudioPluginAudioProcessor::createParameterLayout()
     {
         juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -323,21 +332,8 @@ namespace synthortion
         {
             const float inputGainLinear = juce::Decibels::decibelsToGain(inputGainSmoother.getCurrentValue());
             buffer.applyGain(inputGainLinear);
-        // Measure input peak immediately after input gain stage
-        // Stereo Max Peak Pooling: max(abs(L), abs(R))
-        float inputPeakValue = 0.0f;
-        if (!bypass)
-        {
-            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-            {
-                auto* channelData = buffer.getReadPointer(channel);
-                for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
-                {
-                    inputPeakValue = std::max(inputPeakValue, std::abs(channelData[sample]));
-                }
-            }
         }
-        inputPeak.store(inputPeakValue);
+        inputPeak.store(bypass ? 0.0f : computeMaxPeak(buffer));
 
         juce::dsp::AudioBlock<float> block(buffer);
         juce::dsp::ProcessContextReplacing<float> context(block);
@@ -396,21 +392,8 @@ namespace synthortion
         {
             const float outputGainLinear = juce::Decibels::decibelsToGain(outputGainSmoother.getCurrentValue());
             buffer.applyGain(outputGainLinear);
-        // Measure output peak after all processing
-        // Stereo Max Peak Pooling & Bypass Void: decays to 0.0 when bypassed
-        float outputPeakValue = 0.0f;
-        if (!bypass)
-        {
-            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-            {
-                auto* channelData = buffer.getReadPointer(channel);
-                for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
-                {
-                    outputPeakValue = std::max(outputPeakValue, std::abs(channelData[sample]));
-                }
-            }
         }
-        outputPeak.store(outputPeakValue);
+        outputPeak.store(bypass ? 0.0f : computeMaxPeak(buffer));
 
         const int distortionLatency = warmDistortion.getLatencySamples();
         currentTotalLatency.store(distortionLatency);
