@@ -39,14 +39,14 @@ export function Header({ engineActive, onToggleBypass }: HeaderProps) {
           className="w-3.5 h-3.5 rounded-[1px] border cursor-pointer outline-none shadow-well focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg transition-all duration-150 hover:scale-[1.15] active:scale-[0.85] flex items-center justify-center"
           style={{
             backgroundColor: engineActive ? 'var(--fg)' : 'var(--elev-3)',
-            borderColor: engineActive ? 'var(--fg)' : 'var(--border-strong, #888888)',
+            borderColor: engineActive ? 'var(--fg)' : 'var(--muted)',
             boxShadow: engineActive
               ? '0 0 0 1px var(--fg)'
-              : 'inset 0 0 0 1px #333333, 0 0 0 1px #666666',
+              : '0 0 0 1px var(--border)',
           }}
         >
           {!engineActive && (
-            <span className="w-1 h-1 bg-muted rounded-[0.5px] pointer-events-none" aria-hidden="true" />
+            <span className="w-1 h-1 bg-muted rounded-[1px] pointer-events-none" aria-hidden="true" />
           )}
         </button>
         <span className="font-mono text-[9px] text-muted uppercase-tracked select-none" aria-hidden="true">

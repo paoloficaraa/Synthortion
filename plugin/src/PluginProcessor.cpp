@@ -393,13 +393,10 @@ namespace synthortion {
             const float outputGainLinear = juce::Decibels::decibelsToGain(outputGainSmoother.getCurrentValue());
             buffer.applyGain(outputGainLinear);
         }
-        outputPeak.store(computeMaxPeak(buffer));
-
+        captureAndMeasurePeaks(buffer);
         const int distortionLatency = warmDistortion.getLatencySamples();
         currentTotalLatency.store(distortionLatency);
         setLatencySamples(distortionLatency);
-
-        audioFifo.push(buffer);
         updateAllDSPParameters();
     }
 
@@ -413,6 +410,11 @@ namespace synthortion {
         for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
             buffer.clear(i, 0, buffer.getNumSamples());
 
+        captureAndMeasurePeaks(buffer);
+    }
+
+    void AudioPluginAudioProcessor::captureAndMeasurePeaks(const juce::AudioBuffer<float>& buffer)
+    {
         inputPeak.store(computeMaxPeak(buffer));
         outputPeak.store(computeMaxPeak(buffer));
         audioFifo.push(buffer);

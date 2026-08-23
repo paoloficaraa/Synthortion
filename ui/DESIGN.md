@@ -94,7 +94,7 @@ A real-time canvas band sits between the status header and the module grid — p
 2. **Halftone dither fill:** Dynamic Xerox dither gradient fill (`░▒▓`) below the peak curve rendered in monochrome grey (`#888888`), fading to floor.
 3. **Braille peak contour:** 60 FPS hybrid Braille (`U+2800–28FF`) peak tracking curve in stark white (`#f6f6f6`, idle `#666666`) mapping 80 log-spaced frequency magnitude bins with instantaneous attack and smooth exponential decay ballistics (~180ms).
 
-**Ballistics & bypass:** Peak tracking applies instantaneous attack and smooth exponential decay (~180ms) to incoming frequency magnitude bins. Bypassed engine smoothly decays the trace to 0 floor (~120ms) and halts the RAF loop when settled.
+**Ballistics & bypass:** Peak tracking applies instantaneous attack and smooth exponential decay (~180ms) to incoming frequency magnitude bins. Bypassed engine renders a Glitch Desync burst upon transition and tracks live dry audio as a ghost contour in `#666666` with muted halftone dither in `#333333` and a centered `[ DRY PASSTHROUGH // DSP BYPASS ]` status tag, idling the RAF loop when audio is silent.
 
 **Glitch pulser:** Tweak-driven parameter interactions inject digital corruption glyphs into the trace and dither layers, decaying exponentially in ~300–500ms.
 

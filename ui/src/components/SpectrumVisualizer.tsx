@@ -16,7 +16,7 @@ const GRAT_FG = '#262626'
 const TRACE_FG = '#ffffff'
 const TRACE_IDLE = '#666666'
 const DITHER_FG = '#888888'
-const DITHER_GHOST = '#3a3a3a'
+const DITHER_GHOST = '#333333'
 const BYPASS_TAG_FG = '#888888'
 /* ------------------------------------------------------------------ */
 /*  Grid geometry & Typography                                         */

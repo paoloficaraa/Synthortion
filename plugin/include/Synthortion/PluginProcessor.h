@@ -66,6 +66,7 @@ namespace synthortion
 
         juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
         void updateAllDSPParameters();
+        void captureAndMeasurePeaks(const juce::AudioBuffer<float>& buffer);
 
         WarmDistortion warmDistortion;
         SynthortionChorus chorus;

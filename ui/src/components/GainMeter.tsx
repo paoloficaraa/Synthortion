@@ -67,31 +67,22 @@ export function GainMeter({ label, active, channel = 'input', delay = 0 }: GainM
   const targetRef = useRef(0)
 
   const updateLevel = useCallback(() => {
-    if (active) {
-      const target = targetRef.current
-      if (target > levelRef.current) {
-        // Instant attack
-        levelRef.current = target
-      } else {
-        // Exponential decay ~250ms half-life at 60fps (0.956 per 16ms frame)
-        levelRef.current *= 0.956
-        if (levelRef.current < 0.0005) levelRef.current = 0
-      }
+    const target = targetRef.current
+    if (target > levelRef.current) {
+      // Instant attack
+      levelRef.current = target
     } else {
-      // Bypass decay ~100ms half-life (0.895 per frame)
-      levelRef.current *= 0.895
+      // Exponential decay ~250ms half-life at 60fps in active mode, ~180ms in bypass mode
+      levelRef.current *= active ? 0.956 : 0.920
       if (levelRef.current < 0.0005) levelRef.current = 0
     }
   }, [active])
+
   useEffect(() => {
-    if (!active) {
-      targetRef.current = 0
-      return
-    }
     return subscribeToDspMeters((frame) => {
       targetRef.current = channel === 'input' ? frame.input : frame.output
     })
-  }, [active, channel])
+  }, [channel])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -137,7 +128,7 @@ export function GainMeter({ label, active, channel = 'input', delay = 0 }: GainM
         const isPeak = i < PEAK_ROWS
         const fill = Math.max(1, Math.min(EIGHTHS_PER_ROW, Math.round(eighths)))
         const char = isPeak && fill >= EIGHTHS_PER_ROW ? PEAK_GLYPH : BLOCK_CHARS[fill - 1]
-        ctx.fillStyle = isPeak && fill >= EIGHTHS_PER_ROW ? METER_PEAK : METER_LEVEL
+        ctx.fillStyle = isPeak && fill >= EIGHTHS_PER_ROW && active ? METER_PEAK : METER_LEVEL
         ctx.fillText(char, 0, i * FONT_SIZE)
       }
 
