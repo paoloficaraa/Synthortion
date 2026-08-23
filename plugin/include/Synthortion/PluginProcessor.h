@@ -51,6 +51,9 @@ namespace synthortion
 
         juce::AudioProcessorValueTreeState& getAPVTS() noexcept { return apvts; }
 
+        AudioCaptureFifo& getAudioFifo() noexcept { return audioFifo; }
+        const AudioCaptureFifo& getAudioFifo() const noexcept { return audioFifo; }
+
         struct MeterPeaks { float input = 0.0f; float output = 0.0f; };
         MeterPeaks getMeterPeaks() const noexcept { return { inputPeak.load(), outputPeak.load() }; }
 
@@ -67,6 +70,7 @@ namespace synthortion
         PingPongDelay pingPongDelay;
         BitCrusher bitCrusher;
 
+        AudioCaptureFifo audioFifo;
         juce::AudioProcessorValueTreeState apvts;
 
         std::atomic<float>* inputGainParam = nullptr;
