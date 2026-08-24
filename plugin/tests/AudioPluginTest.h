@@ -160,6 +160,14 @@ namespace synthortion
                     }
                 }
                 expect (obj->hasProperty("uiPreferences"), "Should have uiPreferences");
+                auto uiPrefsVar = obj->getProperty("uiPreferences");
+                expect (uiPrefsVar.isObject(), "uiPreferences should be an object");
+                if (auto* prefsObj = uiPrefsVar.getDynamicObject())
+                {
+                    expectWithinAbsoluteError (static_cast<double>(prefsObj->getProperty(UIPreferences::kUiScale)), UIPreferences::kDefaultUiScale, 0.001);
+                    expectWithinAbsoluteError (static_cast<double>(prefsObj->getProperty(UIPreferences::kSpectrumDecay)), UIPreferences::kDefaultSpectrumDecay, 0.001);
+                    expect (static_cast<bool>(prefsObj->getProperty(UIPreferences::kSkipBootSequence)) == UIPreferences::kDefaultSkipBootSequence);
+                }
             }
 
             // Test handleSetParameter with valid values

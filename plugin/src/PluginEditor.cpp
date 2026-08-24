@@ -94,9 +94,8 @@ namespace synthortion
         return juce::WebBrowserComponent::Resource { std::move (data), std::move (mime) };
     }
 
-    static juce::WebBrowserComponent::Options createBrowserOptions (AudioPluginAudioProcessor& processor, AudioPluginAudioProcessorEditor& editor)
+    static juce::WebBrowserComponent::Options createBrowserOptions (AudioPluginAudioProcessorEditor& editor)
     {
-        juce::ignoreUnused (processor);
         return juce::WebBrowserComponent::Options{}
             .withBackend (juce::WebBrowserComponent::Options::Backend::webview2)
 #if JUCE_WINDOWS
@@ -122,7 +121,7 @@ namespace synthortion
         : AudioProcessorEditor (&p),
           processorRef (p)
     {
-        webView = std::make_unique<juce::WebBrowserComponent> (createBrowserOptions (processorRef, *this));
+        webView = std::make_unique<juce::WebBrowserComponent> (createBrowserOptions (*this));
 
 #if defined(SYNTHORTION_DEV_SERVER_URL)
         webView->goToURL (SYNTHORTION_DEV_SERVER_URL);
@@ -171,21 +170,20 @@ namespace synthortion
             }
         }
     }
-    void AudioPluginAudioProcessorEditor::parameterChanged (const juce::String& parameterID, float newValue)
+    void AudioPluginAudioProcessorEditor::parameterChanged (const juce::String& parameterID, float /*newValue*/)
     {
         juce::Component::SafePointer<AudioPluginAudioProcessorEditor> safeThis (this);
-        juce::MessageManager::callAsync ([safeThis, parameterID, newValue]()
+        juce::MessageManager::callAsync ([safeThis, parameterID]()
         {
             if (safeThis == nullptr || safeThis->webView == nullptr)
                 return;
 
-            safeThis->sendParameterChange (parameterID, newValue);
+            safeThis->sendParameterChange (parameterID);
         });
     }
 
-    void AudioPluginAudioProcessorEditor::sendParameterChange (const juce::String& parameterID, float newValue)
+    void AudioPluginAudioProcessorEditor::sendParameterChange (const juce::String& parameterID)
     {
-        juce::ignoreUnused (newValue);
         if (webView == nullptr)
             return;
 
@@ -199,12 +197,6 @@ namespace synthortion
 
             webView->emitEventIfBrowserIsVisible ("parameterChange", juce::var (obj.get()));
         }
-    }
-    void AudioPluginAudioProcessorEditor::sendAllParameters()
-    {
-        // Replaced by init handshake, but kept for compatibility if needed.
-        // Wait, issue says "eliminate ... string building" and use init.
-        // Let's implement buildInitPayload and handleConnect instead.
     }
 
     juce::var AudioPluginAudioProcessorEditor::buildInitPayload()
@@ -244,15 +236,12 @@ namespace synthortion
         }
         payload->setProperty ("parameters", parameters);
 
-        // Add uiPreferences
+        // Add uiPreferences with default fallbacks if tree is missing/uninitialized
         juce::DynamicObject::Ptr uiPrefsObj = new juce::DynamicObject();
         auto uiPrefsTree = processorRef.getAPVTS().state.getChildWithName (UIPreferences::kNodeName);
-        if (uiPrefsTree.isValid())
-        {
-            uiPrefsObj->setProperty (UIPreferences::kUiScale, uiPrefsTree.getProperty (UIPreferences::kUiScale, UIPreferences::kDefaultUiScale));
-            uiPrefsObj->setProperty (UIPreferences::kSpectrumDecay, uiPrefsTree.getProperty (UIPreferences::kSpectrumDecay, UIPreferences::kDefaultSpectrumDecay));
-            uiPrefsObj->setProperty (UIPreferences::kSkipBootSequence, uiPrefsTree.getProperty (UIPreferences::kSkipBootSequence, UIPreferences::kDefaultSkipBootSequence));
-        }
+        uiPrefsObj->setProperty (UIPreferences::kUiScale, uiPrefsTree.getProperty (UIPreferences::kUiScale, UIPreferences::kDefaultUiScale));
+        uiPrefsObj->setProperty (UIPreferences::kSpectrumDecay, uiPrefsTree.getProperty (UIPreferences::kSpectrumDecay, UIPreferences::kDefaultSpectrumDecay));
+        uiPrefsObj->setProperty (UIPreferences::kSkipBootSequence, uiPrefsTree.getProperty (UIPreferences::kSkipBootSequence, UIPreferences::kDefaultSkipBootSequence));
         payload->setProperty ("uiPreferences", juce::var (uiPrefsObj.get()));
 
         return juce::var (payload.get());
@@ -266,18 +255,11 @@ namespace synthortion
 
     void AudioPluginAudioProcessorEditor::handleSetParameter (const juce::var& data)
     {
-        juce::var parsed = data;
-        if (data.isString())
-            parsed = juce::JSON::parse (data.toString());
-
-        if (auto* obj = parsed.getDynamicObject())
+        if (auto* obj = data.getDynamicObject())
         {
-            auto parameterId = obj->hasProperty ("id")
-                ? obj->getProperty ("id").toString()
-                : obj->getProperty ("parameterId").toString();
-                
-            if (obj->hasProperty ("value"))
+            if (obj->hasProperty ("id") && obj->hasProperty ("value"))
             {
+                auto parameterId = obj->getProperty ("id").toString();
                 auto value = static_cast<float> (obj->getProperty ("value"));
                 if (std::isfinite (value))
                 {

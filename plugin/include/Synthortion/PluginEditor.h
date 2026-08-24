@@ -20,8 +20,7 @@ namespace synthortion
         void resized() override;
 
         void parameterChanged (const juce::String& parameterID, float newValue) override;
-        void sendParameterChange (const juce::String& parameterID, float newValue);
-        void sendAllParameters();
+        void sendParameterChange (const juce::String& parameterID);
         juce::var buildInitPayload();
         void handleConnect();
         void handleSetParameter (const juce::var& data);
