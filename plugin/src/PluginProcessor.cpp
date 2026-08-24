@@ -427,26 +427,55 @@ namespace synthortion {
     void AudioPluginAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
     {
         auto state = apvts.copyState();
-        std::unique_ptr<juce::XmlElement> xml(state.createXml());
-        copyXmlToBinary(*xml, destData);
+
+        auto uiPrefs = state.getChildWithName("UIPreferences");
+        if (!uiPrefs.isValid())
+        {
+            uiPrefs = juce::ValueTree("UIPreferences");
+            uiPrefs.setProperty("uiScale", 1.0, nullptr);
+            uiPrefs.setProperty("spectrumDecay", 0.25, nullptr);
+            uiPrefs.setProperty("skipBootSequence", false, nullptr);
+            state.appendChild(uiPrefs, nullptr);
+        }
+
+        if (std::unique_ptr<juce::XmlElement> xml = state.createXml())
+            copyXmlToBinary(*xml, destData);
     }
 
     void AudioPluginAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
     {
-        // Copy the data to a local buffer for background processing
-        std::vector<char> buffer(static_cast<const char*>(data), static_cast<const char*>(data) + sizeInBytes);
+        std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
 
-        std::thread([this, buffer = std::move(buffer)]() mutable {
-            std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(buffer.data(), static_cast<int>(buffer.size())));
-
-            if (xmlState != nullptr && xmlState->hasTagName(apvts.state.getType()))
+        if (xmlState != nullptr)
+        {
+            if (xmlState->hasTagName(apvts.state.getType()) ||
+                xmlState->hasTagName("SynthortionState") ||
+                xmlState->hasTagName("Synthortion"))
             {
                 auto newState = juce::ValueTree::fromXml(*xmlState);
-                juce::MessageManager::callAsync([this, state = std::move(newState)]() mutable {
-                    apvts.replaceState(state);
-                });
+
+                if (!newState.hasProperty("version"))
+                    newState.setProperty("version", 1, nullptr);
+
+                auto uiPrefs = newState.getChildWithName("UIPreferences");
+                if (!uiPrefs.isValid())
+                {
+                    uiPrefs = juce::ValueTree("UIPreferences");
+                    uiPrefs.setProperty("uiScale", 1.0, nullptr);
+                    uiPrefs.setProperty("spectrumDecay", 0.25, nullptr);
+                    uiPrefs.setProperty("skipBootSequence", false, nullptr);
+                    newState.appendChild(uiPrefs, nullptr);
+                }
+                else
+                {
+                    if (!uiPrefs.hasProperty("uiScale")) uiPrefs.setProperty("uiScale", 1.0, nullptr);
+                    if (!uiPrefs.hasProperty("spectrumDecay")) uiPrefs.setProperty("spectrumDecay", 0.25, nullptr);
+                    if (!uiPrefs.hasProperty("skipBootSequence")) uiPrefs.setProperty("skipBootSequence", false, nullptr);
+                }
+
+                apvts.replaceState(newState);
             }
-        }).detach();
+        }
     }
 }
 
