@@ -96,6 +96,7 @@ namespace synthortion
 
     static juce::WebBrowserComponent::Options createBrowserOptions (AudioPluginAudioProcessor& processor, AudioPluginAudioProcessorEditor& editor)
     {
+        juce::ignoreUnused (processor);
         return juce::WebBrowserComponent::Options{}
             .withBackend (juce::WebBrowserComponent::Options::Backend::webview2)
 #if JUCE_WINDOWS
@@ -103,27 +104,13 @@ namespace synthortion
                 .withUserDataFolder (juce::File::getSpecialLocation (juce::File::SpecialLocationType::tempDirectory).getChildFile ("Synthortion_WebView2")))
 #endif
             .withNativeIntegrationEnabled (true)
-            .withEventListener ("setParameter", [&processor] (const juce::var& data)
+            .withEventListener ("setParameter", [&editor] (const juce::var& data)
             {
-                juce::var parsed = data;
-                if (data.isString())
-                    parsed = juce::JSON::parse (data.toString());
-
-                if (auto* obj = parsed.getDynamicObject())
-                {
-                    auto parameterId = obj->hasProperty ("parameterId")
-                        ? obj->getProperty ("parameterId").toString()
-                        : obj->getProperty ("id").toString();
-                    auto value = static_cast<float> (obj->getProperty ("value"));
-                    if (auto* param = processor.getAPVTS().getParameter (parameterId))
-                    {
-                        param->setValueNotifyingHost (value);
-                    }
-                }
+                editor.handleSetParameter(data);
             })
             .withEventListener ("connect", [&editor] (const juce::var&)
             {
-                editor.sendAllParameters();
+                editor.handleConnect();
             })
             .withResourceProvider ([&editor] (const juce::String& url)
             {
@@ -207,27 +194,99 @@ namespace synthortion
             const float val = param->getValue();
 
             juce::DynamicObject::Ptr obj = new juce::DynamicObject();
-            obj->setProperty ("parameterId", parameterID);
             obj->setProperty ("id", parameterID);
             obj->setProperty ("value", val);
 
             webView->emitEventIfBrowserIsVisible ("parameterChange", juce::var (obj.get()));
-            webView->evaluateJavascript (
-                "if (window.__SYNTORTION_BRIDGE__ && window.__SYNTORTION_BRIDGE__.onParameterChange) { "
-                "window.__SYNTORTION_BRIDGE__.onParameterChange('" + parameterID + "', " + juce::String (val) + "); }"
-            );
         }
     }
     void AudioPluginAudioProcessorEditor::sendAllParameters()
     {
-        if (webView == nullptr)
-            return;
+        // Replaced by init handshake, but kept for compatibility if needed.
+        // Wait, issue says "eliminate ... string building" and use init.
+        // Let's implement buildInitPayload and handleConnect instead.
+    }
 
+    juce::var AudioPluginAudioProcessorEditor::buildInitPayload()
+    {
+        juce::DynamicObject::Ptr payload = new juce::DynamicObject();
+        payload->setProperty ("schemaVersion", 1);
+
+        juce::Array<juce::var> parameters;
         for (auto* param : processorRef.getParameters())
         {
             if (auto* pWithId = dynamic_cast<juce::AudioProcessorParameterWithID*> (param))
             {
-                sendParameterChange (pWithId->paramID, pWithId->getValue());
+                juce::DynamicObject::Ptr paramObj = new juce::DynamicObject();
+                paramObj->setProperty ("id", pWithId->paramID);
+                paramObj->setProperty ("value", pWithId->getValue());
+                paramObj->setProperty ("name", pWithId->getName(100));
+                
+                if (auto* floatParam = dynamic_cast<juce::AudioParameterFloat*>(param))
+                {
+                    paramObj->setProperty ("min", floatParam->range.start);
+                    paramObj->setProperty ("max", floatParam->range.end);
+                }
+                else if (auto* choiceParam = dynamic_cast<juce::AudioParameterChoice*>(param))
+                {
+                    paramObj->setProperty ("min", 0.0);
+                    paramObj->setProperty ("max", static_cast<double>(choiceParam->choices.size() - 1));
+                }
+                else
+                {
+                    paramObj->setProperty ("min", 0.0);
+                    paramObj->setProperty ("max", 1.0);
+                }
+                paramObj->setProperty ("defaultValue", pWithId->getDefaultValue());
+
+                parameters.add (juce::var (paramObj.get()));
+            }
+        }
+        payload->setProperty ("parameters", parameters);
+
+        // Add uiPreferences
+        juce::DynamicObject::Ptr uiPrefsObj = new juce::DynamicObject();
+        auto uiPrefsTree = processorRef.getAPVTS().state.getChildWithName (UIPreferences::kNodeName);
+        if (uiPrefsTree.isValid())
+        {
+            uiPrefsObj->setProperty (UIPreferences::kUiScale, uiPrefsTree.getProperty (UIPreferences::kUiScale, UIPreferences::kDefaultUiScale));
+            uiPrefsObj->setProperty (UIPreferences::kSpectrumDecay, uiPrefsTree.getProperty (UIPreferences::kSpectrumDecay, UIPreferences::kDefaultSpectrumDecay));
+            uiPrefsObj->setProperty (UIPreferences::kSkipBootSequence, uiPrefsTree.getProperty (UIPreferences::kSkipBootSequence, UIPreferences::kDefaultSkipBootSequence));
+        }
+        payload->setProperty ("uiPreferences", juce::var (uiPrefsObj.get()));
+
+        return juce::var (payload.get());
+    }
+
+    void AudioPluginAudioProcessorEditor::handleConnect()
+    {
+        if (webView == nullptr) return;
+        webView->emitEventIfBrowserIsVisible ("init", buildInitPayload());
+    }
+
+    void AudioPluginAudioProcessorEditor::handleSetParameter (const juce::var& data)
+    {
+        juce::var parsed = data;
+        if (data.isString())
+            parsed = juce::JSON::parse (data.toString());
+
+        if (auto* obj = parsed.getDynamicObject())
+        {
+            auto parameterId = obj->hasProperty ("id")
+                ? obj->getProperty ("id").toString()
+                : obj->getProperty ("parameterId").toString();
+                
+            if (obj->hasProperty ("value"))
+            {
+                auto value = static_cast<float> (obj->getProperty ("value"));
+                if (std::isfinite (value))
+                {
+                    value = juce::jlimit (0.0f, 1.0f, value);
+                    if (auto* param = processorRef.getAPVTS().getParameter (parameterId))
+                    {
+                        param->setValueNotifyingHost (value);
+                    }
+                }
             }
         }
     }
@@ -264,50 +323,35 @@ namespace synthortion
         sendMeterFrame(processorRef.getMeterPeaks());
     }
 
-    void AudioPluginAudioProcessorEditor::emitBridgeEvent(const juce::String& eventId, const juce::var& payload, const juce::String& js)
-    {
-        if (webView == nullptr) return;
-        webView->emitEventIfBrowserIsVisible(eventId, payload);
-        webView->evaluateJavascript(js);
-    }
+    // emitBridgeEvent removed
 
 
-    void AudioPluginAudioProcessorEditor::sendSpectrumFrame (const std::array<float, SpectrumAnalyzer::kNumBands>& magnitudes)
+    juce::var AudioPluginAudioProcessorEditor::buildSpectrumPayload (const std::array<float, SpectrumAnalyzer::kNumBands>& magnitudes)
     {
         juce::Array<juce::var> varArray;
         varArray.ensureStorageAllocated (SpectrumAnalyzer::kNumBands);
         for (float m : magnitudes) varArray.add (m);
-
-        juce::String jsonArray;
-        jsonArray.preallocateBytes (SpectrumAnalyzer::kNumBands * 8 + 16);
-        jsonArray << "[";
-        for (size_t i = 0; i < magnitudes.size(); ++i)
-        {
-            if (i > 0) jsonArray << ",";
-            jsonArray << juce::String (magnitudes[i], 4);
-        }
-        jsonArray << "]";
-
-        juce::String js = "if (window.__SYNTORTION_BRIDGE__ && window.__SYNTORTION_BRIDGE__.onSpectrumFrame) { "
-                          "window.__SYNTORTION_BRIDGE__.onSpectrumFrame(" + jsonArray + "); }";
-        emitBridgeEvent("spectrumFrame", juce::var(varArray), js);
+        return juce::var(varArray);
     }
 
-    void AudioPluginAudioProcessorEditor::sendMeterFrame(AudioPluginAudioProcessor::MeterPeaks peaks)
+    void AudioPluginAudioProcessorEditor::sendSpectrumFrame (const std::array<float, SpectrumAnalyzer::kNumBands>& magnitudes)
+    {
+        if (webView != nullptr)
+            webView->emitEventIfBrowserIsVisible("spectrumFrame", buildSpectrumPayload(magnitudes));
+    }
+
+    juce::var AudioPluginAudioProcessorEditor::buildMeterPayload(AudioPluginAudioProcessor::MeterPeaks peaks)
     {
         juce::DynamicObject::Ptr obj = new juce::DynamicObject();
         obj->setProperty("input", peaks.input);
         obj->setProperty("output", peaks.output);
+        return juce::var(obj.get());
+    }
 
-        juce::String jsonObject;
-        jsonObject << "{"
-                   << "\"input\":" << juce::String(peaks.input, 4) << ","
-                   << "\"output\":" << juce::String(peaks.output, 4)
-                   << "}";
-
-        juce::String js = "if (window.__SYNTORTION_BRIDGE__ && window.__SYNTORTION_BRIDGE__.onMeterFrame) { "
-                          "window.__SYNTORTION_BRIDGE__.onMeterFrame(" + jsonObject + "); }";
-        emitBridgeEvent("meterFrame", juce::var(obj.get()), js);
+    void AudioPluginAudioProcessorEditor::sendMeterFrame(AudioPluginAudioProcessor::MeterPeaks peaks)
+    {
+        if (webView != nullptr)
+            webView->emitEventIfBrowserIsVisible("meterFrame", buildMeterPayload(peaks));
     }
 
     void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)

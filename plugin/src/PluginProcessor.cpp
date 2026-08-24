@@ -185,21 +185,6 @@ namespace synthortion {
         return 0.0;
     }
 
-    void AudioPluginAudioProcessor::handleMessage(const juce::String& message)
-    {
-        auto json = juce::JSON::parse(message);
-        if (auto* obj = json.getDynamicObject())
-        {
-            auto parameterId = obj->hasProperty("parameterId")
-                ? obj->getProperty("parameterId").toString()
-                : obj->getProperty("id").toString();
-            auto value = static_cast<float>(obj->getProperty("value"));
-            if (auto* param = apvts.getParameter(parameterId))
-            {
-                param->setValueNotifyingHost(value);
-            }
-        }
-    }
 
     int AudioPluginAudioProcessor::getNumPrograms()
     {

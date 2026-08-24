@@ -64,7 +64,6 @@ namespace synthortion
         using AudioProcessor::processBlock;
         void processBlockBypassed(juce::AudioBuffer<float> &, juce::MidiBuffer &) override;
         juce::AudioProcessorParameter* getBypassParameter() const override;
-    void handleMessage(const juce::String& message);
 
         juce::AudioProcessorEditor *createEditor() override;
         bool hasEditor() const override;

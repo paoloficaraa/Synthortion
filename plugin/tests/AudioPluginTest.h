@@ -131,41 +131,99 @@ namespace synthortion
             beginTest ("Bridge protocol and parameter normalization");
 
             AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
             auto& apvts = processor.getAPVTS();
 
-            // Test handleMessage with COLOR parameter
-            processor.handleMessage ("{\"parameterId\":\"COLOR\",\"value\":0.75}");
+            // Test init payload generation
+            auto initPayload = editor.buildInitPayload();
+            expect (initPayload.isObject());
+            if (auto* obj = initPayload.getDynamicObject())
+            {
+                expect (static_cast<int>(obj->getProperty("schemaVersion")) == 1, "schemaVersion should be 1");
+                auto params = obj->getProperty("parameters");
+                expect (params.isArray(), "parameters should be an array");
+                if (auto* arr = params.getArray())
+                {
+                    expect (arr->size() == processor.getParameters().size(), "Should have correct number of parameters");
+                    if (arr->size() > 0)
+                    {
+                        auto firstParam = arr->getReference(0);
+                        expect (firstParam.isObject(), "Parameter entry should be an object");
+                        if (auto* pObj = firstParam.getDynamicObject())
+                        {
+                            expect (pObj->hasProperty("id"), "Should have id");
+                            expect (pObj->hasProperty("value"), "Should have value");
+                            expect (pObj->hasProperty("min"), "Should have min");
+                            expect (pObj->hasProperty("max"), "Should have max");
+                            expect (pObj->hasProperty("defaultValue"), "Should have defaultValue");
+                        }
+                    }
+                }
+                expect (obj->hasProperty("uiPreferences"), "Should have uiPreferences");
+            }
+
+            // Test handleSetParameter with valid values
+            juce::DynamicObject::Ptr msg = new juce::DynamicObject();
+            msg->setProperty ("id", "COLOR");
+            msg->setProperty ("value", 0.75f);
+            editor.handleSetParameter(juce::var(msg.get()));
             if (auto* param = apvts.getParameter ("COLOR"))
             {
                 expectWithinAbsoluteError (param->getValue(), 0.75f, 0.001f, "COLOR normalized value should be 0.75");
             }
 
-            // Test INPUT_GAIN: -60 dB -> 0.0, +12 dB -> 1.0, 0 dB -> (60/72)
-            processor.handleMessage ("{\"parameterId\":\"INPUT_GAIN\",\"value\":0.0}");
-            if (auto* param = apvts.getParameter ("INPUT_GAIN"))
+            // Test handleSetParameter bounds clamping
+            juce::DynamicObject::Ptr msgClampHigh = new juce::DynamicObject();
+            msgClampHigh->setProperty ("id", "COLOR");
+            msgClampHigh->setProperty ("value", 2.5f); // Out of bounds
+            editor.handleSetParameter(juce::var(msgClampHigh.get()));
+            if (auto* param = apvts.getParameter ("COLOR"))
             {
-                expectWithinAbsoluteError (param->getValue(), 0.0f, 0.001f, "INPUT_GAIN at 0.0 should be -60dB");
+                expectWithinAbsoluteError (param->getValue(), 1.0f, 0.001f, "COLOR should be clamped to 1.0");
             }
 
-            if (auto* param = apvts.getParameter ("INPUT_GAIN"))
+            juce::DynamicObject::Ptr msgClampLow = new juce::DynamicObject();
+            msgClampLow->setProperty ("id", "COLOR");
+            msgClampLow->setProperty ("value", -1.5f); // Out of bounds
+            editor.handleSetParameter(juce::var(msgClampLow.get()));
+            if (auto* param = apvts.getParameter ("COLOR"))
             {
-                const float zeroDbNormalized = param->getNormalisableRange().convertTo0to1 (0.0f);
-                processor.handleMessage ("{\"parameterId\":\"INPUT_GAIN\",\"value\":" + juce::String (zeroDbNormalized) + "}");
-                expectWithinAbsoluteError (param->getValue(), zeroDbNormalized, 0.001f, "INPUT_GAIN 0dB normalized value");
+                expectWithinAbsoluteError (param->getValue(), 0.0f, 0.001f, "COLOR should be clamped to 0.0");
             }
 
-            // Test PLUGIN_BYPASS
-            processor.handleMessage ("{\"parameterId\":\"PLUGIN_BYPASS\",\"value\":1.0}");
-            if (auto* param = apvts.getParameter ("PLUGIN_BYPASS"))
+            // Test invalid ID rejection
+            juce::DynamicObject::Ptr msgInvalidId = new juce::DynamicObject();
+            msgInvalidId->setProperty ("id", "INVALID_PARAM_ID");
+            msgInvalidId->setProperty ("value", 0.5f);
+            editor.handleSetParameter(juce::var(msgInvalidId.get())); // Should not crash or hang
+
+            // Finite check test - we set it to NaN, it shouldn't change the value from 0.0
+            juce::DynamicObject::Ptr msgNaN = new juce::DynamicObject();
+            msgNaN->setProperty ("id", "COLOR");
+            msgNaN->setProperty ("value", std::numeric_limits<float>::quiet_NaN());
+            editor.handleSetParameter(juce::var(msgNaN.get()));
+            if (auto* param = apvts.getParameter ("COLOR"))
             {
-                expectWithinAbsoluteError (param->getValue(), 1.0f, 0.001f, "PLUGIN_BYPASS should be active");
+                expectWithinAbsoluteError (param->getValue(), 0.0f, 0.001f, "COLOR should ignore NaN");
             }
 
-            // Test handleMessage with spec 'id' key
-            processor.handleMessage ("{\"id\":\"BITCRUSH\",\"value\":0.42}");
-            if (auto* param = apvts.getParameter ("BITCRUSH"))
+            // Telemetry dispatches conforming to spectrumFrame and meterFrame schemas.
+            std::array<float, SpectrumAnalyzer::kNumBands> dummyMags;
+            dummyMags.fill(0.5f);
+            auto spectrumPayload = editor.buildSpectrumPayload(dummyMags);
+            expect(spectrumPayload.isArray(), "Spectrum payload should be array");
+            if (auto* arr = spectrumPayload.getArray())
             {
-                expectWithinAbsoluteError (param->getValue(), 0.42f, 0.001f, "BITCRUSH normalized value via 'id' should be 0.42");
+                expect(arr->size() == SpectrumAnalyzer::kNumBands, "Spectrum array size should be 80");
+            }
+
+            AudioPluginAudioProcessor::MeterPeaks dummyPeaks { 0.8f, 0.9f };
+            auto meterPayload = editor.buildMeterPayload(dummyPeaks);
+            expect(meterPayload.isObject(), "Meter payload should be object");
+            if (auto* obj = meterPayload.getDynamicObject())
+            {
+                expect(obj->hasProperty("input") && obj->hasProperty("output"), "Meter should have input and output");
+                expectWithinAbsoluteError(static_cast<float>(obj->getProperty("input")), 0.8f, 0.001f, "Meter input should match");
             }
         }
         void testProcessorBypassParameterAndPassthrough()
