@@ -25,14 +25,19 @@
 
 ## Bridge & Integration Terms
 
-- **DspBridge** — the integration seam (TypeScript interface in `ui/src/lib/dspBridge.ts`) between the React UI and the C++ DSP backend. Declares `setParameter(parameterId, value)`. Two implementations exist: `noopDspBridge` (no-op, for dev) and the future `WebViewDspBridge` (talks to JUCE `WebBrowserComponent`).
+- **DspBridge** — the integration seam (TypeScript interface in `ui/src/lib/dspBridge.ts`) between the React UI and the C++ DSP backend. Declares `setParameter(id, value)`.
 - **Parameter ID** — the canonical identifier for a plugin parameter, matching the JUCE `AudioProcessorValueTreeState` parameter ID (e.g., `INPUT_GAIN`, `COLOR`, `DELAY_TIME`). The single source of truth for parameter addressing across the UI↔DSP boundary.
 - **APVTS** — `AudioProcessorValueTreeState`, JUCE's parameter management system. Owns parameter layout, normalization (0..1), automation, preset state, and host synchronization.
-- **Normalization layer** — the TypeScript module (`ui/src/lib/parameterSpecs.ts`) that converts between **UI values** (user-facing: dB, Hz, ms, %, semantic enums) and **APVTS values** (normalized 0..1 floats). Driven by a declarative `parameterSpecs` table.
-- **Bridge protocol** — the JSON message format exchanged over the WebView channel:
-  - JS→C++: `{ type: "setParameter", id: "COLOR", value: 0.42 }`
-  - C++→JS: `window.__SYNTORTION_BRIDGE__.onParameterChange("COLOR", 0.42)`
-  - Lifecycle: `{ type: "connect" }` / `onConnect({ sampleRate, blockSize, parameterSpecs })` / `{ type: "disconnect" }`
+- **Native Event Bridge Protocol** — the unified IPC event mechanism using JUCE 8 `WebBrowserComponent` native event emission and listeners (`window.__JUCE__.backend.emitEvent` / `window.__JUCE__.backend.addEventListener`). Eliminates legacy `evaluateJavascript` and `window.__SYNTORTION_BRIDGE__` dual dispatch.
+- **Handshake Protocol** — the reactive initialization sequence where the UI emits `connect` upon mounting and C++ responds with `init` carrying `schemaVersion: 1` and the complete array of parameter descriptors (`ParameterDescriptor[]`).
+- **Normalized IPC Parameter Events** — `setParameter` (UI → C++) and `parameterChange` (C++ → UI) both using `{ id: string, value: number }` with normalized `[0.0, 1.0]` floats matching JUCE APVTS host automation.
+- **Telemetry Frame Streams** — 60 FPS lock-free telemetry events (`spectrumFrame` passing `number[]` magnitudes, `meterFrame` passing `{ input: number, output: number }` peaks) dispatched via `emitEventIfBrowserIsVisible`, automatically dropping when the editor is occluded or closed.
 - **UI-only state** — `PluginState` fields with no APVTS counterpart (`driveRoute`, `driveOn`, `bitcrushOn`, `delayOn`, `chorusOn`, `delaySync`, `chorusWide`). These remain in React state and are never sent over the bridge.
 - **WebBrowserComponent** — the JUCE class that hosts a WebView (WebView2 on Windows, WebKit on macOS/Linux) and exposes a JavaScript↔C++ message channel. The PluginEditor embeds it; the PluginProcessor receives parameter changes via callback.
-- **Parameter spec table** — the declarative source of truth for normalization (`parameterSpecs.ts`). Each entry defines: `uiKey` (PluginState field), `min`/`max` (UI range), `skew` (for skewed ranges like gain), `unit` (display), and optional `invert` (for bypass).
+## DSP Architecture Terms
+
+- **DSP Module Concept (`synthortion::dsp::DspModule`)** — the static C++20 interface contract adhered to by all headless DSP components (`WarmDistortion`, `BitCrusher`, `PingPongDelay`, `SynthortionChorus`), requiring `prepare(const juce::dsp::ProcessSpec&)`, `process(juce::AudioBuffer<float>&, const Params&)`, `reset() noexcept`, and `getLatencySamples() const noexcept`.
+- **Parameter Structs** — plain-old-data structs (`WarmDistortionParams`, `BitCrusherParams`, `PingPongDelayParams`, `ChorusParams`) passed per-block into DSP module `process()` calls, decoupling internal DSP state from APVTS and atomic pointer lookups.
+- **Encapsulated Smoothing** — internal parameter smoothing owned by individual DSP modules via `juce::SmoothedValue` or `juce::LinearSmoothedValue` rather than hoisted into `PluginProcessor`, ensuring headless modules avoid parameter zipper noise during isolated execution and unit testing.
+- **UI Preferences ValueTree (`UIPreferences`)** — a dedicated child subtree within the APVTS root `Parameters` ValueTree holding persistent non-DSP UI preferences (`uiScale`, `spectrumDecay`, `skipBootSequence`) saved atomically in DAW sessions and presets.
+- **Synchronous State Serialization** — strictly executing `getStateInformation` and `setStateInformation` synchronously via JUCE XML binary containers (`copyXmlToBinary` / `getXmlFromBinary`), eliminating detached background threads and race conditions during host session loading.
