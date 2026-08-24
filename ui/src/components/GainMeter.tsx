@@ -155,7 +155,7 @@ export function GainMeter({ label, active, channel = 'input', delay = 0 }: GainM
 
     raf = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(raf)
-  }, [updateLevel])
+  }, [updateLevel, active])
   return (
     <div
       className="w-full flex flex-col items-center animate-vst-enter relative"
