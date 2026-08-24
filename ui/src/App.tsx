@@ -7,7 +7,7 @@ import { MatrixFaceplate } from './components/MatrixFaceplate'
 import { SpectrumVisualizer } from './components/SpectrumVisualizer'
 import { initialState, diffPluginState, type PluginState } from './lib/pluginState'
 import { noopDspBridge, type DspBridge, PARAMETER_IDS } from './lib/dspBridge'
-import { toAPVTS } from './lib/parameterSpecs'
+import { toAPVTS } from './lib/parameterStore'
 import { subscribeToDspChanges } from './lib/webViewDspBridge'
 import { createGlitchPulser } from './lib/glitchPulser'
 

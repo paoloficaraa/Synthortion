@@ -18,9 +18,6 @@ public:
     void process(juce::AudioBuffer<float>& buffer, const WarmDistortionParams& params);
     int getLatencySamples() const noexcept { return oversampler ? static_cast<int>(oversampler->getLatencyInSamples()) : 0; }
 
-    void setSampleRate(double sampleRate);
-    void setDrive(float drive);
-    void setVolumeCompensation(bool enabled) { volumeCompensationEnabled = enabled; }
     static constexpr int kNumChannels = 2;
     static constexpr int kOversamplingFactor = 3;
     static constexpr int kPinkNoiseStages = 7;
@@ -31,7 +28,6 @@ public:
     static constexpr float kLowDriveThreshold = 0.05f;
     static constexpr float kMediumDriveThreshold = 0.15f;
     static constexpr float kHighDriveThreshold = 0.3f;
-    
     static constexpr float kTapeDriveMin = 1.0f;
     static constexpr float kTapeDriveMax = 5.0f;
     static constexpr float kTapeStage1Gain = 1.0f;

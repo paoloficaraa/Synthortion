@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom'
+import { vi, type Mock } from 'vitest'
 
 /**
  * jsdom does not implement a real 2D rendering context, so any component that
@@ -45,4 +46,38 @@ if (!window.matchMedia) {
       removeEventListener: () => {},
       dispatchEvent: () => false,
     }) as unknown as MediaQueryList
+}
+
+export interface MockJuceBackend {
+  emitEvent: Mock<(eventId: string, data: unknown) => void>
+  addEventListener: Mock<(eventId: string, callback: (payload: unknown) => void) => () => void>
+  listeners: Map<string, Set<(payload: unknown) => void>>
+  trigger: (event: string, payload: unknown) => void
+  reset: () => void
+}
+
+/**
+ * Creates a mock JUCE 8 backend event emitter and listener system for testing.
+ */
+export function createMockJuceBackend(): MockJuceBackend {
+  const listeners = new Map<string, Set<(payload: unknown) => void>>()
+  const emitEvent = vi.fn()
+  const addEventListener = vi.fn((event: string, callback: (payload: unknown) => void) => {
+    if (!listeners.has(event)) {
+      listeners.set(event, new Set())
+    }
+    listeners.get(event)!.add(callback)
+    return () => {
+      listeners.get(event)?.delete(callback)
+    }
+  })
+  const trigger = (event: string, payload: unknown) => {
+    listeners.get(event)?.forEach((cb) => cb(payload))
+  }
+  const reset = () => {
+    listeners.clear()
+    emitEvent.mockClear()
+    addEventListener.mockClear()
+  }
+  return { emitEvent, addEventListener, listeners, trigger, reset }
 }

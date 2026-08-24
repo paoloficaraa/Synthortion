@@ -1,5 +1,10 @@
 import type { DspBridge, ParameterValue } from './dspBridge'
-import { fromAPVTS } from './parameterSpecs'
+import {
+  fromAPVTS,
+  parameterStore,
+  type InitPayload,
+  type UIPreferences,
+} from './parameterStore'
 import type { PluginState } from './pluginState'
 
 /** Global JUCE WebView interface injected by WebBrowserComponent in JUCE 8. */
@@ -14,117 +19,104 @@ declare global {
         ) => () => void
       }
     }
-    webkit?: {
-      messageHandlers?: {
-        messageHandler?: {
-          postMessage: (msg: string) => void
-        }
-      }
-    }
-    __SYNTORTION_BRIDGE__?: {
-      onParameterChange?: (parameterId: string, value: number) => void
-      onSpectrumFrame?: (magnitudes: number[]) => void
-      onMeterFrame?: (payload: MeterFrame) => void
-    }
   }
 }
 
-/** Real WebView bridge supporting JUCE 8 native integration & fallback protocols. */
+/** Real WebView bridge using JUCE 8 native WebBrowserComponent events. */
 export const webViewDspBridge: DspBridge = {
-  setParameter(parameterId: string, value: ParameterValue) {
-    const payload = { parameterId, value }
-    const jsonString = JSON.stringify(payload)
-
+  setParameter(id: string, value: ParameterValue) {
     if (window.__JUCE__?.backend?.emitEvent) {
-      // JUCE 8 native WebView event emission
-      window.__JUCE__.backend.emitEvent('setParameter', payload)
-    } else if (window.webkit?.messageHandlers?.messageHandler) {
-      // WebKit native handler
-      window.webkit.messageHandlers.messageHandler.postMessage(jsonString)
-    } else if (typeof window !== 'undefined' && window.postMessage) {
-      // General postMessage fallback
-      window.postMessage(jsonString, '*')
+      window.__JUCE__.backend.emitEvent('setParameter', { id, value })
     } else {
-      console.warn('[Synthortion] WebView bridge not available')
+      console.warn('[Synthortion] JUCE backend not available')
     }
   },
 }
 
 /**
  * Register listener for incoming C++ DSP parameter changes (automation, presets, initial hydration).
+ * Also performs the initial connection handshake by emitting `connect`.
  */
 export function subscribeToDspChanges(
   onUpdate: (patch: Partial<PluginState>) => void
 ): () => void {
-  const handleParamChange = (parameterId: string, value: number) => {
-    const res = fromAPVTS(parameterId, value)
+  const handleParamChange = (id: string, value: number) => {
+    parameterStore.updateParameter(id, value)
+    const res = fromAPVTS(id, value)
     if (res) {
-      onUpdate({ [res.uiKey]: res.value })
+      const patch: Partial<PluginState> = {}
+      Object.assign(patch, { [res.uiKey]: res.value })
+      onUpdate(patch)
     }
   }
 
-  // 1. Register JUCE 8 event listener if available
-  let juceCleanup: (() => void) | undefined
+  let juceCleanupParam: (() => void) | undefined
+  let juceCleanupInit: (() => void) | undefined
+  let juceCleanupPrefs: (() => void) | undefined
+
   if (window.__JUCE__?.backend?.addEventListener) {
-    juceCleanup = window.__JUCE__.backend.addEventListener('parameterChange', (data) => {
-      if (data && typeof data === 'object' && 'parameterId' in data && 'value' in data) {
-        const parameterId = data.parameterId
-        const value = data.value
-        if (typeof parameterId === 'string' && typeof value === 'number') {
-          handleParamChange(parameterId, value)
+    // 1. Listen for parameterChange events
+    juceCleanupParam = window.__JUCE__.backend.addEventListener('parameterChange', (data) => {
+      if (data && typeof data === 'object') {
+        const id = 'id' in data && typeof data.id === 'string' ? data.id : undefined
+        const value = 'value' in data && typeof data.value === 'number' ? data.value : undefined
+        if (id !== undefined && value !== undefined) {
+          handleParamChange(id, value)
         }
       }
     })
-  } else {
-    // 2. Register global function callback fallback
-    if (!window.__SYNTORTION_BRIDGE__) {
-      window.__SYNTORTION_BRIDGE__ = {}
-    }
-    window.__SYNTORTION_BRIDGE__.onParameterChange = handleParamChange
+
+    // 2. Listen for init handshake event
+    juceCleanupInit = window.__JUCE__.backend.addEventListener('init', (data) => {
+      if (data && typeof data === 'object') {
+        const payload = data as InitPayload
+        parameterStore.hydrate(payload)
+        if ('parameters' in data && Array.isArray(data.parameters)) {
+          const patch: Partial<PluginState> = {}
+          for (const param of data.parameters) {
+            if (param && typeof param === 'object' && 'id' in param && typeof param.id === 'string') {
+              const normVal = 'normalizedValue' in param && typeof param.normalizedValue === 'number'
+                ? param.normalizedValue
+                : 0
+              const res = fromAPVTS(param.id, normVal)
+              if (res) {
+                Object.assign(patch, { [res.uiKey]: res.value })
+              }
+            }
+          }
+          if (Object.keys(patch).length > 0) {
+            onUpdate(patch)
+          }
+        }
+      }
+    })
+
+    // 3. Listen for runtime UI preference changes
+    juceCleanupPrefs = window.__JUCE__.backend.addEventListener('uiPreferencesChange', (data) => {
+      if (data && typeof data === 'object') {
+        parameterStore.setUIPreferences(data as Partial<UIPreferences>)
+      }
+    })
   }
-  // Notify backend of connection
+
+  // 4. Dispatch connection event to C++ backend
   if (window.__JUCE__?.backend?.emitEvent) {
     window.__JUCE__.backend.emitEvent('connect', {})
   }
 
   return () => {
-    if (juceCleanup) juceCleanup()
-    if (window.__SYNTORTION_BRIDGE__) {
-      delete window.__SYNTORTION_BRIDGE__.onParameterChange
-      if (!window.__SYNTORTION_BRIDGE__.onSpectrumFrame) {
-        delete window.__SYNTORTION_BRIDGE__
-      }
-    }
+    if (juceCleanupParam) juceCleanupParam()
+    if (juceCleanupInit) juceCleanupInit()
+    if (juceCleanupPrefs) juceCleanupPrefs()
   }
 }
 
 /** Callback type for real-time 80-band spectrum analyzer frames. */
 export type SpectrumFrameCallback = (magnitudes: number[]) => void
 
-/** Shared helper: JUCE event listener with fallback to __SYNTORTION_BRIDGE__ */
-function bridgeSubscribe(
-  eventId: string,
-  handler: (payload: unknown) => void,
-  setupFallback: () => void,
-  clearFallback: () => void
-): () => void {
-  let juceCleanup: (() => void) | undefined
-  if (window.__JUCE__?.backend?.addEventListener) {
-    juceCleanup = window.__JUCE__.backend.addEventListener(eventId, handler)
-  } else {
-    setupFallback()
-  }
-  return () => {
-    if (juceCleanup) juceCleanup()
-    clearFallback()
-  }
-}
-
 /** Real-time peak levels for input and output rails. */
 export interface MeterFrame {
-  /** Normalized peak [0.0, 4.0] for input stage ( >1.0 = clip). */
   input: number
-  /** Normalized peak [0.0, 4.0] for output stage. */
   output: number
 }
 
@@ -133,41 +125,29 @@ export type MeterFrameCallback = (frame: MeterFrame) => void
 
 /**
  * Register listener for incoming 60 FPS C++ DSP meter frames (`meterFrame` event).
- * Designed for canvas/animation-frame subscribers to bypass React re-rendering.
- *
- * @param onFrame Callback receiving MeterFrame with input/output peaks [0.0, 4.0] ( >1.0 clip).
- * @returns Cleanup function to unsubscribe.
  */
 export function subscribeToDspMeters(onFrame: MeterFrameCallback): () => void {
   const handler = (data: unknown) => {
     if (data && typeof data === 'object' && 'input' in data && 'output' in data) {
-      const candidate = data as unknown as { input: unknown; output: unknown }
-      if (typeof candidate.input === 'number' && typeof candidate.output === 'number') {
-        onFrame({ input: candidate.input, output: candidate.output })
+      const input = data.input
+      const output = data.output
+      if (typeof input === 'number' && typeof output === 'number') {
+        onFrame({ input, output })
       }
     }
   }
-  return bridgeSubscribe(
-    'meterFrame',
-    handler,
-    () => {
-      if (!window.__SYNTORTION_BRIDGE__) window.__SYNTORTION_BRIDGE__ = {}
-      window.__SYNTORTION_BRIDGE__.onMeterFrame = (payload: MeterFrame) => handler(payload)
-    },
-    () => {
-      if (window.__SYNTORTION_BRIDGE__?.onMeterFrame) delete window.__SYNTORTION_BRIDGE__.onMeterFrame
-    }
-  )
+
+  let cleanup: (() => void) | undefined
+  if (window.__JUCE__?.backend?.addEventListener) {
+    cleanup = window.__JUCE__.backend.addEventListener('meterFrame', handler)
+  }
+  return () => {
+    if (cleanup) cleanup()
+  }
 }
-
-
 
 /**
  * Register listener for incoming 60 FPS C++ DSP spectrum frames (`spectrumFrame` event).
- * Designed for canvas/animation-frame subscribers to bypass React re-rendering.
- *
- * @param onFrame Callback receiving an array of 80 normalized magnitudes [0.0, 1.0].
- * @returns Cleanup function to unsubscribe and release bridge bindings.
  */
 export function subscribeToDspSpectrum(onFrame: SpectrumFrameCallback): () => void {
   const handler = (data: unknown) => {
@@ -180,18 +160,37 @@ export function subscribeToDspSpectrum(onFrame: SpectrumFrameCallback): () => vo
       }
     }
   }
-  return bridgeSubscribe(
-    'spectrumFrame',
-    handler,
-    () => {
-      if (!window.__SYNTORTION_BRIDGE__) window.__SYNTORTION_BRIDGE__ = {}
-      window.__SYNTORTION_BRIDGE__.onSpectrumFrame = (magnitudes: number[]) => handler(magnitudes)
-    },
-    () => {
-      if (window.__SYNTORTION_BRIDGE__?.onSpectrumFrame) {
-        delete window.__SYNTORTION_BRIDGE__.onSpectrumFrame
-        if (!window.__SYNTORTION_BRIDGE__.onParameterChange) delete (window as unknown as Record<string, unknown>).__SYNTORTION_BRIDGE__
-      }
+
+  let cleanup: (() => void) | undefined
+  if (window.__JUCE__?.backend?.addEventListener) {
+    cleanup = window.__JUCE__.backend.addEventListener('spectrumFrame', handler)
+  }
+  return () => {
+    if (cleanup) cleanup()
+  }
+}
+
+/**
+ * Register listener for runtime UI preferences changes (`uiPreferencesChange` event).
+ */
+export function subscribeToUIPreferences(
+  onPreferences: (prefs: UIPreferences) => void
+): () => void {
+  const handler = (data: unknown) => {
+    if (data && typeof data === 'object') {
+      const prefs = data as Partial<UIPreferences>
+      parameterStore.setUIPreferences(prefs)
+      onPreferences(parameterStore.getUIPreferences())
     }
-  )
+  }
+
+  let cleanup: (() => void) | undefined
+  if (window.__JUCE__?.backend?.addEventListener) {
+    cleanup = window.__JUCE__.backend.addEventListener('uiPreferencesChange', handler)
+  }
+  const unsubStore = parameterStore.subscribePreferences(onPreferences)
+  return () => {
+    if (cleanup) cleanup()
+    unsubStore()
+  }
 }

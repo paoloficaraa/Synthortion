@@ -7,12 +7,6 @@ WarmDistortion::WarmDistortion()
     reset();
 }
 
-void WarmDistortion::setSampleRate(double newSampleRate)
-{
-    sampleRate = newSampleRate;
-    if (oversampler)
-        oversampler->reset();
-}
 
 void WarmDistortion::reset() noexcept
 {
@@ -78,16 +72,6 @@ void WarmDistortion::prepare(const juce::dsp::ProcessSpec &spec)
     reset();
 }
 
-void WarmDistortion::setDrive(float newDrive)
-{
-    driveAmount = juce::jlimit(kMinDrive, kMaxDrive, newDrive);
-
-    if (volumeCompensationEnabled)
-    {
-        const float compensation = calculateVolumeCompensation(driveAmount);
-        compensationGain.setTargetValue(compensation);
-    }
-}
 
 float WarmDistortion::getOversampledSampleRate() const
 {
@@ -104,19 +88,19 @@ void WarmDistortion::process(juce::AudioBuffer<float>& buffer, const WarmDistort
     const int numOriginalSamples = buffer.getNumSamples();
     if (numOriginalSamples == 0 || buffer.getNumChannels() == 0)
         return;
+    
+    const int safeSamples = juce::jmin(numOriginalSamples, static_cast<int>(blockDriveValues.size()));
+    if (safeSamples == 0)
+        return;
 
     volumeCompensationEnabled = params.volumeCompensation;
     smoothedDrive.setTargetValue(juce::jlimit(kMinDrive, kMaxDrive, params.drive));
-
-    if (static_cast<size_t>(numOriginalSamples) > blockDriveValues.size())
-        blockDriveValues.resize(static_cast<size_t>(numOriginalSamples));
-
     const bool isSmoothingDrive = smoothedDrive.isSmoothing();
-    for (int i = 0; i < numOriginalSamples; ++i)
+    for (int i = 0; i < safeSamples; ++i)
     {
         blockDriveValues[static_cast<size_t>(i)] = juce::jlimit(kMinDrive, kMaxDrive, smoothedDrive.getNextValue());
     }
-    driveAmount = blockDriveValues[static_cast<size_t>(numOriginalSamples - 1)];
+    driveAmount = blockDriveValues[static_cast<size_t>(safeSamples - 1)];
 
     if (driveAmount < kMinDriveThreshold && !isSmoothingDrive)
         return;
@@ -164,7 +148,7 @@ void WarmDistortion::process(juce::AudioBuffer<float>& buffer, const WarmDistort
     {
         float* channelData = block.getChannelPointer(channel);
 
-        for (size_t i = 0; i < static_cast<size_t>(numOriginalSamples); ++i)
+        for (size_t i = 0; i < static_cast<size_t>(safeSamples); ++i)
         {
             float currentDrive = isSmoothingDrive ? blockDriveValues[i] : driveAmount;
             currentDrive = juce::jlimit(kMinDrive, kMaxDrive, currentDrive);
@@ -185,7 +169,7 @@ void WarmDistortion::process(juce::AudioBuffer<float>& buffer, const WarmDistort
 
         if (compensationGain.isSmoothing())
         {
-            for (int i = 0; i < numOriginalSamples; ++i)
+            for (int i = 0; i < safeSamples; ++i)
             {
                 const float gain = compensationGain.getNextValue();
                 for (size_t channel = 0; channel < block.getNumChannels(); ++channel)
@@ -202,13 +186,21 @@ void WarmDistortion::process(juce::AudioBuffer<float>& buffer, const WarmDistort
                 juce::FloatVectorOperations::multiply(
                     block.getChannelPointer(channel),
                     gain,
-                    numOriginalSamples);
+                    safeSamples);
             }
         }
     }
     else
     {
-        compensationGain.skip(numOriginalSamples);
+        compensationGain.skip(safeSamples);
+    }
+    
+    // Discard any remaining samples if buffer was larger
+    if (numOriginalSamples > safeSamples)
+    {
+        const int extra = numOriginalSamples - safeSamples;
+        smoothedDrive.skip(extra);
+        if (!volumeCompensationEnabled) compensationGain.skip(extra);
     }
 }
 
@@ -221,13 +213,7 @@ float WarmDistortion::applySaturation(float input, float drive, int channel)
 
     const float output = tapeSaturation(inputWithHysteresis, drive);
 
-    hysteresisState[safeChannel] = output * kHysteresisInputScale + 
-                                   hysteresisState[safeChannel] * kHysteresisFeedback;
-
-    if (std::abs(input) < 1.0e-6f)
-        hysteresisState[safeChannel] *= 0.9f;
-    else
-        hysteresisState[safeChannel] *= 0.999f; // Subtle decay to prevent DC buildup
+    hysteresisState[safeChannel] = output * kHysteresisFeedback + input * kHysteresisInputScale;
 
     return output;
 }

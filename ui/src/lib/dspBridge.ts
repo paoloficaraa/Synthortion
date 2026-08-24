@@ -1,8 +1,26 @@
+import { UI_KEY_TO_APVTS_ID } from './parameterStore'
+
+export type {
+  ParameterType,
+  BaseParameterDescriptor,
+  FloatParameterDescriptor,
+  BoolParameterDescriptor,
+  ChoiceParameterDescriptor,
+  ParameterDescriptor,
+  UIPreferences,
+  InitPayload,
+  SetParameterPayload,
+  ParameterChangePayload,
+  MeterFramePayload,
+  SpectrumFramePayload,
+} from './parameterStore'
+
 /** Value types the C++ bridge understands. */
 export type ParameterValue = number | string | boolean
 
 /** A single parameter mutation pushed across the bridge. */
 export interface DspCall {
+  id?: string
   parameterId: string
   value: ParameterValue
 }
@@ -11,28 +29,11 @@ export interface DspCall {
  * Integration seam between the React UI and the JUCE C++ DSP backend.
  */
 export interface DspBridge {
-  setParameter(parameterId: string, value: ParameterValue): void
+  setParameter(id: string, value: ParameterValue): void
 }
 
 /** Canonical APVTS parameter IDs (must match C++ ParameterID strings). */
-export const PARAMETER_IDS = {
-  inputGain: 'INPUT_GAIN',
-  outputGain: 'OUTPUT_GAIN',
-  drive: 'COLOR',
-  bitcrush: 'BITCRUSH',
-  delayTime: 'DELAY_TIME',
-  delayMix: 'DELAY_MIX',
-  delayFbk: 'DELAY_FEEDBACK',
-  chorus: 'CHORUS_MIX',
-  engineActive: 'PLUGIN_BYPASS',
-  driveOn: 'DRIVE_ON',
-  bitcrushOn: 'BITCRUSH_ON',
-  delayOn: 'DELAY_ON',
-  chorusOn: 'CHORUS_ON',
-  driveRoute: 'DRIVE_ROUTE',
-  delaySync: 'DELAY_SYNC',
-  chorusWide: 'CHORUS_WIDE',
-} as const
+export const PARAMETER_IDS = UI_KEY_TO_APVTS_ID
 
 /** UI keys that are sent to the DSP bridge. */
 export const BRIDGED_UI_KEYS = new Set(Object.keys(PARAMETER_IDS))
@@ -47,8 +48,8 @@ export function createMockDspBridge(): MockDspBridge {
   const calls: DspCall[] = []
   return {
     calls,
-    setParameter(parameterId, value) {
-      calls.push({ parameterId, value })
+    setParameter(id, value) {
+      calls.push({ parameterId: id, value })
     },
   }
 }

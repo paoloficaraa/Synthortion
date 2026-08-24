@@ -1,0 +1,1551 @@
+diff --git a/ui/src/App.tsx b/ui/src/App.tsx
+index a5de168..d81ccb3 100644
+--- a/ui/src/App.tsx
++++ b/ui/src/App.tsx
+@@ -7,7 +7,7 @@ import { MatrixFaceplate } from './components/MatrixFaceplate'
+ import { SpectrumVisualizer } from './components/SpectrumVisualizer'
+ import { initialState, diffPluginState, type PluginState } from './lib/pluginState'
+ import { noopDspBridge, type DspBridge, PARAMETER_IDS } from './lib/dspBridge'
+-import { toAPVTS } from './lib/parameterSpecs'
++import { toAPVTS } from './lib/parameterStore'
+ import { subscribeToDspChanges } from './lib/webViewDspBridge'
+ import { createGlitchPulser } from './lib/glitchPulser'
+ 
+diff --git a/ui/src/lib/dspBridge.ts b/ui/src/lib/dspBridge.ts
+index 54e196d..9a79e3c 100644
+--- a/ui/src/lib/dspBridge.ts
++++ b/ui/src/lib/dspBridge.ts
+@@ -1,8 +1,26 @@
++import { UI_KEY_TO_APVTS_ID } from './parameterStore'
++
++export type {
++  ParameterType,
++  BaseParameterDescriptor,
++  FloatParameterDescriptor,
++  BoolParameterDescriptor,
++  ChoiceParameterDescriptor,
++  ParameterDescriptor,
++  UIPreferences,
++  InitPayload,
++  SetParameterPayload,
++  ParameterChangePayload,
++  MeterFramePayload,
++  SpectrumFramePayload,
++} from './parameterStore'
++
+ /** Value types the C++ bridge understands. */
+ export type ParameterValue = number | string | boolean
+ 
+ /** A single parameter mutation pushed across the bridge. */
+ export interface DspCall {
++  id?: string
+   parameterId: string
+   value: ParameterValue
+ }
+@@ -11,28 +29,11 @@ export interface DspCall {
+  * Integration seam between the React UI and the JUCE C++ DSP backend.
+  */
+ export interface DspBridge {
+-  setParameter(parameterId: string, value: ParameterValue): void
++  setParameter(id: string, value: ParameterValue): void
+ }
+ 
+ /** Canonical APVTS parameter IDs (must match C++ ParameterID strings). */
+-export const PARAMETER_IDS = {
+-  inputGain: 'INPUT_GAIN',
+-  outputGain: 'OUTPUT_GAIN',
+-  drive: 'COLOR',
+-  bitcrush: 'BITCRUSH',
+-  delayTime: 'DELAY_TIME',
+-  delayMix: 'DELAY_MIX',
+-  delayFbk: 'DELAY_FEEDBACK',
+-  chorus: 'CHORUS_MIX',
+-  engineActive: 'PLUGIN_BYPASS',
+-  driveOn: 'DRIVE_ON',
+-  bitcrushOn: 'BITCRUSH_ON',
+-  delayOn: 'DELAY_ON',
+-  chorusOn: 'CHORUS_ON',
+-  driveRoute: 'DRIVE_ROUTE',
+-  delaySync: 'DELAY_SYNC',
+-  chorusWide: 'CHORUS_WIDE',
+-} as const
++export const PARAMETER_IDS = UI_KEY_TO_APVTS_ID
+ 
+ /** UI keys that are sent to the DSP bridge. */
+ export const BRIDGED_UI_KEYS = new Set(Object.keys(PARAMETER_IDS))
+@@ -47,8 +48,8 @@ export function createMockDspBridge(): MockDspBridge {
+   const calls: DspCall[] = []
+   return {
+     calls,
+-    setParameter(parameterId, value) {
+-      calls.push({ parameterId, value })
++    setParameter(id, value) {
++      calls.push({ parameterId: id, value })
+     },
+   }
+ }
+diff --git a/ui/src/lib/parameterSpecs.ts b/ui/src/lib/parameterSpecs.ts
+deleted file mode 100644
+index 590e650..0000000
+--- a/ui/src/lib/parameterSpecs.ts
++++ /dev/null
+@@ -1,98 +0,0 @@
+-import type { PluginState } from './pluginState'
+-
+-export interface ParameterSpec {
+-  apvtsId: string
+-  uiKey: keyof PluginState
+-  min: number
+-  max: number
+-  unit: string
+-  invert?: boolean
+-}
+-
+-export const PARAMETER_SPECS: Record<string, ParameterSpec> = {
+-  INPUT_GAIN: { apvtsId: 'INPUT_GAIN', uiKey: 'inputGain', min: -60, max: 12, unit: 'dB' },
+-  OUTPUT_GAIN: { apvtsId: 'OUTPUT_GAIN', uiKey: 'outputGain', min: -60, max: 12, unit: 'dB' },
+-  COLOR: { apvtsId: 'COLOR', uiKey: 'drive', min: 0, max: 100, unit: '%' },
+-  BITCRUSH: { apvtsId: 'BITCRUSH', uiKey: 'bitcrush', min: 0, max: 100, unit: '%' },
+-  DELAY_TIME: { apvtsId: 'DELAY_TIME', uiKey: 'delayTime', min: 1, max: 2000, unit: 'ms' },
+-  DELAY_MIX: { apvtsId: 'DELAY_MIX', uiKey: 'delayMix', min: 0, max: 100, unit: '%' },
+-  DELAY_FEEDBACK: { apvtsId: 'DELAY_FEEDBACK', uiKey: 'delayFbk', min: 0, max: 95, unit: '%' },
+-  CHORUS_MIX: { apvtsId: 'CHORUS_MIX', uiKey: 'chorus', min: 0, max: 100, unit: '%' },
+-  PLUGIN_BYPASS: { apvtsId: 'PLUGIN_BYPASS', uiKey: 'engineActive', min: 0, max: 1, unit: 'bool', invert: true },
+-  DRIVE_ON: { apvtsId: 'DRIVE_ON', uiKey: 'driveOn', min: 0, max: 1, unit: 'bool' },
+-  BITCRUSH_ON: { apvtsId: 'BITCRUSH_ON', uiKey: 'bitcrushOn', min: 0, max: 1, unit: 'bool' },
+-  DELAY_ON: { apvtsId: 'DELAY_ON', uiKey: 'delayOn', min: 0, max: 1, unit: 'bool' },
+-  CHORUS_ON: { apvtsId: 'CHORUS_ON', uiKey: 'chorusOn', min: 0, max: 1, unit: 'bool' },
+-  DRIVE_ROUTE: { apvtsId: 'DRIVE_ROUTE', uiKey: 'driveRoute', min: 0, max: 1, unit: 'enum' },
+-  DELAY_SYNC: { apvtsId: 'DELAY_SYNC', uiKey: 'delaySync', min: 0, max: 2, unit: 'enum' },
+-  CHORUS_WIDE: { apvtsId: 'CHORUS_WIDE', uiKey: 'chorusWide', min: 0, max: 1, unit: 'bool' },
+-}
+-
+-/** Maps UI key -> ParameterSpec */
+-export const UI_KEY_TO_SPEC: Record<keyof PluginState, ParameterSpec> = Object.values(
+-  PARAMETER_SPECS
+-).reduce(
+-  (acc, spec) => {
+-    acc[spec.uiKey] = spec
+-    return acc
+-  },
+-  {} as Record<keyof PluginState, ParameterSpec>
+-)
+-
+-/** Convert UI value to normalized APVTS float (0..1) */
+-export function toAPVTS(uiKey: keyof PluginState, uiValue: unknown): number {
+-  const spec = UI_KEY_TO_SPEC[uiKey]
+-  if (!spec) return typeof uiValue === 'number' ? uiValue : 0
+-
+-  if (spec.unit === 'bool') {
+-    const boolVal = Boolean(uiValue)
+-    if (spec.invert) return boolVal ? 0.0 : 1.0
+-    return boolVal ? 1.0 : 0.0
+-  }
+-
+-  if (spec.uiKey === 'driveRoute') {
+-    return uiValue === 'POST' ? 1.0 : 0.0
+-  }
+-
+-  if (spec.uiKey === 'delaySync') {
+-    if (uiValue === 'FREE') return 0.5
+-    if (uiValue === 'PING-PONG') return 1.0
+-    return 0.0 // SYNC
+-  }
+-
+-  if (typeof uiValue === 'number') {
+-    const clamped = Math.max(spec.min, Math.min(spec.max, uiValue))
+-    return (clamped - spec.min) / (spec.max - spec.min)
+-  }
+-
+-  return 0
+-}
+-
+-/** Convert normalized APVTS float (0..1) to UI value */
+-export function fromAPVTS(
+-  apvtsId: string,
+-  normalizedValue: number
+-): { uiKey: keyof PluginState; value: unknown } | null {
+-  const spec = PARAMETER_SPECS[apvtsId]
+-  if (!spec) return null
+-
+-  if (spec.unit === 'bool') {
+-    const boolVal = normalizedValue > 0.5
+-    const finalBool = spec.invert ? !boolVal : boolVal
+-    return { uiKey: spec.uiKey, value: finalBool }
+-  }
+-
+-  if (spec.uiKey === 'driveRoute') {
+-    return { uiKey: spec.uiKey, value: normalizedValue > 0.5 ? 'POST' : 'PRE' }
+-  }
+-
+-  if (spec.uiKey === 'delaySync') {
+-    if (normalizedValue >= 0.75) return { uiKey: spec.uiKey, value: 'PING-PONG' }
+-    if (normalizedValue >= 0.25) return { uiKey: spec.uiKey, value: 'FREE' }
+-    return { uiKey: spec.uiKey, value: 'SYNC' }
+-  }
+-
+-  const raw = spec.min + normalizedValue * (spec.max - spec.min)
+-  const clamped = Math.max(spec.min, Math.min(spec.max, raw))
+-  return { uiKey: spec.uiKey, value: clamped }
+-}
+diff --git a/ui/src/lib/parameterStore.ts b/ui/src/lib/parameterStore.ts
+new file mode 100644
+index 0000000..70fadba
+--- /dev/null
++++ b/ui/src/lib/parameterStore.ts
+@@ -0,0 +1,508 @@
++import type { PluginState } from './pluginState'
++
++export type ParameterType = 'float' | 'bool' | 'choice'
++
++export interface BaseParameterDescriptor {
++  id: string
++  name: string
++  type: ParameterType
++  normalizedDefault: number
++  normalizedValue: number
++}
++
++export interface FloatParameterDescriptor extends BaseParameterDescriptor {
++  type: 'float'
++  min: number
++  max: number
++  defaultValue: number
++  currentValue: number
++  skew: number
++  step: number
++  unit: string
++}
++
++export interface BoolParameterDescriptor extends BaseParameterDescriptor {
++  type: 'bool'
++  defaultValue: boolean
++  currentValue: boolean
++  labelOn?: string
++  labelOff?: string
++}
++
++export interface ChoiceParameterDescriptor extends BaseParameterDescriptor {
++  type: 'choice'
++  choices: string[]
++  defaultIndex: number
++  currentIndex: number
++}
++
++export type ParameterDescriptor =
++  | FloatParameterDescriptor
++  | BoolParameterDescriptor
++  | ChoiceParameterDescriptor
++
++export interface UIPreferences {
++  uiScale?: number
++  spectrumDecay?: number
++  skipBootSequence?: boolean
++}
++
++export interface InitPayload {
++  schemaVersion: 1
++  parameters: ParameterDescriptor[]
++  uiPreferences?: UIPreferences
++}
++
++export interface SetParameterPayload {
++  id: string
++  value: number // Normalized [0.0, 1.0]
++}
++
++export interface ParameterChangePayload {
++  id: string
++  value: number // Normalized [0.0, 1.0]
++}
++
++export interface MeterFramePayload {
++  input: number
++  output: number
++}
++
++export type SpectrumFramePayload = number[]
++
++export const DEFAULT_PARAMETER_DESCRIPTORS: Record<string, ParameterDescriptor> = {
++  INPUT_GAIN: {
++    id: 'INPUT_GAIN',
++    name: 'Input Gain',
++    type: 'float',
++    min: -60,
++    max: 12,
++    defaultValue: 0,
++    currentValue: 0,
++    skew: 1,
++    step: 0.1,
++    unit: 'dB',
++    normalizedDefault: (0 - -60) / (12 - -60),
++    normalizedValue: (0 - -60) / (12 - -60),
++  },
++  OUTPUT_GAIN: {
++    id: 'OUTPUT_GAIN',
++    name: 'Output Gain',
++    type: 'float',
++    min: -60,
++    max: 12,
++    defaultValue: 0,
++    currentValue: 0,
++    skew: 1,
++    step: 0.1,
++    unit: 'dB',
++    normalizedDefault: (0 - -60) / (12 - -60),
++    normalizedValue: (0 - -60) / (12 - -60),
++  },
++  COLOR: {
++    id: 'COLOR',
++    name: 'Drive',
++    type: 'float',
++    min: 0,
++    max: 100,
++    defaultValue: 40,
++    currentValue: 40,
++    skew: 1,
++    step: 1,
++    unit: '%',
++    normalizedDefault: 0.4,
++    normalizedValue: 0.4,
++  },
++  BITCRUSH: {
++    id: 'BITCRUSH',
++    name: 'Bitcrush',
++    type: 'float',
++    min: 0,
++    max: 100,
++    defaultValue: 12,
++    currentValue: 12,
++    skew: 1,
++    step: 1,
++    unit: '%',
++    normalizedDefault: 0.12,
++    normalizedValue: 0.12,
++  },
++  DELAY_TIME: {
++    id: 'DELAY_TIME',
++    name: 'Delay Time',
++    type: 'float',
++    min: 1,
++    max: 2000,
++    defaultValue: 250,
++    currentValue: 250,
++    skew: 1,
++    step: 1,
++    unit: 'ms',
++    normalizedDefault: (250 - 1) / (2000 - 1),
++    normalizedValue: (250 - 1) / (2000 - 1),
++  },
++  DELAY_MIX: {
++    id: 'DELAY_MIX',
++    name: 'Delay Mix',
++    type: 'float',
++    min: 0,
++    max: 100,
++    defaultValue: 30,
++    currentValue: 30,
++    skew: 1,
++    step: 1,
++    unit: '%',
++    normalizedDefault: 0.3,
++    normalizedValue: 0.3,
++  },
++  DELAY_FEEDBACK: {
++    id: 'DELAY_FEEDBACK',
++    name: 'Delay Feedback',
++    type: 'float',
++    min: 0,
++    max: 95,
++    defaultValue: 50,
++    currentValue: 50,
++    skew: 1,
++    step: 1,
++    unit: '%',
++    normalizedDefault: 50 / 95,
++    normalizedValue: 50 / 95,
++  },
++  CHORUS_MIX: {
++    id: 'CHORUS_MIX',
++    name: 'Chorus Mix',
++    type: 'float',
++    min: 0,
++    max: 100,
++    defaultValue: 75,
++    currentValue: 75,
++    skew: 1,
++    step: 1,
++    unit: '%',
++    normalizedDefault: 0.75,
++    normalizedValue: 0.75,
++  },
++  PLUGIN_BYPASS: {
++    id: 'PLUGIN_BYPASS',
++    name: 'Bypass',
++    type: 'bool',
++    defaultValue: false,
++    currentValue: false,
++    normalizedDefault: 0.0,
++    normalizedValue: 0.0,
++  },
++  DRIVE_ON: {
++    id: 'DRIVE_ON',
++    name: 'Drive Power',
++    type: 'bool',
++    defaultValue: true,
++    currentValue: true,
++    normalizedDefault: 1.0,
++    normalizedValue: 1.0,
++  },
++  BITCRUSH_ON: {
++    id: 'BITCRUSH_ON',
++    name: 'Bitcrush Power',
++    type: 'bool',
++    defaultValue: true,
++    currentValue: true,
++    normalizedDefault: 1.0,
++    normalizedValue: 1.0,
++  },
++  DELAY_ON: {
++    id: 'DELAY_ON',
++    name: 'Delay Power',
++    type: 'bool',
++    defaultValue: true,
++    currentValue: true,
++    normalizedDefault: 1.0,
++    normalizedValue: 1.0,
++  },
++  CHORUS_ON: {
++    id: 'CHORUS_ON',
++    name: 'Chorus Power',
++    type: 'bool',
++    defaultValue: true,
++    currentValue: true,
++    normalizedDefault: 1.0,
++    normalizedValue: 1.0,
++  },
++  DRIVE_ROUTE: {
++    id: 'DRIVE_ROUTE',
++    name: 'Drive Route',
++    type: 'choice',
++    choices: ['PRE', 'POST'],
++    defaultIndex: 0,
++    currentIndex: 0,
++    normalizedDefault: 0.0,
++    normalizedValue: 0.0,
++  },
++  DELAY_SYNC: {
++    id: 'DELAY_SYNC',
++    name: 'Delay Sync',
++    type: 'choice',
++    choices: ['SYNC', 'FREE', 'PING-PONG'],
++    defaultIndex: 0,
++    currentIndex: 0,
++    normalizedDefault: 0.0,
++    normalizedValue: 0.0,
++  },
++  CHORUS_WIDE: {
++    id: 'CHORUS_WIDE',
++    name: 'Chorus Wide',
++    type: 'bool',
++    defaultValue: false,
++    currentValue: false,
++    normalizedDefault: 0.0,
++    normalizedValue: 0.0,
++  },
++}
++
++export const APVTS_ID_TO_UI_KEY: Record<string, keyof PluginState> = {
++  INPUT_GAIN: 'inputGain',
++  OUTPUT_GAIN: 'outputGain',
++  COLOR: 'drive',
++  BITCRUSH: 'bitcrush',
++  DELAY_TIME: 'delayTime',
++  DELAY_MIX: 'delayMix',
++  DELAY_FEEDBACK: 'delayFbk',
++  CHORUS_MIX: 'chorus',
++  PLUGIN_BYPASS: 'engineActive',
++  DRIVE_ON: 'driveOn',
++  BITCRUSH_ON: 'bitcrushOn',
++  DELAY_ON: 'delayOn',
++  CHORUS_ON: 'chorusOn',
++  DRIVE_ROUTE: 'driveRoute',
++  DELAY_SYNC: 'delaySync',
++  CHORUS_WIDE: 'chorusWide',
++}
++
++export const UI_KEY_TO_APVTS_ID: Record<keyof PluginState, string> = {
++  inputGain: 'INPUT_GAIN',
++  outputGain: 'OUTPUT_GAIN',
++  drive: 'COLOR',
++  bitcrush: 'BITCRUSH',
++  delayTime: 'DELAY_TIME',
++  delayMix: 'DELAY_MIX',
++  delayFbk: 'DELAY_FEEDBACK',
++  chorus: 'CHORUS_MIX',
++  engineActive: 'PLUGIN_BYPASS',
++  driveOn: 'DRIVE_ON',
++  bitcrushOn: 'BITCRUSH_ON',
++  delayOn: 'DELAY_ON',
++  chorusOn: 'CHORUS_ON',
++  driveRoute: 'DRIVE_ROUTE',
++  delaySync: 'DELAY_SYNC',
++  chorusWide: 'CHORUS_WIDE',
++}
++
++export function normalizeValue(descriptor: ParameterDescriptor, uiValue: unknown): number {
++  if (descriptor.type === 'bool') {
++    const boolVal = Boolean(uiValue)
++    if (descriptor.id === 'PLUGIN_BYPASS') {
++      return boolVal ? 0.0 : 1.0 // UI engineActive true = APVTS bypass false (0.0)
++    }
++    return boolVal ? 1.0 : 0.0
++  }
++
++  if (descriptor.type === 'choice') {
++    const choices = descriptor.choices
++    if (!choices || choices.length <= 1) return 0.0
++    let index = choices.indexOf(String(uiValue))
++    if (index === -1) {
++      if (typeof uiValue === 'number') {
++        index = Math.max(0, Math.min(choices.length - 1, Math.round(uiValue)))
++      } else {
++        index = 0
++      }
++    }
++    return index / (choices.length - 1)
++  }
++
++  if (descriptor.type === 'float') {
++    if (typeof uiValue !== 'number' || isNaN(uiValue)) return descriptor.normalizedDefault ?? 0.0
++    const clamped = Math.max(descriptor.min, Math.min(descriptor.max, uiValue))
++    const range = descriptor.max - descriptor.min
++    if (range <= 0) return 0.0
++    let proportion = (clamped - descriptor.min) / range
++    if (descriptor.skew && descriptor.skew > 0 && descriptor.skew !== 1) {
++      proportion = Math.pow(proportion, descriptor.skew)
++    }
++    return Math.max(0.0, Math.min(1.0, proportion))
++  }
++
++  return 0.0
++}
++
++export function denormalizeValue(
++  descriptor: ParameterDescriptor,
++  normalizedValue: number
++): unknown {
++  const norm = Math.max(0.0, Math.min(1.0, isNaN(normalizedValue) ? 0.0 : normalizedValue))
++
++  if (descriptor.type === 'bool') {
++    const boolVal = norm > 0.5
++    if (descriptor.id === 'PLUGIN_BYPASS') {
++      return !boolVal // APVTS bypass false (<=0.5) = UI engineActive true
++    }
++    return boolVal
++  }
++
++  if (descriptor.type === 'choice') {
++    const choices = descriptor.choices
++    if (!choices || choices.length === 0) return ''
++    if (choices.length === 1) return choices[0]
++    const index = Math.min(choices.length - 1, Math.round(norm * (choices.length - 1)))
++    return choices[index]
++  }
++
++  if (descriptor.type === 'float') {
++    let proportion = norm
++    if (descriptor.skew && descriptor.skew > 0 && descriptor.skew !== 1) {
++      proportion = Math.pow(norm, 1.0 / descriptor.skew)
++    }
++    const raw = descriptor.min + proportion * (descriptor.max - descriptor.min)
++    return Math.max(descriptor.min, Math.min(descriptor.max, raw))
++  }
++
++  return 0
++}
++
++export class ParameterStore {
++  private descriptors: Map<string, ParameterDescriptor> = new Map()
++  private uiPreferences: UIPreferences = {
++    uiScale: 1.0,
++    spectrumDecay: 0.25,
++    skipBootSequence: false,
++  }
++  private listeners: Set<() => void> = new Set()
++  private prefListeners: Set<(prefs: UIPreferences) => void> = new Set()
++
++  constructor() {
++    this.reset()
++  }
++
++  reset(): void {
++    this.descriptors.clear()
++    for (const [id, desc] of Object.entries(DEFAULT_PARAMETER_DESCRIPTORS)) {
++      this.descriptors.set(id, { ...desc })
++    }
++    this.uiPreferences = {
++      uiScale: 1.0,
++      spectrumDecay: 0.25,
++      skipBootSequence: false,
++    }
++    this.notify()
++  }
++
++  hydrate(payload: InitPayload | ParameterDescriptor[]): void {
++    if (Array.isArray(payload)) {
++      for (const desc of payload) {
++        if (desc && desc.id) {
++          this.descriptors.set(desc.id, desc)
++        }
++      }
++    } else if (payload && typeof payload === 'object') {
++      if (Array.isArray(payload.parameters)) {
++        for (const desc of payload.parameters) {
++          if (desc && desc.id) {
++            this.descriptors.set(desc.id, desc)
++          }
++        }
++      }
++      if (payload.uiPreferences) {
++        this.setUIPreferences(payload.uiPreferences)
++      }
++    }
++    this.notify()
++  }
++
++  getDescriptor(id: string): ParameterDescriptor | undefined {
++    return this.descriptors.get(id)
++  }
++
++  getAllDescriptors(): ParameterDescriptor[] {
++    return Array.from(this.descriptors.values())
++  }
++
++  updateParameter(id: string, normalizedValue: number): void {
++    const desc = this.descriptors.get(id)
++    if (desc) {
++      desc.normalizedValue = normalizedValue
++      if (desc.type === 'float') {
++        desc.currentValue = denormalizeValue(desc, normalizedValue) as number
++      } else if (desc.type === 'bool') {
++        desc.currentValue = denormalizeValue(desc, normalizedValue) as boolean
++      } else if (desc.type === 'choice') {
++        desc.currentIndex = Math.min(
++          desc.choices.length - 1,
++          Math.round(normalizedValue * (desc.choices.length - 1))
++        )
++      }
++      this.notify()
++    }
++  }
++
++  getUIPreferences(): UIPreferences {
++    return { ...this.uiPreferences }
++  }
++
++  setUIPreferences(prefs: Partial<UIPreferences>): void {
++    this.uiPreferences = { ...this.uiPreferences, ...prefs }
++    this.prefListeners.forEach((cb) => cb(this.getUIPreferences()))
++  }
++
++  subscribe(listener: () => void): () => void {
++    this.listeners.add(listener)
++    return () => {
++      this.listeners.delete(listener)
++    }
++  }
++
++  subscribePreferences(listener: (prefs: UIPreferences) => void): () => void {
++    this.prefListeners.add(listener)
++    return () => {
++      this.prefListeners.delete(listener)
++    }
++  }
++
++  toNormalized(uiKeyOrApvtsId: string, uiValue: unknown): number {
++    const apvtsId = UI_KEY_TO_APVTS_ID[uiKeyOrApvtsId as keyof PluginState] ?? uiKeyOrApvtsId
++    const descriptor = this.getDescriptor(apvtsId)
++    if (descriptor) {
++      return normalizeValue(descriptor, uiValue)
++    }
++    return typeof uiValue === 'number' ? uiValue : 0.0
++  }
++
++  fromNormalized(
++    apvtsId: string,
++    normalizedValue: number
++  ): { uiKey: keyof PluginState; value: unknown } | null {
++    const descriptor = this.getDescriptor(apvtsId)
++    const uiKey = APVTS_ID_TO_UI_KEY[apvtsId]
++    if (!descriptor || !uiKey) {
++      return null
++    }
++    const value = denormalizeValue(descriptor, normalizedValue)
++    return { uiKey, value }
++  }
++
++  private notify(): void {
++    this.listeners.forEach((cb) => cb())
++  }
++}
++
++export const parameterStore = new ParameterStore()
++
++export function toAPVTS(uiKey: keyof PluginState, uiValue: unknown): number {
++  return parameterStore.toNormalized(uiKey, uiValue)
++}
++
++export function fromAPVTS(
++  apvtsId: string,
++  normalizedValue: number
++): { uiKey: keyof PluginState; value: unknown } | null {
++  return parameterStore.fromNormalized(apvtsId, normalizedValue)
++}
+diff --git a/ui/src/lib/webViewDspBridge.ts b/ui/src/lib/webViewDspBridge.ts
+index 38fd99e..58937ce 100644
+--- a/ui/src/lib/webViewDspBridge.ts
++++ b/ui/src/lib/webViewDspBridge.ts
+@@ -1,5 +1,10 @@
+ import type { DspBridge, ParameterValue } from './dspBridge'
+-import { fromAPVTS } from './parameterSpecs'
++import {
++  fromAPVTS,
++  parameterStore,
++  type InitPayload,
++  type UIPreferences,
++} from './parameterStore'
+ import type { PluginState } from './pluginState'
+ 
+ /** Global JUCE WebView interface injected by WebBrowserComponent in JUCE 8. */
+@@ -14,117 +19,104 @@ declare global {
+         ) => () => void
+       }
+     }
+-    webkit?: {
+-      messageHandlers?: {
+-        messageHandler?: {
+-          postMessage: (msg: string) => void
+-        }
+-      }
+-    }
+-    __SYNTORTION_BRIDGE__?: {
+-      onParameterChange?: (parameterId: string, value: number) => void
+-      onSpectrumFrame?: (magnitudes: number[]) => void
+-      onMeterFrame?: (payload: MeterFrame) => void
+-    }
+   }
+ }
+ 
+-/** Real WebView bridge supporting JUCE 8 native integration & fallback protocols. */
++/** Real WebView bridge using JUCE 8 native WebBrowserComponent events. */
+ export const webViewDspBridge: DspBridge = {
+-  setParameter(parameterId: string, value: ParameterValue) {
+-    const payload = { parameterId, value }
+-    const jsonString = JSON.stringify(payload)
+-
++  setParameter(id: string, value: ParameterValue) {
+     if (window.__JUCE__?.backend?.emitEvent) {
+-      // JUCE 8 native WebView event emission
+-      window.__JUCE__.backend.emitEvent('setParameter', payload)
+-    } else if (window.webkit?.messageHandlers?.messageHandler) {
+-      // WebKit native handler
+-      window.webkit.messageHandlers.messageHandler.postMessage(jsonString)
+-    } else if (typeof window !== 'undefined' && window.postMessage) {
+-      // General postMessage fallback
+-      window.postMessage(jsonString, '*')
++      window.__JUCE__.backend.emitEvent('setParameter', { id, value })
+     } else {
+-      console.warn('[Synthortion] WebView bridge not available')
++      console.warn('[Synthortion] JUCE backend not available')
+     }
+   },
+ }
+ 
+ /**
+  * Register listener for incoming C++ DSP parameter changes (automation, presets, initial hydration).
++ * Also performs the initial connection handshake by emitting `connect`.
+  */
+ export function subscribeToDspChanges(
+   onUpdate: (patch: Partial<PluginState>) => void
+ ): () => void {
+-  const handleParamChange = (parameterId: string, value: number) => {
+-    const res = fromAPVTS(parameterId, value)
++  const handleParamChange = (id: string, value: number) => {
++    parameterStore.updateParameter(id, value)
++    const res = fromAPVTS(id, value)
+     if (res) {
+-      onUpdate({ [res.uiKey]: res.value })
++      const patch: Partial<PluginState> = {}
++      Object.assign(patch, { [res.uiKey]: res.value })
++      onUpdate(patch)
+     }
+   }
+ 
+-  // 1. Register JUCE 8 event listener if available
+-  let juceCleanup: (() => void) | undefined
++  let juceCleanupParam: (() => void) | undefined
++  let juceCleanupInit: (() => void) | undefined
++  let juceCleanupPrefs: (() => void) | undefined
++
+   if (window.__JUCE__?.backend?.addEventListener) {
+-    juceCleanup = window.__JUCE__.backend.addEventListener('parameterChange', (data) => {
+-      if (data && typeof data === 'object' && 'parameterId' in data && 'value' in data) {
+-        const parameterId = data.parameterId
+-        const value = data.value
+-        if (typeof parameterId === 'string' && typeof value === 'number') {
+-          handleParamChange(parameterId, value)
++    // 1. Listen for parameterChange events
++    juceCleanupParam = window.__JUCE__.backend.addEventListener('parameterChange', (data) => {
++      if (data && typeof data === 'object') {
++        const id = 'id' in data && typeof data.id === 'string' ? data.id : undefined
++        const value = 'value' in data && typeof data.value === 'number' ? data.value : undefined
++        if (id !== undefined && value !== undefined) {
++          handleParamChange(id, value)
+         }
+       }
+     })
+-  } else {
+-    // 2. Register global function callback fallback
+-    if (!window.__SYNTORTION_BRIDGE__) {
+-      window.__SYNTORTION_BRIDGE__ = {}
+-    }
+-    window.__SYNTORTION_BRIDGE__.onParameterChange = handleParamChange
++
++    // 2. Listen for init handshake event
++    juceCleanupInit = window.__JUCE__.backend.addEventListener('init', (data) => {
++      if (data && typeof data === 'object') {
++        const payload = data as InitPayload
++        parameterStore.hydrate(payload)
++        if ('parameters' in data && Array.isArray(data.parameters)) {
++          const patch: Partial<PluginState> = {}
++          for (const param of data.parameters) {
++            if (param && typeof param === 'object' && 'id' in param && typeof param.id === 'string') {
++              const normVal = 'normalizedValue' in param && typeof param.normalizedValue === 'number'
++                ? param.normalizedValue
++                : 0
++              const res = fromAPVTS(param.id, normVal)
++              if (res) {
++                Object.assign(patch, { [res.uiKey]: res.value })
++              }
++            }
++          }
++          if (Object.keys(patch).length > 0) {
++            onUpdate(patch)
++          }
++        }
++      }
++    })
++
++    // 3. Listen for runtime UI preference changes
++    juceCleanupPrefs = window.__JUCE__.backend.addEventListener('uiPreferencesChange', (data) => {
++      if (data && typeof data === 'object') {
++        parameterStore.setUIPreferences(data as Partial<UIPreferences>)
++      }
++    })
+   }
+-  // Notify backend of connection
++
++  // 4. Dispatch connection event to C++ backend
+   if (window.__JUCE__?.backend?.emitEvent) {
+     window.__JUCE__.backend.emitEvent('connect', {})
+   }
+ 
+   return () => {
+-    if (juceCleanup) juceCleanup()
+-    if (window.__SYNTORTION_BRIDGE__) {
+-      delete window.__SYNTORTION_BRIDGE__.onParameterChange
+-      if (!window.__SYNTORTION_BRIDGE__.onSpectrumFrame) {
+-        delete window.__SYNTORTION_BRIDGE__
+-      }
+-    }
++    if (juceCleanupParam) juceCleanupParam()
++    if (juceCleanupInit) juceCleanupInit()
++    if (juceCleanupPrefs) juceCleanupPrefs()
+   }
+ }
+ 
+ /** Callback type for real-time 80-band spectrum analyzer frames. */
+ export type SpectrumFrameCallback = (magnitudes: number[]) => void
+ 
+-/** Shared helper: JUCE event listener with fallback to __SYNTORTION_BRIDGE__ */
+-function bridgeSubscribe(
+-  eventId: string,
+-  handler: (payload: unknown) => void,
+-  setupFallback: () => void,
+-  clearFallback: () => void
+-): () => void {
+-  let juceCleanup: (() => void) | undefined
+-  if (window.__JUCE__?.backend?.addEventListener) {
+-    juceCleanup = window.__JUCE__.backend.addEventListener(eventId, handler)
+-  } else {
+-    setupFallback()
+-  }
+-  return () => {
+-    if (juceCleanup) juceCleanup()
+-    clearFallback()
+-  }
+-}
+-
+ /** Real-time peak levels for input and output rails. */
+ export interface MeterFrame {
+-  /** Normalized peak [0.0, 4.0] for input stage ( >1.0 = clip). */
+   input: number
+-  /** Normalized peak [0.0, 4.0] for output stage. */
+   output: number
+ }
+ 
+@@ -133,41 +125,29 @@ export type MeterFrameCallback = (frame: MeterFrame) => void
+ 
+ /**
+  * Register listener for incoming 60 FPS C++ DSP meter frames (`meterFrame` event).
+- * Designed for canvas/animation-frame subscribers to bypass React re-rendering.
+- *
+- * @param onFrame Callback receiving MeterFrame with input/output peaks [0.0, 4.0] ( >1.0 clip).
+- * @returns Cleanup function to unsubscribe.
+  */
+ export function subscribeToDspMeters(onFrame: MeterFrameCallback): () => void {
+   const handler = (data: unknown) => {
+     if (data && typeof data === 'object' && 'input' in data && 'output' in data) {
+-      const candidate = data as unknown as { input: unknown; output: unknown }
+-      if (typeof candidate.input === 'number' && typeof candidate.output === 'number') {
+-        onFrame({ input: candidate.input, output: candidate.output })
++      const input = data.input
++      const output = data.output
++      if (typeof input === 'number' && typeof output === 'number') {
++        onFrame({ input, output })
+       }
+     }
+   }
+-  return bridgeSubscribe(
+-    'meterFrame',
+-    handler,
+-    () => {
+-      if (!window.__SYNTORTION_BRIDGE__) window.__SYNTORTION_BRIDGE__ = {}
+-      window.__SYNTORTION_BRIDGE__.onMeterFrame = (payload: MeterFrame) => handler(payload)
+-    },
+-    () => {
+-      if (window.__SYNTORTION_BRIDGE__?.onMeterFrame) delete window.__SYNTORTION_BRIDGE__.onMeterFrame
+-    }
+-  )
+-}
+-
+ 
++  let cleanup: (() => void) | undefined
++  if (window.__JUCE__?.backend?.addEventListener) {
++    cleanup = window.__JUCE__.backend.addEventListener('meterFrame', handler)
++  }
++  return () => {
++    if (cleanup) cleanup()
++  }
++}
+ 
+ /**
+  * Register listener for incoming 60 FPS C++ DSP spectrum frames (`spectrumFrame` event).
+- * Designed for canvas/animation-frame subscribers to bypass React re-rendering.
+- *
+- * @param onFrame Callback receiving an array of 80 normalized magnitudes [0.0, 1.0].
+- * @returns Cleanup function to unsubscribe and release bridge bindings.
+  */
+ export function subscribeToDspSpectrum(onFrame: SpectrumFrameCallback): () => void {
+   const handler = (data: unknown) => {
+@@ -180,18 +160,37 @@ export function subscribeToDspSpectrum(onFrame: SpectrumFrameCallback): () => vo
+       }
+     }
+   }
+-  return bridgeSubscribe(
+-    'spectrumFrame',
+-    handler,
+-    () => {
+-      if (!window.__SYNTORTION_BRIDGE__) window.__SYNTORTION_BRIDGE__ = {}
+-      window.__SYNTORTION_BRIDGE__.onSpectrumFrame = (magnitudes: number[]) => handler(magnitudes)
+-    },
+-    () => {
+-      if (window.__SYNTORTION_BRIDGE__?.onSpectrumFrame) {
+-        delete window.__SYNTORTION_BRIDGE__.onSpectrumFrame
+-        if (!window.__SYNTORTION_BRIDGE__.onParameterChange) delete (window as unknown as Record<string, unknown>).__SYNTORTION_BRIDGE__
+-      }
++
++  let cleanup: (() => void) | undefined
++  if (window.__JUCE__?.backend?.addEventListener) {
++    cleanup = window.__JUCE__.backend.addEventListener('spectrumFrame', handler)
++  }
++  return () => {
++    if (cleanup) cleanup()
++  }
++}
++
++/**
++ * Register listener for runtime UI preferences changes (`uiPreferencesChange` event).
++ */
++export function subscribeToUIPreferences(
++  onPreferences: (prefs: UIPreferences) => void
++): () => void {
++  const handler = (data: unknown) => {
++    if (data && typeof data === 'object') {
++      const prefs = data as Partial<UIPreferences>
++      parameterStore.setUIPreferences(prefs)
++      onPreferences(parameterStore.getUIPreferences())
+     }
+-  )
++  }
++
++  let cleanup: (() => void) | undefined
++  if (window.__JUCE__?.backend?.addEventListener) {
++    cleanup = window.__JUCE__.backend.addEventListener('uiPreferencesChange', handler)
++  }
++  const unsubStore = parameterStore.subscribePreferences(onPreferences)
++  return () => {
++    if (cleanup) cleanup()
++    unsubStore()
++  }
+ }
+diff --git a/ui/src/test/parameterSpecs.test.ts b/ui/src/test/parameterSpecs.test.ts
+deleted file mode 100644
+index e179b04..0000000
+--- a/ui/src/test/parameterSpecs.test.ts
++++ /dev/null
+@@ -1,60 +0,0 @@
+-import { describe, it, expect } from 'vitest'
+-import { toAPVTS, fromAPVTS, PARAMETER_SPECS } from '../lib/parameterSpecs'
+-
+-describe('parameterSpecs normalization', () => {
+-  it('converts gain dB ranges correctly', () => {
+-    expect(toAPVTS('inputGain', -60)).toBe(0.0)
+-    expect(toAPVTS('inputGain', 12)).toBe(1.0)
+-    expect(toAPVTS('inputGain', -24)).toBeCloseTo((-24 + 60) / 72)
+-
+-    expect(fromAPVTS('INPUT_GAIN', 0.0)).toEqual({ uiKey: 'inputGain', value: -60 })
+-    expect(fromAPVTS('INPUT_GAIN', 1.0)).toEqual({ uiKey: 'inputGain', value: 12 })
+-  })
+-
+-  it('converts drive percentage correctly', () => {
+-    expect(toAPVTS('drive', 0)).toBe(0.0)
+-    expect(toAPVTS('drive', 50)).toBe(0.5)
+-    expect(toAPVTS('drive', 100)).toBe(1.0)
+-
+-    expect(fromAPVTS('COLOR', 0.5)).toEqual({ uiKey: 'drive', value: 50 })
+-  })
+-
+-  it('converts delay time correctly', () => {
+-    expect(toAPVTS('delayTime', 1)).toBe(0.0)
+-    expect(toAPVTS('delayTime', 2000)).toBe(1.0)
+-
+-    expect(fromAPVTS('DELAY_TIME', 0.0)).toEqual({ uiKey: 'delayTime', value: 1 })
+-    expect(fromAPVTS('DELAY_TIME', 1.0)).toEqual({ uiKey: 'delayTime', value: 2000 })
+-  })
+-
+-  it('handles inverted engineActive / PLUGIN_BYPASS bool', () => {
+-    // engineActive true -> PLUGIN_BYPASS false (0.0)
+-    expect(toAPVTS('engineActive', true)).toBe(0.0)
+-    expect(toAPVTS('engineActive', false)).toBe(1.0)
+-
+-    expect(fromAPVTS('PLUGIN_BYPASS', 0.0)).toEqual({ uiKey: 'engineActive', value: true })
+-    expect(fromAPVTS('PLUGIN_BYPASS', 1.0)).toEqual({ uiKey: 'engineActive', value: false })
+-  })
+-
+-  it('handles driveRoute enums correctly', () => {
+-    expect(toAPVTS('driveRoute', 'PRE')).toBe(0.0)
+-    expect(toAPVTS('driveRoute', 'POST')).toBe(1.0)
+-
+-    expect(fromAPVTS('DRIVE_ROUTE', 0.0)).toEqual({ uiKey: 'driveRoute', value: 'PRE' })
+-    expect(fromAPVTS('DRIVE_ROUTE', 1.0)).toEqual({ uiKey: 'driveRoute', value: 'POST' })
+-  })
+-
+-  it('handles delaySync enums correctly', () => {
+-    expect(toAPVTS('delaySync', 'SYNC')).toBe(0.0)
+-    expect(toAPVTS('delaySync', 'FREE')).toBe(0.5)
+-    expect(toAPVTS('delaySync', 'PING-PONG')).toBe(1.0)
+-
+-    expect(fromAPVTS('DELAY_SYNC', 0.0)).toEqual({ uiKey: 'delaySync', value: 'SYNC' })
+-    expect(fromAPVTS('DELAY_SYNC', 0.5)).toEqual({ uiKey: 'delaySync', value: 'FREE' })
+-    expect(fromAPVTS('DELAY_SYNC', 1.0)).toEqual({ uiKey: 'delaySync', value: 'PING-PONG' })
+-  })
+-
+-  it('has specs for all 16 APVTS parameters', () => {
+-    expect(Object.keys(PARAMETER_SPECS)).toHaveLength(16)
+-  })
+-})
+diff --git a/ui/src/test/parameterStore.test.ts b/ui/src/test/parameterStore.test.ts
+new file mode 100644
+index 0000000..f3d0d61
+--- /dev/null
++++ b/ui/src/test/parameterStore.test.ts
+@@ -0,0 +1,176 @@
++import { describe, it, expect, beforeEach } from 'vitest'
++import {
++  parameterStore,
++  toAPVTS,
++  fromAPVTS,
++  DEFAULT_PARAMETER_DESCRIPTORS,
++  type InitPayload,
++  type FloatParameterDescriptor,
++  type ChoiceParameterDescriptor,
++} from '../lib/parameterStore'
++
++describe('parameterStore dynamic normalization & hydration', () => {
++  beforeEach(() => {
++    parameterStore.reset()
++  })
++
++  it('converts gain dB ranges correctly with defaults', () => {
++    expect(toAPVTS('inputGain', -60)).toBe(0.0)
++    expect(toAPVTS('inputGain', 12)).toBe(1.0)
++    expect(toAPVTS('inputGain', -24)).toBeCloseTo((-24 + 60) / 72)
++
++    expect(fromAPVTS('INPUT_GAIN', 0.0)).toEqual({ uiKey: 'inputGain', value: -60 })
++    expect(fromAPVTS('INPUT_GAIN', 1.0)).toEqual({ uiKey: 'inputGain', value: 12 })
++  })
++
++  it('converts drive percentage correctly', () => {
++    expect(toAPVTS('drive', 0)).toBe(0.0)
++    expect(toAPVTS('drive', 50)).toBe(0.5)
++    expect(toAPVTS('drive', 100)).toBe(1.0)
++
++    expect(fromAPVTS('COLOR', 0.5)).toEqual({ uiKey: 'drive', value: 50 })
++  })
++
++  it('converts delay time correctly', () => {
++    expect(toAPVTS('delayTime', 1)).toBe(0.0)
++    expect(toAPVTS('delayTime', 2000)).toBe(1.0)
++
++    expect(fromAPVTS('DELAY_TIME', 0.0)).toEqual({ uiKey: 'delayTime', value: 1 })
++    expect(fromAPVTS('DELAY_TIME', 1.0)).toEqual({ uiKey: 'delayTime', value: 2000 })
++  })
++
++  it('handles inverted engineActive / PLUGIN_BYPASS bool', () => {
++    // engineActive true -> PLUGIN_BYPASS false (0.0)
++    expect(toAPVTS('engineActive', true)).toBe(0.0)
++    expect(toAPVTS('engineActive', false)).toBe(1.0)
++
++    expect(fromAPVTS('PLUGIN_BYPASS', 0.0)).toEqual({ uiKey: 'engineActive', value: true })
++    expect(fromAPVTS('PLUGIN_BYPASS', 1.0)).toEqual({ uiKey: 'engineActive', value: false })
++  })
++
++  it('handles driveRoute enums correctly', () => {
++    expect(toAPVTS('driveRoute', 'PRE')).toBe(0.0)
++    expect(toAPVTS('driveRoute', 'POST')).toBe(1.0)
++
++    expect(fromAPVTS('DRIVE_ROUTE', 0.0)).toEqual({ uiKey: 'driveRoute', value: 'PRE' })
++    expect(fromAPVTS('DRIVE_ROUTE', 1.0)).toEqual({ uiKey: 'driveRoute', value: 'POST' })
++  })
++
++  it('handles delaySync enums correctly', () => {
++    expect(toAPVTS('delaySync', 'SYNC')).toBe(0.0)
++    expect(toAPVTS('delaySync', 'FREE')).toBe(0.5)
++    expect(toAPVTS('delaySync', 'PING-PONG')).toBe(1.0)
++
++    expect(fromAPVTS('DELAY_SYNC', 0.0)).toEqual({ uiKey: 'delaySync', value: 'SYNC' })
++    expect(fromAPVTS('DELAY_SYNC', 0.5)).toEqual({ uiKey: 'delaySync', value: 'FREE' })
++    expect(fromAPVTS('DELAY_SYNC', 1.0)).toEqual({ uiKey: 'delaySync', value: 'PING-PONG' })
++  })
++
++  it('has descriptors for all 16 APVTS parameters', () => {
++    expect(Object.keys(DEFAULT_PARAMETER_DESCRIPTORS)).toHaveLength(16)
++    expect(parameterStore.getAllDescriptors()).toHaveLength(16)
++  })
++
++  it('hydrates dynamic parameter descriptors and recalculates ranges', () => {
++    const customDrive: FloatParameterDescriptor = {
++      id: 'COLOR',
++      name: 'Custom Drive',
++      type: 'float',
++      min: 0,
++      max: 200,
++      defaultValue: 100,
++      currentValue: 100,
++      skew: 0.5,
++      step: 0.5,
++      unit: '%',
++      normalizedDefault: 0.5,
++      normalizedValue: 0.5,
++    }
++
++    const payload: InitPayload = {
++      schemaVersion: 1,
++      parameters: [customDrive],
++      uiPreferences: {
++        uiScale: 1.25,
++        spectrumDecay: 0.4,
++        skipBootSequence: true,
++      },
++    }
++
++    parameterStore.hydrate(payload)
++
++    const desc = parameterStore.getDescriptor('COLOR') as FloatParameterDescriptor
++    expect(desc).toBeDefined()
++    expect(desc.max).toBe(200)
++    expect(desc.skew).toBe(0.5)
++
++    // With skew 0.5: proportion = (100 - 0)/200 = 0.5 -> normalized = 0.5^0.5 ~= 0.7071
++    const normalized = toAPVTS('drive', 100)
++    expect(normalized).toBeCloseTo(Math.pow(0.5, 0.5))
++
++    // Denormalize: norm 0.5 -> proportion = 0.5^(1/0.5) = 0.5^2 = 0.25 -> val = 0 + 0.25*200 = 50
++    const denorm = fromAPVTS('COLOR', 0.5)
++    expect(denorm).toEqual({ uiKey: 'drive', value: 50 })
++
++    expect(parameterStore.getUIPreferences()).toEqual({
++      uiScale: 1.25,
++      spectrumDecay: 0.4,
++      skipBootSequence: true,
++    })
++  })
++
++  it('handles choice descriptors dynamically', () => {
++    const customSync: ChoiceParameterDescriptor = {
++      id: 'DELAY_SYNC',
++      name: 'Sync Mode',
++      type: 'choice',
++      choices: ['FREE', '1/4', '1/8', '1/16', 'TRIPLET'],
++      defaultIndex: 0,
++      currentIndex: 0,
++      normalizedDefault: 0,
++      normalizedValue: 0,
++    }
++
++    parameterStore.hydrate({
++      schemaVersion: 1,
++      parameters: [customSync],
++    })
++
++    expect(toAPVTS('delaySync', 'FREE')).toBe(0.0)
++    expect(toAPVTS('delaySync', '1/8')).toBe(0.5)
++    expect(toAPVTS('delaySync', 'TRIPLET')).toBe(1.0)
++
++    expect(fromAPVTS('DELAY_SYNC', 0.0)).toEqual({ uiKey: 'delaySync', value: 'FREE' })
++    expect(fromAPVTS('DELAY_SYNC', 0.5)).toEqual({ uiKey: 'delaySync', value: '1/8' })
++    expect(fromAPVTS('DELAY_SYNC', 1.0)).toEqual({ uiKey: 'delaySync', value: 'TRIPLET' })
++  })
++
++  it('updates parameter state and notifies listeners on updateParameter', () => {
++    let notified = false
++    const unsub = parameterStore.subscribe(() => {
++      notified = true
++    })
++
++    parameterStore.updateParameter('INPUT_GAIN', 1.0)
++    const desc = parameterStore.getDescriptor('INPUT_GAIN') as FloatParameterDescriptor
++    expect(desc.normalizedValue).toBe(1.0)
++    expect(desc.currentValue).toBe(12)
++    expect(notified).toBe(true)
++
++    unsub()
++  })
++
++  it('updates UI preferences and notifies preference listeners', () => {
++    const prefUpdates: Array<{ uiScale?: number }> = []
++    const unsub = parameterStore.subscribePreferences((prefs) => {
++      prefUpdates.push(prefs)
++    })
++
++    parameterStore.setUIPreferences({ uiScale: 1.5 })
++    expect(parameterStore.getUIPreferences().uiScale).toBe(1.5)
++    expect(prefUpdates).toHaveLength(1)
++    expect(prefUpdates[0].uiScale).toBe(1.5)
++
++    unsub()
++  })
++})
+diff --git a/ui/src/test/setup.ts b/ui/src/test/setup.ts
+index bf6870a..510f3ac 100644
+--- a/ui/src/test/setup.ts
++++ b/ui/src/test/setup.ts
+@@ -1,4 +1,5 @@
+ import '@testing-library/jest-dom'
++import { vi, type Mock } from 'vitest'
+ 
+ /**
+  * jsdom does not implement a real 2D rendering context, so any component that
+@@ -46,3 +47,37 @@ if (!window.matchMedia) {
+       dispatchEvent: () => false,
+     }) as unknown as MediaQueryList
+ }
++
++export interface MockJuceBackend {
++  emitEvent: Mock<(eventId: string, data: unknown) => void>
++  addEventListener: Mock<(eventId: string, callback: (payload: unknown) => void) => () => void>
++  listeners: Map<string, Set<(payload: unknown) => void>>
++  trigger: (event: string, payload: unknown) => void
++  reset: () => void
++}
++
++/**
++ * Creates a mock JUCE 8 backend event emitter and listener system for testing.
++ */
++export function createMockJuceBackend(): MockJuceBackend {
++  const listeners = new Map<string, Set<(payload: unknown) => void>>()
++  const emitEvent = vi.fn()
++  const addEventListener = vi.fn((event: string, callback: (payload: unknown) => void) => {
++    if (!listeners.has(event)) {
++      listeners.set(event, new Set())
++    }
++    listeners.get(event)!.add(callback)
++    return () => {
++      listeners.get(event)?.delete(callback)
++    }
++  })
++  const trigger = (event: string, payload: unknown) => {
++    listeners.get(event)?.forEach((cb) => cb(payload))
++  }
++  const reset = () => {
++    listeners.clear()
++    emitEvent.mockClear()
++    addEventListener.mockClear()
++  }
++  return { emitEvent, addEventListener, listeners, trigger, reset }
++}
+diff --git a/ui/src/test/webViewDspBridge.test.ts b/ui/src/test/webViewDspBridge.test.ts
+index 9bde491..0d68eef 100644
+--- a/ui/src/test/webViewDspBridge.test.ts
++++ b/ui/src/test/webViewDspBridge.test.ts
+@@ -2,122 +2,185 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+ import {
+   subscribeToDspSpectrum,
+   subscribeToDspChanges,
++  subscribeToDspMeters,
++  subscribeToUIPreferences,
+   webViewDspBridge,
+ } from '../lib/webViewDspBridge'
++import { parameterStore, type InitPayload } from '../lib/parameterStore'
++import { createMockJuceBackend, type MockJuceBackend } from './setup'
++
++describe('webViewDspBridge & Native JUCE 8 Event Protocol', () => {
++  let mockBackend: MockJuceBackend
+ 
+-describe('webViewDspBridge & subscribeToDspSpectrum', () => {
+   beforeEach(() => {
+-    delete window.__JUCE__
+-    delete window.__SYNTORTION_BRIDGE__
+-    delete window.webkit
++    parameterStore.reset()
++    mockBackend = createMockJuceBackend()
++    window.__JUCE__ = {
++      backend: {
++        emitEvent: mockBackend.emitEvent,
++        addEventListener: mockBackend.addEventListener,
++      },
++    }
+   })
+ 
+   afterEach(() => {
+     delete window.__JUCE__
+-    delete window.__SYNTORTION_BRIDGE__
+-    delete window.webkit
+   })
+ 
+-  it('receives spectrum frames via JUCE 8 event listener', () => {
+-    const removeListener = vi.fn()
+-    let eventCallback: ((payload: unknown) => void) | undefined
++  it('emits connect event upon subscribing to DSP changes', () => {
++    const onUpdate = vi.fn()
++    const unsubscribe = subscribeToDspChanges(onUpdate)
+ 
+-    window.__JUCE__ = {
+-      backend: {
+-        addEventListener: vi.fn((event: string, cb: (payload: unknown) => void) => {
+-          if (event === 'spectrumFrame') {
+-            eventCallback = cb
+-          }
+-          return removeListener
+-        }),
++    expect(mockBackend.emitEvent).toHaveBeenCalledWith('connect', {})
++    unsubscribe()
++  })
++
++  it('hydrates parameter store and triggers initial state update on init handshake event', () => {
++    const onUpdate = vi.fn()
++    const unsubscribe = subscribeToDspChanges(onUpdate)
++
++    const initPayload: InitPayload = {
++      schemaVersion: 1,
++      parameters: [
++        {
++          id: 'COLOR',
++          name: 'Drive',
++          type: 'float',
++          min: 0,
++          max: 100,
++          defaultValue: 40,
++          currentValue: 80,
++          skew: 1,
++          step: 1,
++          unit: '%',
++          normalizedDefault: 0.4,
++          normalizedValue: 0.8,
++        },
++      ],
++      uiPreferences: {
++        uiScale: 1.2,
++        spectrumDecay: 0.3,
++        skipBootSequence: true,
+       },
+     }
+ 
++    mockBackend.trigger('init', initPayload)
++
++    expect(onUpdate).toHaveBeenCalledWith(
++      expect.objectContaining({
++        drive: 80,
++      })
++    )
++    expect(parameterStore.getUIPreferences()).toEqual({
++      uiScale: 1.2,
++      spectrumDecay: 0.3,
++      skipBootSequence: true,
++    })
++
++    unsubscribe()
++  })
++
++  it('receives parameterChange events and updates state and parameter store', () => {
++    const onUpdate = vi.fn()
++    const unsubscribe = subscribeToDspChanges(onUpdate)
++
++    mockBackend.trigger('parameterChange', {
++      id: 'INPUT_GAIN',
++      value: 1.0, // normalized max (+12 dB)
++    })
++
++    expect(onUpdate).toHaveBeenCalledWith({ inputGain: 12 })
++    expect(parameterStore.getDescriptor('INPUT_GAIN')?.normalizedValue).toBe(1.0)
++
++    unsubscribe()
++  })
++
++  it('receives spectrum frames via spectrumFrame event', () => {
+     const onFrame = vi.fn()
+     const unsubscribe = subscribeToDspSpectrum(onFrame)
+ 
+-    expect(window.__JUCE__.backend?.addEventListener).toHaveBeenCalledWith(
++    expect(mockBackend.addEventListener).toHaveBeenCalledWith(
+       'spectrumFrame',
+       expect.any(Function)
+     )
+ 
+     const testMags = new Array(80).fill(0.5)
+-    eventCallback?.(testMags)
++    mockBackend.trigger('spectrumFrame', testMags)
+ 
+     expect(onFrame).toHaveBeenCalledTimes(1)
+     expect(onFrame).toHaveBeenCalledWith(testMags)
+ 
+     unsubscribe()
+-    expect(removeListener).toHaveBeenCalledTimes(1)
+   })
+ 
+   it('receives spectrum frames with { magnitudes: [...] } object payload', () => {
+-    let eventCallback: ((payload: unknown) => void) | undefined
+-    window.__JUCE__ = {
+-      backend: {
+-        addEventListener: vi.fn((event: string, cb: (payload: unknown) => void) => {
+-          if (event === 'spectrumFrame') {
+-            eventCallback = cb
+-          }
+-          return () => {}
+-        }),
+-      },
+-    }
+-
+     const onFrame = vi.fn()
+-    subscribeToDspSpectrum(onFrame)
++    const unsubscribe = subscribeToDspSpectrum(onFrame)
+ 
+     const testMags = new Array(80).fill(0.75)
+-    eventCallback?.({ magnitudes: testMags })
++    mockBackend.trigger('spectrumFrame', { magnitudes: testMags })
+ 
+     expect(onFrame).toHaveBeenCalledWith(testMags)
++
++    unsubscribe()
+   })
+ 
+-  it('receives spectrum frames via window.__SYNTORTION_BRIDGE__.onSpectrumFrame fallback', () => {
++  it('receives meter frames via meterFrame event', () => {
+     const onFrame = vi.fn()
+-    const unsubscribe = subscribeToDspSpectrum(onFrame)
++    const unsubscribe = subscribeToDspMeters(onFrame)
+ 
+-    expect(window.__SYNTORTION_BRIDGE__?.onSpectrumFrame).toBeDefined()
++    expect(mockBackend.addEventListener).toHaveBeenCalledWith('meterFrame', expect.any(Function))
+ 
+-    const testMags = new Array(80).fill(0.42)
+-    window.__SYNTORTION_BRIDGE__?.onSpectrumFrame?.(testMags)
++    mockBackend.trigger('meterFrame', { input: 0.8, output: 0.6 })
+ 
+-    expect(onFrame).toHaveBeenCalledWith(testMags)
++    expect(onFrame).toHaveBeenCalledWith({ input: 0.8, output: 0.6 })
+ 
+     unsubscribe()
+-    expect(window.__SYNTORTION_BRIDGE__?.onSpectrumFrame).toBeUndefined()
+   })
+ 
+-  it('coexists with subscribeToDspChanges without clobbering __SYNTORTION_BRIDGE__', () => {
+-    const onParamUpdate = vi.fn()
+-    const onSpectrumFrame = vi.fn()
++  it('receives uiPreferencesChange events via subscribeToUIPreferences', () => {
++    const onPrefs = vi.fn()
++    const unsubscribe = subscribeToUIPreferences(onPrefs)
+ 
+-    const unsubParams = subscribeToDspChanges(onParamUpdate)
+-    const unsubSpectrum = subscribeToDspSpectrum(onSpectrumFrame)
++    expect(mockBackend.addEventListener).toHaveBeenCalledWith(
++      'uiPreferencesChange',
++      expect.any(Function)
++    )
+ 
+-    expect(window.__SYNTORTION_BRIDGE__?.onParameterChange).toBeDefined()
+-    expect(window.__SYNTORTION_BRIDGE__?.onSpectrumFrame).toBeDefined()
++    mockBackend.trigger('uiPreferencesChange', {
++      uiScale: 1.5,
++      spectrumDecay: 0.5,
++    })
+ 
+-    unsubSpectrum()
+-    expect(window.__SYNTORTION_BRIDGE__?.onSpectrumFrame).toBeUndefined()
+-    expect(window.__SYNTORTION_BRIDGE__?.onParameterChange).toBeDefined()
++    expect(onPrefs).toHaveBeenCalledWith(
++      expect.objectContaining({
++        uiScale: 1.5,
++        spectrumDecay: 0.5,
++      })
++    )
+ 
+-    unsubParams()
+-    expect(window.__SYNTORTION_BRIDGE__?.onParameterChange).toBeUndefined()
++    unsubscribe()
+   })
+ 
+-  it('emits setParameter to JUCE backend when available', () => {
+-    const emitEvent = vi.fn()
+-    window.__JUCE__ = {
+-      backend: {
+-        emitEvent,
+-      },
+-    }
+-
++  it('emits setParameter to JUCE backend with normalized value', () => {
+     webViewDspBridge.setParameter('INPUT_GAIN', 0.5)
+-    expect(emitEvent).toHaveBeenCalledWith('setParameter', {
+-      parameterId: 'INPUT_GAIN',
++    expect(mockBackend.emitEvent).toHaveBeenCalledWith('setParameter', {
++      id: 'INPUT_GAIN',
+       value: 0.5,
+     })
+   })
++
++  it('does not throw when window.__JUCE__ is undefined', () => {
++    delete window.__JUCE__
++
++    expect(() => {
++      webViewDspBridge.setParameter('INPUT_GAIN', 0.5)
++    }).not.toThrow()
++
++    const onUpdate = vi.fn()
++    expect(() => {
++      const unsub = subscribeToDspChanges(onUpdate)
++      unsub()
++    }).not.toThrow()
++  })
+ })
