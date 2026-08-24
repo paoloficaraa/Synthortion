@@ -158,8 +158,8 @@ describe('App', () => {
     // contract for all four modules.
     const flags = ['driveOn', 'bitcrushOn', 'delayOn', 'chorusOn'] as const
     for (const flag of flags) {
-      const calls = diffPluginState(initialState, { ...initialState, [flag]: false })
-      expect(calls).toContainEqual({ parameterId: flag, value: false })
+      const diffs = diffPluginState(initialState, { ...initialState, [flag]: false })
+      expect(diffs).toContainEqual({ key: flag, value: false })
     }
   })
 
@@ -175,7 +175,7 @@ describe('App', () => {
 
     expect(drive).toHaveAttribute('aria-valuenow', '50')
     expect(drive).toHaveAttribute('aria-valuetext', '50%')
-    expect(bridge.calls).toContainEqual({ parameterId: 'COLOR', value: 0.5 })
+    expect(bridge.calls).toContainEqual({ id: 'COLOR', value: 0.5 })
   })
 
   it('forwards the bitcrush knob drag to the DSP bridge', () => {
@@ -189,7 +189,7 @@ describe('App', () => {
     fireEvent.pointerUp(bitcrush, { pointerId: 1 })
 
     expect(bitcrush).toHaveAttribute('aria-valuetext', '14B')
-    expect(bridge.calls).toContainEqual({ parameterId: 'BITCRUSH', value: 0.142 })
+    expect(bridge.calls).toContainEqual({ id: 'BITCRUSH', value: 0.142 })
   })
 
   it('forwards the engine bypass toggle to the DSP bridge', () => {
@@ -202,7 +202,7 @@ describe('App', () => {
     fireEvent.click(bypass)
 
     expect(bypass).toHaveAttribute('aria-pressed', 'false')
-    expect(bridge.calls).toContainEqual({ parameterId: 'PLUGIN_BYPASS', value: 1 })
+    expect(bridge.calls).toContainEqual({ id: 'PLUGIN_BYPASS', value: 1 })
   })
 
   it('renders the spectrum visualizer above the faceplate, toggling with the engine', () => {
@@ -294,7 +294,7 @@ describe('App', () => {
 
     expect(sw).toHaveAttribute('aria-pressed', 'false')
     // driveOn is NOT in PARAMETER_IDS, so it should NOT be called.
-    expect(bridge.calls).not.toContainEqual(expect.objectContaining({ parameterId: 'driveOn' }))
+    expect(bridge.calls).not.toContainEqual(expect.objectContaining({ id: 'driveOn' }))
   })
 
   it('dims a powered-off module and shows -- readouts', () => {

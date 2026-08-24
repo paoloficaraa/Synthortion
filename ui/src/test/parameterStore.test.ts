@@ -144,6 +144,29 @@ describe('parameterStore dynamic normalization & hydration', () => {
     expect(fromAPVTS('DELAY_SYNC', 0.5)).toEqual({ uiKey: 'delaySync', value: '1/8' })
     expect(fromAPVTS('DELAY_SYNC', 1.0)).toEqual({ uiKey: 'delaySync', value: 'TRIPLET' })
   })
+  it('handles boolean descriptors dynamically with invert flag', () => {
+    const invertedBool = {
+      id: 'PLUGIN_BYPASS',
+      name: 'Custom Bypass',
+      type: 'bool' as const,
+      defaultValue: false,
+      currentValue: false,
+      invert: true,
+      normalizedDefault: 0.0,
+      normalizedValue: 0.0,
+    }
+
+    parameterStore.hydrate({
+      schemaVersion: 1,
+      parameters: [invertedBool],
+    })
+
+    expect(toAPVTS('engineActive', true)).toBe(0.0)
+    expect(toAPVTS('engineActive', false)).toBe(1.0)
+    expect(fromAPVTS('PLUGIN_BYPASS', 0.0)).toEqual({ uiKey: 'engineActive', value: true })
+    expect(fromAPVTS('PLUGIN_BYPASS', 1.0)).toEqual({ uiKey: 'engineActive', value: false })
+  })
+
 
   it('updates parameter state and notifies listeners on updateParameter', () => {
     let notified = false

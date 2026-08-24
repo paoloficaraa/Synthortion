@@ -14,22 +14,17 @@ export type {
   MeterFramePayload,
   SpectrumFramePayload,
 } from './parameterStore'
-
-/** Value types the C++ bridge understands. */
-export type ParameterValue = number | string | boolean
-
 /** A single parameter mutation pushed across the bridge. */
 export interface DspCall {
-  id?: string
-  parameterId: string
-  value: ParameterValue
+  id: string
+  value: number
 }
 
 /**
  * Integration seam between the React UI and the JUCE C++ DSP backend.
  */
 export interface DspBridge {
-  setParameter(id: string, value: ParameterValue): void
+  setParameter(id: string, value: number): void
 }
 
 /** Canonical APVTS parameter IDs (must match C++ ParameterID strings). */
@@ -49,11 +44,10 @@ export function createMockDspBridge(): MockDspBridge {
   return {
     calls,
     setParameter(id, value) {
-      calls.push({ parameterId: id, value })
+      calls.push({ id, value })
     },
   }
 }
-
 /** No-op bridge used when no DSP backend is connected. */
 export const noopDspBridge: DspBridge = {
   setParameter() {},

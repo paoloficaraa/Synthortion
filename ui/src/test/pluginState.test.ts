@@ -18,29 +18,29 @@ describe('pluginState module power flags', () => {
     expect(diffPluginState(initialState, initialState)).toEqual([])
   })
 
-  it('notifies the bridge when the Drive power flag flips', () => {
-    const calls = diffPluginState(initialState, { ...initialState, driveOn: false })
-    expect(calls).toContainEqual({ parameterId: 'driveOn', value: false })
+  it('notifies when the Drive power flag flips', () => {
+    const diffs = diffPluginState(initialState, { ...initialState, driveOn: false })
+    expect(diffs).toContainEqual({ key: 'driveOn', value: false })
   })
 
-  it('notifies the bridge when the Bitcrush power flag flips', () => {
-    const calls = diffPluginState(initialState, { ...initialState, bitcrushOn: false })
-    expect(calls).toContainEqual({ parameterId: 'bitcrushOn', value: false })
+  it('notifies when the Bitcrush power flag flips', () => {
+    const diffs = diffPluginState(initialState, { ...initialState, bitcrushOn: false })
+    expect(diffs).toContainEqual({ key: 'bitcrushOn', value: false })
   })
 
-  it('notifies the bridge when the Delay power flag flips', () => {
-    const calls = diffPluginState(initialState, { ...initialState, delayOn: false })
-    expect(calls).toContainEqual({ parameterId: 'delayOn', value: false })
+  it('notifies when the Delay power flag flips', () => {
+    const diffs = diffPluginState(initialState, { ...initialState, delayOn: false })
+    expect(diffs).toContainEqual({ key: 'delayOn', value: false })
   })
 
-  it('notifies the bridge when the Chorus power flag flips', () => {
-    const calls = diffPluginState(initialState, { ...initialState, chorusOn: false })
-    expect(calls).toContainEqual({ parameterId: 'chorusOn', value: false })
+  it('notifies when the Chorus power flag flips', () => {
+    const diffs = diffPluginState(initialState, { ...initialState, chorusOn: false })
+    expect(diffs).toContainEqual({ key: 'chorusOn', value: false })
   })
 
-  it('flipping a power flag back on produces a matching bridge call', () => {
+  it('flipping a power flag back on produces a matching diff', () => {
     const off = { ...initialState, driveOn: false }
-    const calls = diffPluginState(off, { ...off, driveOn: true })
-    expect(calls).toContainEqual({ parameterId: 'driveOn', value: true })
+    const diffs = diffPluginState(off, { ...off, driveOn: true })
+    expect(diffs).toContainEqual({ key: 'driveOn', value: true })
   })
 })

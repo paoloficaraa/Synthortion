@@ -1,4 +1,4 @@
-import type { DspCall } from './dspBridge'
+
 
 
 /**
@@ -50,20 +50,25 @@ export const initialState: PluginState = {
 }
 
 
+/** A diff of a single property change in PluginState. */
+export interface StateDiff<K extends keyof PluginState = keyof PluginState> {
+  key: K
+  value: PluginState[K]
+}
+
 /**
- * Diff two plugin states into the bridge calls the App root must push.
+ * Diff two plugin states into property changes.
  *
  * This is the exact boundary logic the App runs before every render commit:
- * any key that changed — power flags included — lands at the bridge as
- * `{ parameterId, value }`. Hoisted here so the state→bridge contract is
- * testable without a live render.
+ * any key that changed — power flags included — lands as `{ key, value }`.
+ * Hoisted here so the state diffing contract is testable without a live render.
  */
-export function diffPluginState(prev: PluginState, next: PluginState): DspCall[] {
-  const calls: DspCall[] = []
+export function diffPluginState(prev: PluginState, next: PluginState): StateDiff[] {
+  const diffs: StateDiff[] = []
   for (const key of Object.keys(next) as Array<keyof PluginState>) {
     if (next[key] !== prev[key]) {
-      calls.push({ parameterId: key, value: next[key] })
+      diffs.push({ key, value: next[key] })
     }
   }
-  return calls
+  return diffs
 }

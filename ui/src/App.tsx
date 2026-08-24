@@ -48,22 +48,22 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
   useEffect(() => {
     const prev = prevStateRef.current
     prevStateRef.current = state
-    for (const call of diffPluginState(prev, state)) {
-      const apvtsId = PARAMETER_IDS[call.parameterId as keyof typeof PARAMETER_IDS]
+    for (const diff of diffPluginState(prev, state)) {
+      const apvtsId = PARAMETER_IDS[diff.key]
       if (apvtsId) {
-        const normalized = toAPVTS(call.parameterId as keyof PluginState, call.value)
+        const normalized = toAPVTS(diff.key, diff.value)
         dspBridge.setParameter(apvtsId, normalized)
       }
 
       // Pulse the glitch pulser with |Δvalue| / 100.
       // Module power toggles fire a fixed 0.8 burst; other non-numeric
       // changes (master bypass, route ties) produce a heavy 1.0 burst.
-      const prevVal = prev[call.parameterId as keyof PluginState]
-      const newVal = call.value
+      const prevVal = prev[diff.key]
+      const newVal = diff.value
       let delta
       if (typeof prevVal === 'number' && typeof newVal === 'number') {
         delta = Math.abs(newVal - prevVal) / 100
-      } else if (MODULE_POWER_KEYS.has(call.parameterId)) {
+      } else if (MODULE_POWER_KEYS.has(diff.key)) {
         delta = 0.8
       } else {
         delta = 1.0

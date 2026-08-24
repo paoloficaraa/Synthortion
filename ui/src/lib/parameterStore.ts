@@ -27,6 +27,7 @@ export interface BoolParameterDescriptor extends BaseParameterDescriptor {
   currentValue: boolean
   labelOn?: string
   labelOff?: string
+  invert?: boolean
 }
 
 export interface ChoiceParameterDescriptor extends BaseParameterDescriptor {
@@ -189,6 +190,7 @@ export const DEFAULT_PARAMETER_DESCRIPTORS: Record<string, ParameterDescriptor> 
     type: 'bool',
     defaultValue: false,
     currentValue: false,
+    invert: true,
     normalizedDefault: 0.0,
     normalizedValue: 0.0,
   },
@@ -278,30 +280,15 @@ export const APVTS_ID_TO_UI_KEY: Record<string, keyof PluginState> = {
   CHORUS_WIDE: 'chorusWide',
 }
 
-export const UI_KEY_TO_APVTS_ID: Record<keyof PluginState, string> = {
-  inputGain: 'INPUT_GAIN',
-  outputGain: 'OUTPUT_GAIN',
-  drive: 'COLOR',
-  bitcrush: 'BITCRUSH',
-  delayTime: 'DELAY_TIME',
-  delayMix: 'DELAY_MIX',
-  delayFbk: 'DELAY_FEEDBACK',
-  chorus: 'CHORUS_MIX',
-  engineActive: 'PLUGIN_BYPASS',
-  driveOn: 'DRIVE_ON',
-  bitcrushOn: 'BITCRUSH_ON',
-  delayOn: 'DELAY_ON',
-  chorusOn: 'CHORUS_ON',
-  driveRoute: 'DRIVE_ROUTE',
-  delaySync: 'DELAY_SYNC',
-  chorusWide: 'CHORUS_WIDE',
-}
+export const UI_KEY_TO_APVTS_ID: Record<keyof PluginState, string> = Object.fromEntries(
+  Object.entries(APVTS_ID_TO_UI_KEY).map(([apvtsId, uiKey]) => [uiKey, apvtsId])
+) as Record<keyof PluginState, string>
 
 export function normalizeValue(descriptor: ParameterDescriptor, uiValue: unknown): number {
   if (descriptor.type === 'bool') {
     const boolVal = Boolean(uiValue)
-    if (descriptor.id === 'PLUGIN_BYPASS') {
-      return boolVal ? 0.0 : 1.0 // UI engineActive true = APVTS bypass false (0.0)
+    if (descriptor.invert) {
+      return boolVal ? 0.0 : 1.0
     }
     return boolVal ? 1.0 : 0.0
   }
@@ -343,8 +330,8 @@ export function denormalizeValue(
 
   if (descriptor.type === 'bool') {
     const boolVal = norm > 0.5
-    if (descriptor.id === 'PLUGIN_BYPASS') {
-      return !boolVal // APVTS bypass false (<=0.5) = UI engineActive true
+    if (descriptor.invert) {
+      return !boolVal
     }
     return boolVal
   }

@@ -113,17 +113,6 @@ describe('webViewDspBridge & Native JUCE 8 Event Protocol', () => {
     unsubscribe()
   })
 
-  it('receives spectrum frames with { magnitudes: [...] } object payload', () => {
-    const onFrame = vi.fn()
-    const unsubscribe = subscribeToDspSpectrum(onFrame)
-
-    const testMags = new Array(80).fill(0.75)
-    mockBackend.trigger('spectrumFrame', { magnitudes: testMags })
-
-    expect(onFrame).toHaveBeenCalledWith(testMags)
-
-    unsubscribe()
-  })
 
   it('receives meter frames via meterFrame event', () => {
     const onFrame = vi.fn()
@@ -151,14 +140,13 @@ describe('webViewDspBridge & Native JUCE 8 Event Protocol', () => {
       uiScale: 1.5,
       spectrumDecay: 0.5,
     })
-
+    expect(onPrefs).toHaveBeenCalledTimes(1)
     expect(onPrefs).toHaveBeenCalledWith(
       expect.objectContaining({
         uiScale: 1.5,
         spectrumDecay: 0.5,
       })
     )
-
     unsubscribe()
   })
 

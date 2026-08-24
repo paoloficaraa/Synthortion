@@ -1,4 +1,4 @@
-import type { DspBridge, ParameterValue } from './dspBridge'
+import type { DspBridge } from './dspBridge'
 import {
   fromAPVTS,
   parameterStore,
@@ -24,7 +24,7 @@ declare global {
 
 /** Real WebView bridge using JUCE 8 native WebBrowserComponent events. */
 export const webViewDspBridge: DspBridge = {
-  setParameter(id: string, value: ParameterValue) {
+  setParameter(id: string, value: number) {
     if (window.__JUCE__?.backend?.emitEvent) {
       window.__JUCE__.backend.emitEvent('setParameter', { id, value })
     } else {
@@ -52,8 +52,6 @@ export function subscribeToDspChanges(
 
   let juceCleanupParam: (() => void) | undefined
   let juceCleanupInit: (() => void) | undefined
-  let juceCleanupPrefs: (() => void) | undefined
-
   if (window.__JUCE__?.backend?.addEventListener) {
     // 1. Listen for parameterChange events
     juceCleanupParam = window.__JUCE__.backend.addEventListener('parameterChange', (data) => {
@@ -91,12 +89,6 @@ export function subscribeToDspChanges(
       }
     })
 
-    // 3. Listen for runtime UI preference changes
-    juceCleanupPrefs = window.__JUCE__.backend.addEventListener('uiPreferencesChange', (data) => {
-      if (data && typeof data === 'object') {
-        parameterStore.setUIPreferences(data as Partial<UIPreferences>)
-      }
-    })
   }
 
   // 4. Dispatch connection event to C++ backend
@@ -107,7 +99,6 @@ export function subscribeToDspChanges(
   return () => {
     if (juceCleanupParam) juceCleanupParam()
     if (juceCleanupInit) juceCleanupInit()
-    if (juceCleanupPrefs) juceCleanupPrefs()
   }
 }
 
@@ -153,11 +144,6 @@ export function subscribeToDspSpectrum(onFrame: SpectrumFrameCallback): () => vo
   const handler = (data: unknown) => {
     if (Array.isArray(data)) {
       onFrame(data.filter((x): x is number => typeof x === 'number'))
-    } else if (data && typeof data === 'object' && 'magnitudes' in data) {
-      const mags = data.magnitudes
-      if (Array.isArray(mags)) {
-        onFrame(mags.filter((x): x is number => typeof x === 'number'))
-      }
     }
   }
 
@@ -176,17 +162,13 @@ export function subscribeToDspSpectrum(onFrame: SpectrumFrameCallback): () => vo
 export function subscribeToUIPreferences(
   onPreferences: (prefs: UIPreferences) => void
 ): () => void {
-  const handler = (data: unknown) => {
-    if (data && typeof data === 'object') {
-      const prefs = data as Partial<UIPreferences>
-      parameterStore.setUIPreferences(prefs)
-      onPreferences(parameterStore.getUIPreferences())
-    }
-  }
-
   let cleanup: (() => void) | undefined
   if (window.__JUCE__?.backend?.addEventListener) {
-    cleanup = window.__JUCE__.backend.addEventListener('uiPreferencesChange', handler)
+    cleanup = window.__JUCE__.backend.addEventListener('uiPreferencesChange', (data) => {
+      if (data && typeof data === 'object') {
+        parameterStore.setUIPreferences(data as Partial<UIPreferences>)
+      }
+    })
   }
   const unsubStore = parameterStore.subscribePreferences(onPreferences)
   return () => {
