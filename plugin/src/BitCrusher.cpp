@@ -72,7 +72,8 @@ void BitCrusher::process(juce::AudioBuffer<float>& buffer, const BitCrusherParam
         }
     }
 
-    dryWetMixer.setWetMixProportion(smoothedMix.getNextValue());
+    smoothedMix.skip(numSamples);
+    dryWetMixer.setWetMixProportion(smoothedMix.getCurrentValue());
     dryWetMixer.mixWetSamples(juce::dsp::AudioBlock<float>(buffer));
 }
 

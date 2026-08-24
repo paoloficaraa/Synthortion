@@ -432,6 +432,10 @@ namespace synthortion {
                 UIPreferences::ensureTree(newState);
                 apvts.replaceState(newState);
                 UIPreferences::ensureTree(apvts.state);
+                if (auto* editor = dynamic_cast<AudioPluginAudioProcessorEditor*>(getActiveEditor()))
+                {
+                    editor->sendUIPreferencesChange();
+                }
             }
         }
     }

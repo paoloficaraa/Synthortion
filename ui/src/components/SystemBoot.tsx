@@ -40,7 +40,7 @@ function lineChars(label: string, value: string, status: string): number {
  * final state. Users who prefer reduced motion see the final state rendered
  * immediately (no clip animation, no blinking).
  */
-export function SystemBoot() {
+export function SystemBoot({ skip = false }: { skip?: boolean }) {
   const [visible, setVisible] = useState(true)
   const reduceMotion = typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false
 
@@ -49,7 +49,7 @@ export function SystemBoot() {
     return () => window.clearTimeout(timer)
   }, [])
 
-  if (!visible) return null
+  if (!visible || skip) return null
   return (
     <button
       type="button"

@@ -384,17 +384,53 @@ export class ParameterStore {
   }
 
   hydrate(payload: InitPayload | ParameterDescriptor[]): void {
+    const extractNormVal = (obj: unknown, fallback: number): number => {
+      if (obj && typeof obj === 'object') {
+        if ('normalizedValue' in obj && typeof obj.normalizedValue === 'number') {
+          return obj.normalizedValue
+        }
+        if ('value' in obj && typeof obj.value === 'number') {
+          return obj.value
+        }
+      }
+      return fallback
+    }
+
     if (Array.isArray(payload)) {
       for (const desc of payload) {
         if (desc && desc.id) {
-          this.descriptors.set(desc.id, desc)
+          const existing = this.descriptors.get(desc.id)
+          const normVal = extractNormVal(desc, existing?.normalizedValue ?? 0)
+
+          if (existing) {
+            this.descriptors.set(desc.id, {
+              ...existing,
+              ...desc,
+              normalizedValue: normVal,
+            })
+            this.updateParameter(desc.id, normVal)
+          } else {
+            this.descriptors.set(desc.id, desc)
+          }
         }
       }
     } else if (payload && typeof payload === 'object') {
       if (Array.isArray(payload.parameters)) {
         for (const desc of payload.parameters) {
           if (desc && desc.id) {
-            this.descriptors.set(desc.id, desc)
+            const existing = this.descriptors.get(desc.id)
+            const normVal = extractNormVal(desc, existing?.normalizedValue ?? 0)
+
+            if (existing) {
+              this.descriptors.set(desc.id, {
+                ...existing,
+                ...desc,
+                normalizedValue: normVal,
+              })
+              this.updateParameter(desc.id, normVal)
+            } else {
+              this.descriptors.set(desc.id, desc)
+            }
           }
         }
       }

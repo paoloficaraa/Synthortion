@@ -146,6 +146,7 @@ namespace synthortion
                 processorRef.getAPVTS().addParameterListener (pWithId->paramID, this);
             }
         }
+        processorRef.getAPVTS().state.addListener (this);
 
         setOpaque (true);
         setResizable (true, true);
@@ -169,6 +170,7 @@ namespace synthortion
                 processorRef.getAPVTS().removeParameterListener (pWithId->paramID, this);
             }
         }
+        processorRef.getAPVTS().state.removeListener (this);
     }
     void AudioPluginAudioProcessorEditor::parameterChanged (const juce::String& parameterID, float /*newValue*/)
     {
@@ -237,14 +239,65 @@ namespace synthortion
         payload->setProperty ("parameters", parameters);
 
         // Add uiPreferences with default fallbacks if tree is missing/uninitialized
+        payload->setProperty ("uiPreferences", buildUIPreferencesPayload());
+
+        return juce::var (payload.get());
+    }
+
+    juce::var AudioPluginAudioProcessorEditor::buildUIPreferencesPayload()
+    {
         juce::DynamicObject::Ptr uiPrefsObj = new juce::DynamicObject();
         auto uiPrefsTree = processorRef.getAPVTS().state.getChildWithName (UIPreferences::kNodeName);
         uiPrefsObj->setProperty (UIPreferences::kUiScale, uiPrefsTree.getProperty (UIPreferences::kUiScale, UIPreferences::kDefaultUiScale));
         uiPrefsObj->setProperty (UIPreferences::kSpectrumDecay, uiPrefsTree.getProperty (UIPreferences::kSpectrumDecay, UIPreferences::kDefaultSpectrumDecay));
         uiPrefsObj->setProperty (UIPreferences::kSkipBootSequence, uiPrefsTree.getProperty (UIPreferences::kSkipBootSequence, UIPreferences::kDefaultSkipBootSequence));
-        payload->setProperty ("uiPreferences", juce::var (uiPrefsObj.get()));
+        return juce::var (uiPrefsObj.get());
+    }
 
-        return juce::var (payload.get());
+    void AudioPluginAudioProcessorEditor::sendUIPreferencesChange()
+    {
+        if (webView == nullptr)
+            return;
+
+        webView->emitEventIfBrowserIsVisible ("uiPreferencesChange", buildUIPreferencesPayload());
+    }
+
+    void AudioPluginAudioProcessorEditor::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& /*property*/)
+    {
+        if (treeWhosePropertyHasChanged.hasType (UIPreferences::kNodeName) ||
+            treeWhosePropertyHasChanged == processorRef.getAPVTS().state)
+        {
+            juce::Component::SafePointer<AudioPluginAudioProcessorEditor> safeThis (this);
+            juce::MessageManager::callAsync ([safeThis]()
+            {
+                if (safeThis != nullptr)
+                    safeThis->sendUIPreferencesChange();
+            });
+        }
+    }
+
+    void AudioPluginAudioProcessorEditor::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded)
+    {
+        if (childWhichHasBeenAdded.hasType (UIPreferences::kNodeName) ||
+            parentTree == processorRef.getAPVTS().state)
+        {
+            juce::Component::SafePointer<AudioPluginAudioProcessorEditor> safeThis (this);
+            juce::MessageManager::callAsync ([safeThis]()
+            {
+                if (safeThis != nullptr)
+                    safeThis->sendUIPreferencesChange();
+            });
+        }
+    }
+
+    void AudioPluginAudioProcessorEditor::valueTreeRedirected (juce::ValueTree& /*treeWhichHasBeenChanged*/)
+    {
+        juce::Component::SafePointer<AudioPluginAudioProcessorEditor> safeThis (this);
+        juce::MessageManager::callAsync ([safeThis]()
+        {
+            if (safeThis != nullptr)
+                safeThis->sendUIPreferencesChange();
+        });
     }
 
     void AudioPluginAudioProcessorEditor::handleConnect()

@@ -33,6 +33,20 @@ export const webViewDspBridge: DspBridge = {
   },
 }
 
+/** Helper to subscribe to JUCE native events with safe cleanup. */
+function addNativeEventListener(
+  event: string,
+  handler: (data: unknown) => void
+): () => void {
+  if (window.__JUCE__?.backend?.addEventListener) {
+    const cleanup = window.__JUCE__.backend.addEventListener(event, handler)
+    return () => {
+      if (cleanup) cleanup()
+    }
+  }
+  return () => {}
+}
+
 /**
  * Register listener for incoming C++ DSP parameter changes (automation, presets, initial hydration).
  * Also performs the initial connection handshake by emitting `connect`.
@@ -50,11 +64,9 @@ export function subscribeToDspChanges(
     }
   }
 
-  let juceCleanupParam: (() => void) | undefined
-  let juceCleanupInit: (() => void) | undefined
-  if (window.__JUCE__?.backend?.addEventListener) {
+  const unsubs = [
     // 1. Listen for parameterChange events
-    juceCleanupParam = window.__JUCE__.backend.addEventListener('parameterChange', (data) => {
+    addNativeEventListener('parameterChange', (data) => {
       if (data && typeof data === 'object') {
         const id = 'id' in data && typeof data.id === 'string' ? data.id : undefined
         const value = 'value' in data && typeof data.value === 'number' ? data.value : undefined
@@ -62,10 +74,10 @@ export function subscribeToDspChanges(
           handleParamChange(id, value)
         }
       }
-    })
+    }),
 
     // 2. Listen for init handshake event
-    juceCleanupInit = window.__JUCE__.backend.addEventListener('init', (data) => {
+    addNativeEventListener('init', (data) => {
       if (data && typeof data === 'object') {
         const payload = data as InitPayload
         parameterStore.hydrate(payload)
@@ -73,9 +85,12 @@ export function subscribeToDspChanges(
           const patch: Partial<PluginState> = {}
           for (const param of data.parameters) {
             if (param && typeof param === 'object' && 'id' in param && typeof param.id === 'string') {
-              const normVal = 'normalizedValue' in param && typeof param.normalizedValue === 'number'
-                ? param.normalizedValue
-                : 0
+              const normVal =
+                'normalizedValue' in param && typeof param.normalizedValue === 'number'
+                  ? param.normalizedValue
+                  : 'value' in param && typeof param.value === 'number'
+                    ? param.value
+                    : 0
               const res = fromAPVTS(param.id, normVal)
               if (res) {
                 Object.assign(patch, { [res.uiKey]: res.value })
@@ -87,18 +102,16 @@ export function subscribeToDspChanges(
           }
         }
       }
-    })
+    }),
+  ]
 
-  }
-
-  // 4. Dispatch connection event to C++ backend
+  // 3. Dispatch connection event to C++ backend
   if (window.__JUCE__?.backend?.emitEvent) {
     window.__JUCE__.backend.emitEvent('connect', {})
   }
 
   return () => {
-    if (juceCleanupParam) juceCleanupParam()
-    if (juceCleanupInit) juceCleanupInit()
+    for (const unsub of unsubs) unsub()
   }
 }
 
@@ -118,7 +131,7 @@ export type MeterFrameCallback = (frame: MeterFrame) => void
  * Register listener for incoming 60 FPS C++ DSP meter frames (`meterFrame` event).
  */
 export function subscribeToDspMeters(onFrame: MeterFrameCallback): () => void {
-  const handler = (data: unknown) => {
+  return addNativeEventListener('meterFrame', (data) => {
     if (data && typeof data === 'object' && 'input' in data && 'output' in data) {
       const input = data.input
       const output = data.output
@@ -126,34 +139,18 @@ export function subscribeToDspMeters(onFrame: MeterFrameCallback): () => void {
         onFrame({ input, output })
       }
     }
-  }
-
-  let cleanup: (() => void) | undefined
-  if (window.__JUCE__?.backend?.addEventListener) {
-    cleanup = window.__JUCE__.backend.addEventListener('meterFrame', handler)
-  }
-  return () => {
-    if (cleanup) cleanup()
-  }
+  })
 }
 
 /**
  * Register listener for incoming 60 FPS C++ DSP spectrum frames (`spectrumFrame` event).
  */
 export function subscribeToDspSpectrum(onFrame: SpectrumFrameCallback): () => void {
-  const handler = (data: unknown) => {
+  return addNativeEventListener('spectrumFrame', (data) => {
     if (Array.isArray(data)) {
       onFrame(data.filter((x): x is number => typeof x === 'number'))
     }
-  }
-
-  let cleanup: (() => void) | undefined
-  if (window.__JUCE__?.backend?.addEventListener) {
-    cleanup = window.__JUCE__.backend.addEventListener('spectrumFrame', handler)
-  }
-  return () => {
-    if (cleanup) cleanup()
-  }
+  })
 }
 
 /**
@@ -162,17 +159,14 @@ export function subscribeToDspSpectrum(onFrame: SpectrumFrameCallback): () => vo
 export function subscribeToUIPreferences(
   onPreferences: (prefs: UIPreferences) => void
 ): () => void {
-  let cleanup: (() => void) | undefined
-  if (window.__JUCE__?.backend?.addEventListener) {
-    cleanup = window.__JUCE__.backend.addEventListener('uiPreferencesChange', (data) => {
-      if (data && typeof data === 'object') {
-        parameterStore.setUIPreferences(data as Partial<UIPreferences>)
-      }
-    })
-  }
+  const unsubNative = addNativeEventListener('uiPreferencesChange', (data) => {
+    if (data && typeof data === 'object') {
+      parameterStore.setUIPreferences(data as Partial<UIPreferences>)
+    }
+  })
   const unsubStore = parameterStore.subscribePreferences(onPreferences)
   return () => {
-    if (cleanup) cleanup()
+    unsubNative()
     unsubStore()
   }
 }

@@ -48,6 +48,7 @@ namespace synthortion
             testStateSerializationRoundtrip();
             testStateSerializationMissingNodesAndOlderRevisions();
             testStateSerializationSynchronousExecution();
+            testEditorUIPreferencesChange();
         }
         void testEditorSizeIs960x600()
         {
@@ -898,6 +899,42 @@ namespace synthortion
             expect(uiPrefs.isValid(), "UIPreferences should be valid immediately");
             const double currentScale = uiPrefs.getProperty(UIPreferences::kUiScale);
             expectEquals(currentScale, 2.0, "State should be updated synchronously on calling thread");
+        }
+        void testEditorUIPreferencesChange()
+        {
+            beginTest ("PluginEditor builds UIPreferences payload and synchronizes on ValueTree mutations");
+
+            AudioPluginAudioProcessor processor;
+            AudioPluginAudioProcessorEditor editor (processor);
+
+            auto payload = editor.buildUIPreferencesPayload();
+            expect (payload.isObject(), "Payload should be a dynamic object");
+            auto* obj = payload.getDynamicObject();
+            expect (obj != nullptr, "Payload dynamic object must not be null");
+            if (obj != nullptr)
+            {
+                expect (obj->hasProperty (UIPreferences::kUiScale), "Payload must contain uiScale");
+                expect (obj->hasProperty (UIPreferences::kSpectrumDecay), "Payload must contain spectrumDecay");
+                expect (obj->hasProperty (UIPreferences::kSkipBootSequence), "Payload must contain skipBootSequence");
+            }
+
+            // Mutate UI preferences
+            auto& state = processor.getAPVTS().state;
+            UIPreferences::ensureTree(state);
+            auto uiPrefs = state.getChildWithName(UIPreferences::kNodeName);
+            uiPrefs.setProperty(UIPreferences::kUiScale, 1.25, nullptr);
+            uiPrefs.setProperty(UIPreferences::kSpectrumDecay, 0.5, nullptr);
+            uiPrefs.setProperty(UIPreferences::kSkipBootSequence, true, nullptr);
+
+            auto updatedPayload = editor.buildUIPreferencesPayload();
+            auto* updatedObj = updatedPayload.getDynamicObject();
+            expect (updatedObj != nullptr, "Updated payload dynamic object must not be null");
+            if (updatedObj != nullptr)
+            {
+                expectEquals (static_cast<double>(updatedObj->getProperty(UIPreferences::kUiScale)), 1.25);
+                expectEquals (static_cast<double>(updatedObj->getProperty(UIPreferences::kSpectrumDecay)), 0.5);
+                expect (static_cast<bool>(updatedObj->getProperty(UIPreferences::kSkipBootSequence)) == true, "skipBootSequence should be updated to true");
+            }
         }
     };
 

@@ -10,6 +10,7 @@ namespace synthortion
 {
     class AudioPluginAudioProcessorEditor final : public juce::AudioProcessorEditor,
                                                   public juce::AudioProcessorValueTreeState::Listener,
+                                                  public juce::ValueTree::Listener,
                                                   public juce::Timer
     {
     public:
@@ -24,6 +25,8 @@ namespace synthortion
         juce::var buildInitPayload();
         void handleConnect();
         void handleSetParameter (const juce::var& data);
+        void sendUIPreferencesChange();
+        juce::var buildUIPreferencesPayload();
         void timerCallback() override;
         void sendSpectrumFrame (const std::array<float, SpectrumAnalyzer::kNumBands>& magnitudes);
         juce::var buildSpectrumPayload (const std::array<float, SpectrumAnalyzer::kNumBands>& magnitudes);
@@ -32,6 +35,13 @@ namespace synthortion
         SpectrumAnalyzer& getSpectrumAnalyzer() noexcept { return spectrumAnalyzer; }
         const SpectrumAnalyzer& getSpectrumAnalyzer() const noexcept { return spectrumAnalyzer; }
 
+
+        void valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property) override;
+        void valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded) override;
+        void valueTreeChildRemoved (juce::ValueTree&, juce::ValueTree&, int) override {}
+        void valueTreeChildOrderChanged (juce::ValueTree&, int, int) override {}
+        void valueTreeParentChanged (juce::ValueTree&) override {}
+        void valueTreeRedirected (juce::ValueTree&) override;
 
         std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
 

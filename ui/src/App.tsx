@@ -7,8 +7,8 @@ import { MatrixFaceplate } from './components/MatrixFaceplate'
 import { SpectrumVisualizer } from './components/SpectrumVisualizer'
 import { initialState, diffPluginState, type PluginState } from './lib/pluginState'
 import { noopDspBridge, type DspBridge, PARAMETER_IDS } from './lib/dspBridge'
-import { toAPVTS } from './lib/parameterStore'
-import { subscribeToDspChanges } from './lib/webViewDspBridge'
+import { toAPVTS, parameterStore, type UIPreferences } from './lib/parameterStore'
+import { subscribeToDspChanges, subscribeToUIPreferences } from './lib/webViewDspBridge'
 import { createGlitchPulser } from './lib/glitchPulser'
 
 /** Module power flags pulse a fixed 0.8 burst (spec: short glitch). */
@@ -40,6 +40,7 @@ interface AppProps {
  */
 function App({ dspBridge = noopDspBridge }: AppProps) {
   const [state, setState] = useState<PluginState>(initialState)
+  const [uiPrefs, setUiPrefs] = useState<UIPreferences>(() => parameterStore.getUIPreferences())
   const prevStateRef = useRef<PluginState>(initialState)
   // Stable for the component's lifetime — created once, mutated by pulse()
   // from the effect below, read by the visualizer as a prop.
@@ -76,11 +77,18 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
   }
 
   useEffect(() => {
-    const unsubscribe = subscribeToDspChanges(update)
-    return () => unsubscribe()
+    const unsubParams = subscribeToDspChanges(update)
+    const unsubPrefs = subscribeToUIPreferences((prefs) => {
+      setUiPrefs(prefs)
+    })
+    return () => {
+      unsubParams()
+      unsubPrefs()
+    }
   }, [])
+  const scaleStyle = uiPrefs.uiScale && uiPrefs.uiScale !== 1.0 ? { transform: `scale(${uiPrefs.uiScale})`, transformOrigin: 'top left' } : undefined
   return (
-    <div className="w-full h-full flex flex-col min-h-0 min-w-0 overflow-hidden relative select-none bg-void">
+    <div style={scaleStyle} className="w-full h-full flex flex-col min-h-0 min-w-0 overflow-hidden relative select-none bg-void">
       <VstLayout
         leftColumn={<GainMeter label="IN" active={state.engineActive} channel="input" delay={50} />}
         rightColumn={<GainMeter label="OUT" active={state.engineActive} channel="output" delay={260} />}
@@ -92,14 +100,14 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
             onToggleBypass={(active) => update({ engineActive: active })}
           />
           {/* Real-time spectrum visualizer band allocated ~35% of center hub height */}
-          <SpectrumVisualizer active={state.engineActive} glitch={pulser} />
+          <SpectrumVisualizer active={state.engineActive} glitch={pulser} decayRate={uiPrefs.spectrumDecay} />
           {/* Faceplate plateau allocated ~65% of center hub height, expanding to 100% height */}
           <div data-testid="faceplate-plateau" className="basis-[65%] flex-grow flex flex-col p-3 sm:p-4 min-h-0 overflow-hidden bg-bg">
             <MatrixFaceplate state={state} onChange={update} />
           </div>
         </main>
       </VstLayout>
-      <SystemBoot />
+      <SystemBoot skip={uiPrefs.skipBootSequence} />
     </div>
   )
 }

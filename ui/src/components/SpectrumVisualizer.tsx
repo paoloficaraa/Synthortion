@@ -45,6 +45,10 @@ export interface SpectrumVisualizerProps {
    * Defaults to `Math.random`.
    */
   random?: () => number
+  /**
+   * Exponential decay rate / time constant multiplier from UI preferences (default: 0.25).
+   */
+  decayRate?: number
 }
 
 /**
@@ -61,6 +65,7 @@ export function SpectrumVisualizer({
   subscribeSpectrum = subscribeToDspSpectrum,
   glitch,
   random = Math.random,
+  decayRate,
 }: SpectrumVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const motionQuery =
@@ -135,8 +140,9 @@ export function SpectrumVisualizer({
           // Instant attack
           display[i] = t
         } else {
-          // Smooth decay (~180 ms in active, ~220 ms in bypass)
-          const decay = Math.exp(-dt / (active ? 180 : 220))
+          // Smooth decay scaled by decayRate preference (~180 ms in active, ~220 ms in bypass)
+          const baseDecay = (decayRate ?? 0.25) * 720
+          const decay = Math.exp(-dt / (active ? baseDecay : baseDecay * 1.22))
           display[i] = curr * decay + t * (1 - decay)
         }
         if (display[i] > 0.0005) {
@@ -231,7 +237,7 @@ export function SpectrumVisualizer({
       motionQuery?.removeEventListener('change', onMotionChange)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, glitch, random, nonce])
+  }, [active, glitch, random, nonce, decayRate])
 
   return (
     <div
