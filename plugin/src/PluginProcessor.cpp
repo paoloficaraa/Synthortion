@@ -245,15 +245,11 @@ namespace synthortion {
         outputGainSmoother.reset(sampleRate, kSmootherRampTime);
         outputGainSmoother.setCurrentAndTargetValue(outputGainParam->load());
 
-        smoothedColorDrive.reset(sampleRate, 0.05); // 50ms smoothing
-
         const int distortionLatency = juce::jmax(1, warmDistortion.getLatencySamples());
 
         // Set latency based on distortion only
         currentTotalLatency.store(distortionLatency);
         setLatencySamples(distortionLatency);
-
-        updateAllDSPParameters();
         audioFifo.reset();
     }
 
@@ -310,11 +306,15 @@ namespace synthortion {
         const bool delayOn = delayOnParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         const bool chorusOn = chorusOnParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         const bool drivePost = driveRouteParam->load(std::memory_order_relaxed) > kBooleanThreshold;
+        const bool chorusWide = chorusWideParam->load(std::memory_order_relaxed) > kBooleanThreshold;
+
+        const dsp::WarmDistortionParams driveParams{ color, volumeComp };
+        const dsp::BitCrusherParams bitcrushParams{ bitCrush, 8.0f, 6000.0f };
+        const dsp::ChorusParams chorusParams{ chorusMix, chorusWide };
+        const dsp::PingPongDelayParams delayParams{ delayTime, delayMix, delayFeedback, 12000.0f };
 
         inputGainSmoother.setTargetValue(inputGain);
         outputGainSmoother.setTargetValue(outputGain);
-
-        smoothedColorDrive.setTargetValue(color);
 
         if (inputGainSmoother.isSmoothing())
         {
@@ -335,34 +335,25 @@ namespace synthortion {
         }
         inputPeak.store(computeMaxPeak(buffer));
 
-        juce::dsp::AudioBlock<float> block(buffer);
-        juce::dsp::ProcessContextReplacing<float> context(block);
-
         if (!bypass)
         {
             auto runDrive = [&]() {
                 if (driveOn) {
-                    warmDistortion.setVolumeCompensation(volumeComp);
-                    warmDistortion.process(context, &smoothedColorDrive);
+                    warmDistortion.process(buffer, driveParams);
                 }
             };
 
             auto runFx = [&]() {
                 if (bitcrushOn) {
-                    bitCrusher.setBitCrushMix(bitCrush);
-                    bitCrusher.process(buffer);
+                    bitCrusher.process(buffer, bitcrushParams);
                 }
 
                 if (chorusOn) {
-                    chorus.setChorusMix(chorusMix);
-                    chorus.process(buffer);
+                    chorus.process(buffer, chorusParams);
                 }
 
                 if (delayOn) {
-                    pingPongDelay.setDelayTime(delayTime);
-                    pingPongDelay.setDelayMix(delayMix);
-                    pingPongDelay.setFeedback(delayFeedback);
-                    pingPongDelay.process(buffer);
+                    pingPongDelay.process(buffer, delayParams);
                 }
             };
 
@@ -397,9 +388,7 @@ namespace synthortion {
         const int distortionLatency = warmDistortion.getLatencySamples();
         currentTotalLatency.store(distortionLatency);
         setLatencySamples(distortionLatency);
-        updateAllDSPParameters();
     }
-
     void AudioPluginAudioProcessor::processBlockBypassed(juce::AudioBuffer<float> &buffer,
         [[maybe_unused]] juce::MidiBuffer &midiMessages)
     {
@@ -423,23 +412,6 @@ namespace synthortion {
     juce::AudioProcessorParameter* AudioPluginAudioProcessor::getBypassParameter() const
     {
         return apvts.getParameter("PLUGIN_BYPASS");
-    }
-
-    void AudioPluginAudioProcessor::updateAllDSPParameters()
-    {
-        const float color = colorParam->load();
-        smoothedColorDrive.setCurrentAndTargetValue(color);
-        const float drive = smoothedColorDrive.getCurrentValue();
-
-        warmDistortion.setDrive(drive);
-
-        bitCrusher.setBitCrushMix(bitCrushParam->load());
-
-        pingPongDelay.setDelayTime(delayTimeParam->load());
-        pingPongDelay.setDelayMix(delayMixParam->load());
-        pingPongDelay.setFeedback(delayFeedbackParam->load());
-
-        chorus.setChorusMix(chorusMixParam->load());
     }
 
     juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor()

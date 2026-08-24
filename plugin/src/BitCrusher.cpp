@@ -1,5 +1,7 @@
 #include "Synthortion/Bitcrusher.h"
 
+namespace synthortion::dsp {
+
 BitCrusher::BitCrusher()
 {
     updateParameters();
@@ -16,14 +18,29 @@ void BitCrusher::prepare(const juce::dsp::ProcessSpec &spec)
     dryWetMixer.prepare(spec);
     dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
 
+    smoothedMix.reset(sampleRate, 0.05);
+    smoothedMix.setCurrentAndTargetValue(0.0f);
+
     updateParameters();
     reset();
 }
 
-void BitCrusher::process(juce::AudioBuffer<float>& buffer)
+void BitCrusher::process(juce::AudioBuffer<float>& buffer, const BitCrusherParams& params)
 {
     const int numSamples = buffer.getNumSamples();
     const int numChannels = buffer.getNumChannels();
+
+    if (numSamples == 0 || numChannels == 0)
+        return;
+
+    smoothedMix.setTargetValue(juce::jlimit(0.0f, 1.0f, params.mix));
+
+    if (smoothedMix.getCurrentValue() <= 0.0f && !smoothedMix.isSmoothing() && params.mix <= 0.0f)
+        return;
+
+    bitDepth = juce::jlimit(1.0f, 16.0f, params.bitDepth);
+    sampleRateReduction = juce::jlimit(100.0f, static_cast<float>(sampleRate), params.sampleRateReduction);
+    updateParameters();
 
     dryWetMixer.pushDrySamples(juce::dsp::AudioBlock<float>(buffer));
 
@@ -55,22 +72,24 @@ void BitCrusher::process(juce::AudioBuffer<float>& buffer)
         }
     }
 
-    dryWetMixer.setWetMixProportion(bitCrushMix);
+    dryWetMixer.setWetMixProportion(smoothedMix.getNextValue());
     dryWetMixer.mixWetSamples(juce::dsp::AudioBlock<float>(buffer));
 }
 
-void BitCrusher::reset()
+void BitCrusher::reset() noexcept
 {
     holdSampleLeft = 0.0f;
     holdSampleRight = 0.0f;
     holdCounterLeft = 0;
     holdCounterRight = 0;
     dryWetMixer.reset();
+    smoothedMix.setCurrentAndTargetValue(0.0f);
 }
 
 void BitCrusher::setBitCrushMix(float mix)
 {
     bitCrushMix = juce::jlimit(0.0f, 1.0f, mix);
+    smoothedMix.setTargetValue(bitCrushMix);
 }
 
 void BitCrusher::updateParameters()
@@ -83,3 +102,5 @@ void BitCrusher::updateParameters()
 
     cachedDitherScale = ditherAmount * quantizationStep * 2.0f;
 }
+
+} // namespace synthortion::dsp

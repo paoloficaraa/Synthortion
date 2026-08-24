@@ -2,6 +2,9 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
+#include "Synthortion/DspModule.h"
+
+namespace synthortion::dsp {
 
 // Lo-fi bit reduction effect with sample rate and bit depth reduction
 class BitCrusher
@@ -10,8 +13,9 @@ public:
     BitCrusher();
     
     void prepare(const juce::dsp::ProcessSpec& spec);
-    void process(juce::AudioBuffer<float>& buffer);
-    void reset();
+    void process(juce::AudioBuffer<float>& buffer, const BitCrusherParams& params);
+    void reset() noexcept;
+    int getLatencySamples() const noexcept { return 0; }
     
     void setBitCrushMix(float mix);
     
@@ -34,9 +38,18 @@ private:
     float cachedDitherScale = 0.0f;
     float quantizationStep = 0.0f;
     
+    juce::SmoothedValue<float> smoothedMix;
     juce::dsp::DryWetMixer<float> dryWetMixer;
     
     juce::Random randomGenerator;
     
     void updateParameters();
 };
+
+static_assert(DspModule<BitCrusher, BitCrusherParams>);
+
+} // namespace synthortion::dsp
+
+namespace synthortion {
+using BitCrusher = dsp::BitCrusher;
+}

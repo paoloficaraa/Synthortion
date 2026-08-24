@@ -49,8 +49,6 @@ namespace synthortion
         void getStateInformation(juce::MemoryBlock &destData) override;
         void setStateInformation(const void *data, int sizeInBytes) override;
 
-        juce::LinearSmoothedValue<float> smoothedColorDrive { 0.0f };
-
         juce::AudioProcessorValueTreeState& getAPVTS() noexcept { return apvts; }
 
         AudioCaptureFifo& getAudioFifo() noexcept { return audioFifo; }
@@ -65,13 +63,12 @@ namespace synthortion
         static constexpr int kLatencyBufferMargin = 4;
 
         juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
-        void updateAllDSPParameters();
         void captureAndMeasurePeaks(const juce::AudioBuffer<float>& buffer);
 
-        WarmDistortion warmDistortion;
-        SynthortionChorus chorus;
-        PingPongDelay pingPongDelay;
-        BitCrusher bitCrusher;
+        dsp::WarmDistortion warmDistortion;
+        dsp::SynthortionChorus chorus;
+        dsp::PingPongDelay pingPongDelay;
+        dsp::BitCrusher bitCrusher;
 
         AudioCaptureFifo audioFifo;
         juce::AudioProcessorValueTreeState apvts;

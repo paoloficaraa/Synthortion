@@ -1,7 +1,16 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <atomic>
 
+extern std::atomic<bool> g_trackAllocations;
+extern std::atomic<size_t> g_allocationCount;
+
+#include "Synthortion/DspModule.h"
+#include "Synthortion/WarmDistortion.h"
+#include "Synthortion/Bitcrusher.h"
+#include "Synthortion/PingPongDelay.h"
+#include "Synthortion/SynthortionChorus.h"
 #include "Synthortion/PluginEditor.h"
 #include "Synthortion/PluginProcessor.h"
 #include "Synthortion/AudioCaptureFifo.h"
@@ -33,8 +42,10 @@ namespace synthortion
             testSpectrumAnalyzerBallistics();
             testEditorTimerAndSpectrumFrame();
             testProcessorBypassParameterAndPassthrough();
+            testDspModulesConceptAndIsolatedLifecycle();
+            testDspModulesAudioMutationAndClickFreeModulation();
+            testDspModulesZeroAllocationsAndLocksOnAudioThread();
         }
-    private:
         void testEditorSizeIs960x600()
         {
             beginTest ("Plugin editor dimensions are 960x600 and resizable with fixed 16:10 aspect ratio");
@@ -440,6 +451,248 @@ namespace synthortion
             const auto& bands = editor.getSpectrumAnalyzer().getSmoothedBands();
             float maxVal = *std::max_element (bands.begin(), bands.end());
             expect (maxVal > 0.85f, "SpectrumAnalyzer should capture 1000 Hz peak > 0.85 after timerCallback");
+        }
+
+        void testDspModulesConceptAndIsolatedLifecycle()
+        {
+            beginTest ("DspModule concept and isolated prepare/reset/latency across sample rates");
+
+            static_assert(dsp::DspModule<dsp::WarmDistortion, dsp::WarmDistortionParams>);
+            static_assert(dsp::DspModule<dsp::BitCrusher, dsp::BitCrusherParams>);
+            static_assert(dsp::DspModule<dsp::PingPongDelay, dsp::PingPongDelayParams>);
+            static_assert(dsp::DspModule<dsp::SynthortionChorus, dsp::ChorusParams>);
+
+            const double sampleRates[] = { 44100.0, 48000.0, 96000.0, 192000.0 };
+            const int maxBlockSize = 512;
+            const int numChannels = 2;
+
+            for (double sr : sampleRates)
+            {
+                juce::dsp::ProcessSpec spec{ sr, static_cast<juce::uint32>(maxBlockSize), static_cast<juce::uint32>(numChannels) };
+
+                dsp::WarmDistortion warmDist;
+                warmDist.prepare(spec);
+                expect(warmDist.getLatencySamples() >= 0, "WarmDistortion latency non-negative");
+                warmDist.reset();
+
+                dsp::BitCrusher bitCrusher;
+                bitCrusher.prepare(spec);
+                expect(bitCrusher.getLatencySamples() == 0, "BitCrusher latency is 0");
+                bitCrusher.reset();
+
+                dsp::PingPongDelay delay;
+                delay.prepare(spec);
+                expect(delay.getLatencySamples() == 0, "PingPongDelay latency is 0");
+                delay.reset();
+
+                dsp::SynthortionChorus chorus;
+                chorus.prepare(spec);
+                expect(chorus.getLatencySamples() == 0, "SynthortionChorus latency is 0");
+                chorus.reset();
+            }
+        }
+
+        void testDspModulesAudioMutationAndClickFreeModulation()
+        {
+            beginTest ("DspModule audio mutation and click-free parameter modulation");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 256;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32>(blockSize), 2 };
+
+            auto generateSine = [](juce::AudioBuffer<float>& buf, float freq, double sr)
+            {
+                for (int s = 0; s < buf.getNumSamples(); ++s)
+                {
+                    float v = 0.5f * std::sin(2.0f * juce::MathConstants<float>::pi * freq * static_cast<float>(s) / static_cast<float>(sr));
+                    for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+                        buf.setSample(ch, s, v);
+                }
+            };
+
+            // 1. WarmDistortion mutation & modulation
+            {
+                dsp::WarmDistortion dist;
+                dist.prepare(spec);
+
+                juce::AudioBuffer<float> dryBuf(2, blockSize);
+                juce::AudioBuffer<float> wetBuf(2, blockSize);
+                generateSine(dryBuf, 440.0f, sampleRate);
+                wetBuf.makeCopyOf(dryBuf);
+
+                dsp::WarmDistortionParams params{ 0.8f, false };
+                dist.process(wetBuf, params);
+
+                // Verify mutation (harmonics added)
+                float diffSum = 0.0f;
+                for (int s = 0; s < blockSize; ++s)
+                    diffSum += std::abs(wetBuf.getSample(0, s) - dryBuf.getSample(0, s));
+                expect(diffSum > 0.1f, "WarmDistortion must alter waveform when driven");
+
+                // Test modulation continuity across blocks (no step > 0.4 between adjacent samples)
+                float prevSample = wetBuf.getSample(0, blockSize - 1);
+                bool clickDetected = false;
+                for (int b = 0; b < 20; ++b)
+                {
+                    float modDrive = static_cast<float>(b) / 20.0f;
+                    generateSine(wetBuf, 440.0f, sampleRate);
+                    dist.process(wetBuf, dsp::WarmDistortionParams{ modDrive, false });
+
+                    for (int s = 0; s < blockSize; ++s)
+                    {
+                        float curSample = wetBuf.getSample(0, s);
+                        if (std::abs(curSample - prevSample) > 0.5f)
+                            clickDetected = true;
+                        prevSample = curSample;
+                    }
+                }
+                expect(!clickDetected, "WarmDistortion drive modulation must be click-free");
+            }
+
+            // 2. BitCrusher mutation & modulation
+            {
+                dsp::BitCrusher bc;
+                bc.prepare(spec);
+
+                juce::AudioBuffer<float> dryBuf(2, blockSize);
+                juce::AudioBuffer<float> wetBuf(2, blockSize);
+                generateSine(dryBuf, 440.0f, sampleRate);
+                wetBuf.makeCopyOf(dryBuf);
+
+                dsp::BitCrusherParams params{ 1.0f, 4.0f, 2000.0f };
+                bc.process(wetBuf, params);
+
+                float diffSum = 0.0f;
+                for (int s = 0; s < blockSize; ++s)
+                    diffSum += std::abs(wetBuf.getSample(0, s) - dryBuf.getSample(0, s));
+                expect(diffSum > 0.1f, "BitCrusher must quantize/downsample when wet");
+
+                // Test mix modulation click-free
+                float prevSample = 0.0f;
+                bool clickDetected = false;
+                for (int b = 0; b < 20; ++b)
+                {
+                    float mix = (b % 2 == 0) ? 0.0f : 1.0f;
+                    generateSine(wetBuf, 440.0f, sampleRate);
+                    bc.process(wetBuf, dsp::BitCrusherParams{ mix, 8.0f, 6000.0f });
+                    for (int s = 0; s < blockSize; ++s)
+                    {
+                        float cur = wetBuf.getSample(0, s);
+                        if (b > 0 && std::abs(cur - prevSample) > 0.6f)
+                            clickDetected = true;
+                        prevSample = cur;
+                    }
+                }
+                expect(!clickDetected, "BitCrusher mix modulation must be smooth");
+            }
+
+            // 3. PingPongDelay mutation & modulation
+            {
+                dsp::PingPongDelay delay;
+                delay.prepare(spec);
+
+                juce::AudioBuffer<float> buf(2, blockSize);
+                buf.clear();
+                buf.setSample(0, 0, 1.0f); // Impulse
+
+                dsp::PingPongDelayParams params{ 10.0f, 1.0f, 0.5f, 12000.0f };
+                delay.process(buf, params);
+
+                // Process next blocks to catch delay echo
+                bool echoFound = false;
+                for (int b = 0; b < 10; ++b)
+                {
+                    buf.clear();
+                    delay.process(buf, params);
+                    for (int ch = 0; ch < 2; ++ch)
+                    {
+                        for (int s = 0; s < blockSize; ++s)
+                        {
+                            if (std::abs(buf.getSample(ch, s)) > 0.01f)
+                                echoFound = true;
+                        }
+                    }
+                }
+                expect(echoFound, "PingPongDelay must produce delayed feedback echoes");
+            }
+
+            // 4. SynthortionChorus mutation & modulation
+            {
+                dsp::SynthortionChorus chorus;
+                chorus.prepare(spec);
+
+                juce::AudioBuffer<float> dryBuf(2, blockSize);
+                juce::AudioBuffer<float> wetBuf(2, blockSize);
+                generateSine(dryBuf, 440.0f, sampleRate);
+                wetBuf.makeCopyOf(dryBuf);
+
+                dsp::ChorusParams params{ 1.0f, true };
+                chorus.process(wetBuf, params);
+
+                // Run several blocks to let LFO modulate
+                float diffSum = 0.0f;
+                for (int b = 0; b < 10; ++b)
+                {
+                    generateSine(wetBuf, 440.0f, sampleRate);
+                    chorus.process(wetBuf, params);
+                    for (int s = 0; s < blockSize; ++s)
+                        diffSum += std::abs(wetBuf.getSample(0, s) - dryBuf.getSample(0, s));
+                }
+                expect(diffSum > 0.1f, "SynthortionChorus must modulate phase and produce chorus effect");
+            }
+        }
+
+        void testDspModulesZeroAllocationsAndLocksOnAudioThread()
+        {
+            beginTest ("Zero heap allocations during DSP process() execution on audio thread");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 512;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32>(blockSize), 2 };
+
+            dsp::WarmDistortion dist;
+            dsp::BitCrusher bitCrusher;
+            dsp::PingPongDelay delay;
+            dsp::SynthortionChorus chorus;
+
+            // 1. Prepare all modules (allocations allowed in prepare)
+            dist.prepare(spec);
+            bitCrusher.prepare(spec);
+            delay.prepare(spec);
+            chorus.prepare(spec);
+
+            juce::AudioBuffer<float> buffer(2, blockSize);
+            for (int s = 0; s < blockSize; ++s)
+            {
+                buffer.setSample(0, s, 0.2f);
+                buffer.setSample(1, s, 0.2f);
+            }
+
+            // Warm-up one block each to ensure static/lazy structures (if any) are initialized
+            dist.process(buffer, dsp::WarmDistortionParams{ 0.5f, false });
+            bitCrusher.process(buffer, dsp::BitCrusherParams{ 0.5f, 8.0f, 6000.0f });
+            delay.process(buffer, dsp::PingPongDelayParams{ 250.0f, 0.5f, 0.4f, 12000.0f });
+            chorus.process(buffer, dsp::ChorusParams{ 0.5f, true });
+
+            // 2. Start allocation tracking
+            g_allocationCount.store(0);
+            g_trackAllocations.store(true);
+
+            for (int block = 0; block < 100; ++block)
+            {
+                const float mod = static_cast<float>(block % 10) / 10.0f;
+
+                dist.process(buffer, dsp::WarmDistortionParams{ mod, false });
+                bitCrusher.process(buffer, dsp::BitCrusherParams{ mod, 8.0f, 6000.0f });
+                delay.process(buffer, dsp::PingPongDelayParams{ 200.0f + mod * 100.0f, mod, 0.4f, 12000.0f });
+                chorus.process(buffer, dsp::ChorusParams{ mod, (block % 2 == 0) });
+            }
+
+            g_trackAllocations.store(false);
+            const size_t allocationsRecorded = g_allocationCount.load();
+
+            expect(allocationsRecorded == 0,
+                   "Expected 0 heap allocations across 100 blocks of DSP process(), but got: " + juce::String(static_cast<int>(allocationsRecorded)));
         }
     };
 

@@ -1,5 +1,7 @@
 #include "Synthortion/WarmDistortion.h"
 
+namespace synthortion::dsp {
+
 WarmDistortion::WarmDistortion()
 {
     reset();
@@ -12,11 +14,10 @@ void WarmDistortion::setSampleRate(double newSampleRate)
         oversampler->reset();
 }
 
-void WarmDistortion::reset()
+void WarmDistortion::reset() noexcept
 {
     for (auto& gen : noiseGenerator)
         gen.setSeedRandomly();
-
     preEmphState.fill(0.0f);
     postFilterState.fill(0.0f);
     exciterHighpass.fill(0.0f);
@@ -36,6 +37,7 @@ void WarmDistortion::reset()
         blocker.reset();
 
     compensationGain.setCurrentAndTargetValue(kCompensationMax);
+    smoothedDrive.setCurrentAndTargetValue(0.0f);
 
     if (oversampler)
         oversampler->reset();
@@ -57,11 +59,13 @@ void WarmDistortion::prepare(const juce::dsp::ProcessSpec &spec)
 
     oversampler->initProcessing(spec.maximumBlockSize);
 
+    smoothedDrive.reset(sampleRate, 0.05);
+    smoothedDrive.setCurrentAndTargetValue(0.0f);
+
     compensationGain.reset(sampleRate, kCompensationSmoothingTime);
     compensationGain.setCurrentAndTargetValue(kCompensationMax);
 
-    blockDriveValues.resize(spec.maximumBlockSize);
-
+    blockDriveValues.resize(juce::jmax(static_cast<size_t>(spec.maximumBlockSize), size_t(2048)));
     // Prepare DC blockers
     juce::dsp::ProcessSpec dcSpec{spec.sampleRate, spec.maximumBlockSize, spec.numChannels};
     for (auto& blocker : dcBlockers)
@@ -95,38 +99,37 @@ size_t WarmDistortion::getSafeChannel(size_t channel) const
     return channel < 2 ? channel : 0;
 }
 
-void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float>& context, juce::LinearSmoothedValue<float>* driveSmoother)
+void WarmDistortion::process(juce::AudioBuffer<float>& buffer, const WarmDistortionParams& params)
 {
-    juce::dsp::AudioBlock<float> block = context.getOutputBlock();
-    const int numOriginalSamples = static_cast<int>(block.getNumSamples());
-
-    if (numOriginalSamples == 0)
+    const int numOriginalSamples = buffer.getNumSamples();
+    if (numOriginalSamples == 0 || buffer.getNumChannels() == 0)
         return;
 
-    bool isSmoothingDrive = false;
-    if (driveSmoother != nullptr && driveSmoother->isSmoothing())
+    volumeCompensationEnabled = params.volumeCompensation;
+    smoothedDrive.setTargetValue(juce::jlimit(kMinDrive, kMaxDrive, params.drive));
+
+    if (static_cast<size_t>(numOriginalSamples) > blockDriveValues.size())
+        blockDriveValues.resize(static_cast<size_t>(numOriginalSamples));
+
+    const bool isSmoothingDrive = smoothedDrive.isSmoothing();
+    for (int i = 0; i < numOriginalSamples; ++i)
     {
-        isSmoothingDrive = true;
-        for (size_t i = 0; i < static_cast<size_t>(numOriginalSamples); ++i)
-        {
-            blockDriveValues[i] = juce::jlimit(kMinDrive, kMaxDrive, driveSmoother->getNextValue());
-        }
-        driveAmount = juce::jlimit(kMinDrive, kMaxDrive, blockDriveValues[static_cast<size_t>(numOriginalSamples) - 1]);
+        blockDriveValues[static_cast<size_t>(i)] = juce::jlimit(kMinDrive, kMaxDrive, smoothedDrive.getNextValue());
     }
-    else if (driveSmoother != nullptr)
-    {
-        driveAmount = juce::jlimit(kMinDrive, kMaxDrive, driveSmoother->getCurrentValue());
-        driveSmoother->skip(numOriginalSamples);
-    }
+    driveAmount = blockDriveValues[static_cast<size_t>(numOriginalSamples - 1)];
 
     if (driveAmount < kMinDriveThreshold && !isSmoothingDrive)
         return;
 
+    if (!oversampler)
+        return;
+
+    juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::AudioBlock<float> oversampledBlock = oversampler->processSamplesUp(block);
 
     const int oversamplingRatio = 1 << kOversamplingFactor;
 
-    for (int channel = 0; channel < oversampledBlock.getNumChannels(); ++channel)
+    for (size_t channel = 0; channel < oversampledBlock.getNumChannels(); ++channel)
     {
         float* channelData = oversampledBlock.getChannelPointer(channel);
         const int numSamples = static_cast<int>(oversampledBlock.getNumSamples());
@@ -142,13 +145,13 @@ void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float>& co
                 currentDrive = blockDriveValues[originalSampleIndex];
             }
 
-            addDenormalizationNoise(s, channel);
-            applyWowAndFlutter(s, currentDrive, channel);
-            applyDriveDependentFiltering(s, currentDrive, channel);
-            applyHighFrequencyExciter(s, currentDrive, channel);
-            s = applySaturation(s, currentDrive, channel);
-            addAnalogNoise(s, currentDrive, channel);
-            s = dcBlockers[getSafeChannel(static_cast<size_t>(channel))].processSample(0, s);
+            addDenormalizationNoise(s, static_cast<int>(channel));
+            applyWowAndFlutter(s, currentDrive, static_cast<int>(channel));
+            applyDriveDependentFiltering(s, currentDrive, static_cast<int>(channel));
+            applyHighFrequencyExciter(s, currentDrive, static_cast<int>(channel));
+            s = applySaturation(s, currentDrive, static_cast<int>(channel));
+            addAnalogNoise(s, currentDrive, static_cast<int>(channel));
+            s = dcBlockers[getSafeChannel(channel)].processSample(0, s);
 
             channelData[i] = s;
         }
@@ -177,21 +180,18 @@ void WarmDistortion::process(const juce::dsp::ProcessContextReplacing<float>& co
 
     if (volumeCompensationEnabled)
     {
-        // Update volume compensation target based on new drive amount
         const float newCompensation = calculateVolumeCompensation(driveAmount);
         compensationGain.setTargetValue(newCompensation);
 
         if (compensationGain.isSmoothing())
         {
-            for (size_t channel = 0; channel < block.getNumChannels(); ++channel)
+            for (int i = 0; i < numOriginalSamples; ++i)
             {
-                float* channelData = block.getChannelPointer(channel);
-
-                if (channel > 0)
-                    compensationGain.setCurrentAndTargetValue(compensationGain.getTargetValue());
-
-                for (int i = 0; i < numOriginalSamples; ++i)
-                    channelData[i] *= compensationGain.getNextValue();
+                const float gain = compensationGain.getNextValue();
+                for (size_t channel = 0; channel < block.getNumChannels(); ++channel)
+                {
+                    block.getChannelPointer(channel)[i] *= gain;
+                }
             }
         }
         else
@@ -428,3 +428,4 @@ void WarmDistortion::applyHighFrequencyExciter(float &sample, float drive, int c
     const float exciterAmount = kExciterMixAmount * drive * drive;
     sample += excitedSignal * exciterAmount;
 }
+} // namespace synthortion::dsp

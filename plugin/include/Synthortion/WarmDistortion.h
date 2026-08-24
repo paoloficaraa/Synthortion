@@ -3,6 +3,9 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
 #include <array>
+#include "Synthortion/DspModule.h"
+
+namespace synthortion::dsp {
 
 class WarmDistortion
 {
@@ -10,16 +13,14 @@ public:
     WarmDistortion();
     ~WarmDistortion() = default;
 
-    void setSampleRate(double sampleRate);
-    void reset();
     void prepare(const juce::dsp::ProcessSpec &spec);
+    void reset() noexcept;
+    void process(juce::AudioBuffer<float>& buffer, const WarmDistortionParams& params);
+    int getLatencySamples() const noexcept { return oversampler ? static_cast<int>(oversampler->getLatencyInSamples()) : 0; }
 
+    void setSampleRate(double sampleRate);
     void setDrive(float drive);
     void setVolumeCompensation(bool enabled) { volumeCompensationEnabled = enabled; }
-    void process(const juce::dsp::ProcessContextReplacing<float> &context, juce::LinearSmoothedValue<float>* driveSmoother = nullptr);
-    int getLatencySamples() const { return oversampler ? static_cast<int>(oversampler->getLatencyInSamples()) : 0; }
-
-private:
     static constexpr int kNumChannels = 2;
     static constexpr int kOversamplingFactor = 3;
     static constexpr int kPinkNoiseStages = 7;
@@ -140,6 +141,7 @@ private:
     std::array<juce::dsp::FirstOrderTPTFilter<float>, kNumChannels> dcBlockers;
 
     juce::LinearSmoothedValue<float> compensationGain{1.0f};
+    juce::LinearSmoothedValue<float> smoothedDrive{0.0f};
 
     double sampleRate = 0.0;
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
@@ -148,3 +150,11 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WarmDistortion)
 };
+
+static_assert(DspModule<WarmDistortion, WarmDistortionParams>);
+
+} // namespace synthortion::dsp
+
+namespace synthortion {
+using WarmDistortion = dsp::WarmDistortion;
+}

@@ -1,7 +1,9 @@
 #pragma once
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
+#include "Synthortion/DspModule.h"
 
+namespace synthortion::dsp {
 
 class SynthortionChorus
 {
@@ -9,11 +11,11 @@ public:
     SynthortionChorus() = default;
 
     void prepare(const juce::dsp::ProcessSpec& spec);
-    void process(juce::AudioBuffer<float>& buffer);
-    void reset();
+    void process(juce::AudioBuffer<float>& buffer, const ChorusParams& params);
+    void reset() noexcept;
+    int getLatencySamples() const noexcept { return 0; }
 
     void setChorusMix(float mix);
-
 private:
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine { 48000 };
     juce::dsp::LinkwitzRileyFilter<float> crossoverLP[2];
@@ -41,3 +43,11 @@ private:
     float depthSamples = 0.0f;
     float stereoPhaseOffsetRad = 0.0f;
 };
+
+static_assert(DspModule<SynthortionChorus, ChorusParams>);
+
+} // namespace synthortion::dsp
+
+namespace synthortion {
+using SynthortionChorus = dsp::SynthortionChorus;
+}

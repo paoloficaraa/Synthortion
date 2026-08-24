@@ -1,5 +1,7 @@
 #include "Synthortion/SynthortionChorus.h"
 
+namespace synthortion::dsp {
+
 void SynthortionChorus::prepare(const juce::dsp::ProcessSpec& spec)
 {
     sampleRate = spec.sampleRate;
@@ -24,10 +26,11 @@ void SynthortionChorus::prepare(const juce::dsp::ProcessSpec& spec)
     }
 
     smoothedMix.reset(sampleRate, 0.05);
+    smoothedMix.setCurrentAndTargetValue(0.0f);
     reset();
 }
 
-void SynthortionChorus::reset()
+void SynthortionChorus::reset() noexcept
 {
     delayLine.reset();
     for (int i = 0; i < 2; ++i)
@@ -35,6 +38,7 @@ void SynthortionChorus::reset()
         crossoverLP[i].reset();
         crossoverHP[i].reset();
     }
+    smoothedMix.setCurrentAndTargetValue(0.0f);
     lfo1Phase = 0.0f;
     lfo2Phase = 0.0f;
     lfo3Phase = 0.0f;
@@ -45,16 +49,22 @@ void SynthortionChorus::setChorusMix(float mix)
     smoothedMix.setTargetValue(juce::jlimit(0.0f, 1.0f, mix));
 }
 
-void SynthortionChorus::process(juce::AudioBuffer<float>& buffer)
+void SynthortionChorus::process(juce::AudioBuffer<float>& buffer, const ChorusParams& params)
 {
     const int numChannels = buffer.getNumChannels();
     const int numSamples = buffer.getNumSamples();
 
     if (numChannels == 0 || numSamples == 0) return;
 
+    smoothedMix.setTargetValue(juce::jlimit(0.0f, 1.0f, params.mix));
+    const float phaseOffsetDeg = params.wide ? 90.0f : kStereoPhaseOffsetDeg;
+    stereoPhaseOffsetRad = phaseOffsetDeg * (juce::MathConstants<float>::pi / 180.0f);
+
+    if (smoothedMix.getCurrentValue() <= 0.0f && !smoothedMix.isSmoothing() && params.mix <= 0.0f)
+        return;
+
     auto* leftData = buffer.getWritePointer(0);
     auto* rightData = numChannels > 1 ? buffer.getWritePointer(1) : nullptr;
-
     const float phaseInc1 = juce::MathConstants<float>::twoPi * kLfo1FreqHz / static_cast<float>(sampleRate);
     const float phaseInc2 = juce::MathConstants<float>::twoPi * kLfo2FreqHz / static_cast<float>(sampleRate);
     const float phaseInc3 = juce::MathConstants<float>::twoPi * kLfo3FreqHz / static_cast<float>(sampleRate);
@@ -123,3 +133,4 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer)
         }
     }
 }
+} // namespace synthortion::dsp

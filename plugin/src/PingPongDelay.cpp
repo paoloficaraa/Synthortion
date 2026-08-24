@@ -1,5 +1,7 @@
 #include "Synthortion/PingPongDelay.h"
 
+namespace synthortion::dsp {
+
 PingPongDelay::PingPongDelay()
 {
     smoothedDelayTime.setCurrentAndTargetValue(kDefaultDelayTimeMs);
@@ -29,13 +31,24 @@ void PingPongDelay::prepare(const juce::dsp::ProcessSpec &spec)
     reset();
 }
 
-void PingPongDelay::process(juce::AudioBuffer<float> &buffer)
+void PingPongDelay::process(juce::AudioBuffer<float> &buffer, const PingPongDelayParams& params)
 {
     const int numSamples = buffer.getNumSamples();
     const int numChannels = buffer.getNumChannels();
 
     if (numChannels < 2 || numSamples == 0)
         return;
+
+    smoothedDelayTime.setTargetValue(juce::jlimit(kMinDelayTimeMs, kMaxDelayTimeMs, params.delayTimeMs));
+    smoothedMix.setTargetValue(juce::jlimit(kMinMix, kMaxMix, params.mix));
+    smoothedFeedback.setTargetValue(juce::jlimit(kMinFeedback, kMaxFeedback, params.feedback));
+
+    const float targetDamping = juce::jlimit(1000.0f, 20000.0f, params.dampingFrequency);
+    if (std::abs(dampingFrequency - targetDamping) > 1.0f)
+    {
+        dampingFrequency = targetDamping;
+        updateDampingFilters();
+    }
 
     // Check if delay is completely bypassed
     if (smoothedMix.getCurrentValue() <= 0.0001f && smoothedMix.getTargetValue() <= 0.0001f) {
@@ -90,12 +103,16 @@ void PingPongDelay::process(juce::AudioBuffer<float> &buffer)
     dryWetMixer.mixWetSamples(juce::dsp::AudioBlock<float>(buffer));
 }
 
-void PingPongDelay::reset()
+void PingPongDelay::reset() noexcept
 {
     delayLine.reset();
     dampingFilterLeft.reset();
     dampingFilterRight.reset();
     dryWetMixer.reset();
+    smoothedDelayTime.setCurrentAndTargetValue(kDefaultDelayTimeMs);
+    smoothedMix.setCurrentAndTargetValue(0.0f);
+    smoothedFeedback.setCurrentAndTargetValue(kDefaultFeedback);
+    isDelayLineClear = true;
 }
 
 void PingPongDelay::setDelayTime(float timeMs)
@@ -135,3 +152,4 @@ void PingPongDelay::updateDampingFilters()
     dampingFilterLeft.coefficients = coefficients;
     dampingFilterRight.coefficients = coefficients;
 }
+} // namespace synthortion::dsp

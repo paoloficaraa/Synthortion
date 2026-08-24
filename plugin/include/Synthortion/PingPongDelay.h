@@ -2,6 +2,9 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
+#include "Synthortion/DspModule.h"
+
+namespace synthortion::dsp {
 
 class PingPongDelay
 {
@@ -9,14 +12,14 @@ public:
     PingPongDelay();
 
     void prepare(const juce::dsp::ProcessSpec &spec);
-    void process(juce::AudioBuffer<float> &buffer);
-    void reset();
+    void process(juce::AudioBuffer<float> &buffer, const PingPongDelayParams& params);
+    void reset() noexcept;
+    int getLatencySamples() const noexcept { return 0; }
 
     void setDelayTime(float timeMs);
     void setDelayMix(float mix);
     void setFeedback(float fb);
     void setDampingFrequency(float frequency);
-
 private:
     static constexpr float kDefaultDelayTimeMs = 250.0f;
     static constexpr float kDefaultFeedback = 0.4f;
@@ -54,3 +57,11 @@ private:
 
     void updateDampingFilters();
 };
+
+static_assert(DspModule<PingPongDelay, PingPongDelayParams>);
+
+} // namespace synthortion::dsp
+
+namespace synthortion {
+using PingPongDelay = dsp::PingPongDelay;
+}

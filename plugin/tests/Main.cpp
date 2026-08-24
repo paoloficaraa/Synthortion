@@ -1,8 +1,33 @@
+#include <atomic>
+#include <cstdlib>
+#include <new>
+
+std::atomic<bool> g_trackAllocations{false};
+std::atomic<size_t> g_allocationCount{0};
+
+void* operator new(size_t size)
+{
+    if (g_trackAllocations.load(std::memory_order_relaxed))
+        g_allocationCount.fetch_add(1, std::memory_order_relaxed);
+    void* ptr = std::malloc(size);
+    if (!ptr) throw std::bad_alloc();
+    return ptr;
+}
+
+void operator delete(void* ptr) noexcept
+{
+    std::free(ptr);
+}
+
+void operator delete(void* ptr, size_t) noexcept
+{
+    std::free(ptr);
+}
+
 #include "AudioPluginTest.h"
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <iostream>
-
 int main (int /*argc*/, char** /*argv*/)
 {
     juce::initialiseJuce_GUI();
