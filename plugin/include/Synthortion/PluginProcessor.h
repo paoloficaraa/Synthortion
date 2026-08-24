@@ -13,6 +13,41 @@
 #include "Synthortion/AudioCaptureFifo.h"
 namespace synthortion
 {
+    struct UIPreferences
+    {
+        static constexpr const char* kNodeName = "UIPreferences";
+        static constexpr const char* kUiScale = "uiScale";
+        static constexpr const char* kSpectrumDecay = "spectrumDecay";
+        static constexpr const char* kSkipBootSequence = "skipBootSequence";
+
+        static constexpr double kDefaultUiScale = 1.0;
+        static constexpr double kDefaultSpectrumDecay = 0.25;
+        static constexpr bool kDefaultSkipBootSequence = false;
+
+        static juce::ValueTree createDefaultTree()
+        {
+            juce::ValueTree tree(kNodeName);
+            tree.setProperty(kUiScale, kDefaultUiScale, nullptr);
+            tree.setProperty(kSpectrumDecay, kDefaultSpectrumDecay, nullptr);
+            tree.setProperty(kSkipBootSequence, kDefaultSkipBootSequence, nullptr);
+            return tree;
+        }
+
+        static void ensureTree(juce::ValueTree& parent)
+        {
+            if (!parent.isValid())
+                return;
+
+            if (!parent.hasProperty("version"))
+                parent.setProperty("version", 1, nullptr);
+
+            auto uiPrefs = parent.getChildWithName(kNodeName);
+            if (!uiPrefs.isValid())
+            {
+                parent.appendChild(createDefaultTree(), nullptr);
+            }
+        }
+    };
     // Main audio processor: warm distortion, chorus, delay, bit-crusher
     class AudioPluginAudioProcessor final : public juce::AudioProcessor
     {

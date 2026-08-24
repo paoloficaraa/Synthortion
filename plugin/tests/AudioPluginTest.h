@@ -702,43 +702,71 @@ namespace synthortion
             beginTest ("State Serialization: Roundtrip restores all 16 APVTS parameters and UIPreferences");
 
             AudioPluginAudioProcessor processorA;
-            
-            // Mutate parameters in processor A
-            processorA.getAPVTS().getParameter("INPUT_GAIN")->setValueNotifyingHost(0.7f);
-            processorA.getAPVTS().getParameter("BITCRUSH")->setValueNotifyingHost(0.3f);
-            processorA.getAPVTS().getParameter("CHORUS_MIX")->setValueNotifyingHost(0.8f);
-            
+            auto& apvtsA = processorA.getAPVTS();
+
+            // Mutate all 16 parameters in processor A
+            apvtsA.getParameter("INPUT_GAIN")->setValueNotifyingHost(0.75f);
+            apvtsA.getParameter("OUTPUT_GAIN")->setValueNotifyingHost(0.65f);
+            apvtsA.getParameter("COLOR")->setValueNotifyingHost(0.85f);
+            apvtsA.getParameter("BITCRUSH")->setValueNotifyingHost(0.45f);
+            apvtsA.getParameter("DELAY_TIME")->setValueNotifyingHost(0.35f);
+            apvtsA.getParameter("DELAY_MIX")->setValueNotifyingHost(0.55f);
+            apvtsA.getParameter("DELAY_FEEDBACK")->setValueNotifyingHost(0.60f);
+            apvtsA.getParameter("CHORUS_MIX")->setValueNotifyingHost(0.70f);
+            apvtsA.getParameter("PLUGIN_BYPASS")->setValueNotifyingHost(1.0f);
+            apvtsA.getParameter("DRIVE_ON")->setValueNotifyingHost(0.0f);
+            apvtsA.getParameter("BITCRUSH_ON")->setValueNotifyingHost(0.0f);
+            apvtsA.getParameter("DELAY_ON")->setValueNotifyingHost(0.0f);
+            apvtsA.getParameter("CHORUS_ON")->setValueNotifyingHost(0.0f);
+            apvtsA.getParameter("DRIVE_ROUTE")->setValueNotifyingHost(1.0f);
+            apvtsA.getParameter("DELAY_SYNC")->setValueNotifyingHost(1.0f);
+            apvtsA.getParameter("CHORUS_WIDE")->setValueNotifyingHost(1.0f);
+
             // Force UI Preferences in state A
-            auto& stateA = processorA.getAPVTS().state;
-            auto uiPrefsA = stateA.getChildWithName("UIPreferences");
-            if (!uiPrefsA.isValid())
-            {
-                uiPrefsA = juce::ValueTree("UIPreferences");
-                stateA.appendChild(uiPrefsA, nullptr);
-            }
-            uiPrefsA.setProperty("uiScale", 1.5, nullptr);
-            uiPrefsA.setProperty("spectrumDecay", 0.6, nullptr);
-            uiPrefsA.setProperty("skipBootSequence", true, nullptr);
+            auto& stateA = apvtsA.state;
+            UIPreferences::ensureTree(stateA);
+            auto uiPrefsA = stateA.getChildWithName(UIPreferences::kNodeName);
+            uiPrefsA.setProperty(UIPreferences::kUiScale, 1.5, nullptr);
+            uiPrefsA.setProperty(UIPreferences::kSpectrumDecay, 0.6, nullptr);
+            uiPrefsA.setProperty(UIPreferences::kSkipBootSequence, true, nullptr);
 
             juce::MemoryBlock destData;
             processorA.getStateInformation(destData);
-            
+
             expect(destData.getSize() > 0, "Serialized data should not be empty");
 
             AudioPluginAudioProcessor processorB;
+            auto& apvtsB = processorB.getAPVTS();
             processorB.setStateInformation(destData.getData(), (int)destData.getSize());
 
-            // Verify parameters in processor B
-            expectEquals(processorB.getAPVTS().getParameter("INPUT_GAIN")->getValue(), processorA.getAPVTS().getParameter("INPUT_GAIN")->getValue());
-            expectEquals(processorB.getAPVTS().getParameter("BITCRUSH")->getValue(), processorA.getAPVTS().getParameter("BITCRUSH")->getValue());
-            expectEquals(processorB.getAPVTS().getParameter("CHORUS_MIX")->getValue(), processorA.getAPVTS().getParameter("CHORUS_MIX")->getValue());
-            
-            auto uiPrefsB = processorB.getAPVTS().state.getChildWithName("UIPreferences");
+            // Verify all 16 parameters in processor B
+            const juce::StringArray paramIDs = {
+                "INPUT_GAIN", "OUTPUT_GAIN", "COLOR", "BITCRUSH",
+                "DELAY_TIME", "DELAY_MIX", "DELAY_FEEDBACK", "CHORUS_MIX",
+                "PLUGIN_BYPASS", "DRIVE_ON", "BITCRUSH_ON", "DELAY_ON",
+                "CHORUS_ON", "DRIVE_ROUTE", "DELAY_SYNC", "CHORUS_WIDE"
+            };
+
+            expectEquals(paramIDs.size(), 16, "Should test exactly 16 APVTS parameters");
+
+            for (const auto& pid : paramIDs)
+            {
+                auto* paramA = apvtsA.getParameter(pid);
+                auto* paramB = apvtsB.getParameter(pid);
+                expect(paramA != nullptr, "Param in A should exist: " + pid);
+                expect(paramB != nullptr, "Param in B should exist: " + pid);
+                if (paramA != nullptr && paramB != nullptr)
+                {
+                    expectEquals(paramB->getValue(), paramA->getValue(), "Parameter value mismatch for " + pid);
+                }
+            }
+
+            auto uiPrefsB = apvtsB.state.getChildWithName(UIPreferences::kNodeName);
             expect(uiPrefsB.isValid(), "UIPreferences node should be restored");
-            expectEquals((double)uiPrefsB.getProperty("uiScale"), 1.5);
-            expectEquals((double)uiPrefsB.getProperty("spectrumDecay"), 0.6);
-            expect((bool)uiPrefsB.getProperty("skipBootSequence") == true, "skipBootSequence should be true");
-            expectEquals((int)processorB.getAPVTS().state.getProperty("version"), 1);
+            expectEquals((double)uiPrefsB.getProperty(UIPreferences::kUiScale), 1.5);
+            expectEquals((double)uiPrefsB.getProperty(UIPreferences::kSpectrumDecay), 0.6);
+            expect((bool)uiPrefsB.getProperty(UIPreferences::kSkipBootSequence) == true, "skipBootSequence should be true");
+            expectEquals((int)apvtsB.state.getProperty("version"), 1);
         }
 
         void testStateSerializationMissingNodesAndOlderRevisions()
@@ -750,71 +778,60 @@ namespace synthortion
             olderState.setProperty("PARAM_THAT_DOES_NOT_EXIST", 0.5, nullptr);
             olderState.appendChild(juce::ValueTree("PARAM").setProperty("id", "COLOR", nullptr).setProperty("value", 0.4, nullptr), nullptr);
             // Specifically missing UIPreferences and version
-            
+
             std::unique_ptr<juce::XmlElement> xml(olderState.createXml());
             juce::MemoryBlock destData;
             juce::AudioProcessor::copyXmlToBinary(*xml, destData);
 
             AudioPluginAudioProcessor processor;
 
-            
             // Pre-condition: parameters are default
             expectEquals(processor.getAPVTS().getRawParameterValue("COLOR")->load(), 0.0f);
 
             processor.setStateInformation(destData.getData(), (int)destData.getSize());
 
-            
             // Verify that known parameter got updated
             expect(std::abs(processor.getAPVTS().getRawParameterValue("COLOR")->load() - 0.4f) < 0.001f, "COLOR parameter should be updated to 0.4");
 
-            
             // Verify that version was added
             expectEquals((int)processor.getAPVTS().state.getProperty("version"), 1);
 
             // Verify that UIPreferences fallback applied
-            auto uiPrefs = processor.getAPVTS().state.getChildWithName("UIPreferences");
+            auto uiPrefs = processor.getAPVTS().state.getChildWithName(UIPreferences::kNodeName);
             expect(uiPrefs.isValid(), "UIPreferences node should be created as fallback");
-            expectEquals((double)uiPrefs.getProperty("uiScale"), 1.0);
-            expectEquals((double)uiPrefs.getProperty("spectrumDecay"), 0.25);
-            expect((bool)uiPrefs.getProperty("skipBootSequence") == false, "skipBootSequence should be false");
+            expectEquals((double)uiPrefs.getProperty(UIPreferences::kUiScale), UIPreferences::kDefaultUiScale);
+            expectEquals((double)uiPrefs.getProperty(UIPreferences::kSpectrumDecay), UIPreferences::kDefaultSpectrumDecay);
+            expect((bool)uiPrefs.getProperty(UIPreferences::kSkipBootSequence) == UIPreferences::kDefaultSkipBootSequence, "skipBootSequence default mismatch");
         }
 
         void testStateSerializationSynchronousExecution()
         {
             beginTest ("State Serialization: Synchronous execution with zero thread creation");
-            
+
             AudioPluginAudioProcessor processor;
-            juce::MemoryBlock destData;
-            processor.getStateInformation(destData);
-            
-            // Measure thread allocations or execution synchronicity
-            g_allocationCount.store(0);
-            g_trackAllocations.store(true);
-            
-            // We just call it and immediately verify state. Since there's no async delay, 
-            // if it were async, a rapid check *might* fail. But the main requirement is 0 thread creations.
-            // We don't have a hook for thread creation, but g_trackAllocations tracking 0 or very few allocations 
-            // from threading might help, or we can just verify the state is immediately available.
-            
-            // Let's modify the data manually so we know it changes
-            auto state = processor.getAPVTS().copyState();
-            auto uiPrefs = state.getChildWithName("UIPreferences");
-            if (!uiPrefs.isValid()) {
-                uiPrefs = juce::ValueTree("UIPreferences");
-                state.appendChild(uiPrefs, nullptr);
-            }
-            uiPrefs.setProperty("uiScale", 2.0, nullptr);
+            auto& apvts = processor.getAPVTS();
+
+            // Prepare mutated state
+            auto state = apvts.copyState();
+            UIPreferences::ensureTree(state);
+            state.getChildWithName(UIPreferences::kNodeName).setProperty(UIPreferences::kUiScale, 2.0, nullptr);
             std::unique_ptr<juce::XmlElement> xml(state.createXml());
             juce::MemoryBlock mutatedData;
             juce::AudioProcessor::copyXmlToBinary(*xml, mutatedData);
-            
+
+            const auto callingThreadId = std::this_thread::get_id();
+
+            // Call setStateInformation
             processor.setStateInformation(mutatedData.getData(), (int)mutatedData.getSize());
-            
-            g_trackAllocations.store(false);
-            
-            // Immediately check the state on the same thread
-            auto currentScale = (double)processor.getAPVTS().state.getChildWithName("UIPreferences").getProperty("uiScale");
-            expectEquals(currentScale, 2.0, "State should be updated synchronously");
+
+            // Check that calling thread remained the active executor
+            expect(std::this_thread::get_id() == callingThreadId, "Execution must remain synchronous on caller thread");
+
+            // Immediately check the state on the same thread without pumping message loop
+            auto uiPrefs = apvts.state.getChildWithName(UIPreferences::kNodeName);
+            expect(uiPrefs.isValid(), "UIPreferences should be valid immediately");
+            const double currentScale = uiPrefs.getProperty(UIPreferences::kUiScale);
+            expectEquals(currentScale, 2.0, "State should be updated synchronously on calling thread");
         }
     };
 

@@ -39,6 +39,11 @@ int main (int /*argc*/, char** /*argv*/)
     {
         const auto* res = runner.getResult (i);
         std::cout << "Test: " << res->unitTestName << " - Passed: " << res->passes << " Failed: " << res->failures << std::endl;
+        if (res->failures > 0)
+        {
+            for (auto& msg : res->messages)
+                std::cout << "  " << msg << std::endl;
+        }
         failures += static_cast<int> (res->failures);
     }
 

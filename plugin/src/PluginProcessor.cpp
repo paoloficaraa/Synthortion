@@ -140,6 +140,7 @@ namespace synthortion {
         jassert(delaySyncParam != nullptr);
         chorusWideParam = apvts.getRawParameterValue("CHORUS_WIDE");
         jassert(chorusWideParam != nullptr);
+        UIPreferences::ensureTree(apvts.state);
     }
 
     AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
@@ -426,18 +427,8 @@ namespace synthortion {
 
     void AudioPluginAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
     {
+        UIPreferences::ensureTree(apvts.state);
         auto state = apvts.copyState();
-
-        auto uiPrefs = state.getChildWithName("UIPreferences");
-        if (!uiPrefs.isValid())
-        {
-            uiPrefs = juce::ValueTree("UIPreferences");
-            uiPrefs.setProperty("uiScale", 1.0, nullptr);
-            uiPrefs.setProperty("spectrumDecay", 0.25, nullptr);
-            uiPrefs.setProperty("skipBootSequence", false, nullptr);
-            state.appendChild(uiPrefs, nullptr);
-        }
-
         if (std::unique_ptr<juce::XmlElement> xml = state.createXml())
             copyXmlToBinary(*xml, destData);
     }
@@ -453,27 +444,9 @@ namespace synthortion {
                 xmlState->hasTagName("Synthortion"))
             {
                 auto newState = juce::ValueTree::fromXml(*xmlState);
-
-                if (!newState.hasProperty("version"))
-                    newState.setProperty("version", 1, nullptr);
-
-                auto uiPrefs = newState.getChildWithName("UIPreferences");
-                if (!uiPrefs.isValid())
-                {
-                    uiPrefs = juce::ValueTree("UIPreferences");
-                    uiPrefs.setProperty("uiScale", 1.0, nullptr);
-                    uiPrefs.setProperty("spectrumDecay", 0.25, nullptr);
-                    uiPrefs.setProperty("skipBootSequence", false, nullptr);
-                    newState.appendChild(uiPrefs, nullptr);
-                }
-                else
-                {
-                    if (!uiPrefs.hasProperty("uiScale")) uiPrefs.setProperty("uiScale", 1.0, nullptr);
-                    if (!uiPrefs.hasProperty("spectrumDecay")) uiPrefs.setProperty("spectrumDecay", 0.25, nullptr);
-                    if (!uiPrefs.hasProperty("skipBootSequence")) uiPrefs.setProperty("skipBootSequence", false, nullptr);
-                }
-
+                UIPreferences::ensureTree(newState);
                 apvts.replaceState(newState);
+                UIPreferences::ensureTree(apvts.state);
             }
         }
     }
