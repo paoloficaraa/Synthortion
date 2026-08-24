@@ -38,6 +38,7 @@ cmake_install.cmake
 Makefile
 *.cmake
 !CMakeLists.txt
+Testing/
 
 # ==========================================
 # VISUAL STUDIO (Windows Build)
