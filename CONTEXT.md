@@ -32,7 +32,7 @@
 - **Handshake Protocol** — the reactive initialization sequence where the UI emits `connect` upon mounting and C++ responds with `init` carrying `schemaVersion: 1` and the complete array of parameter descriptors (`ParameterDescriptor[]`).
 - **Normalized IPC Parameter Events** — `setParameter` (UI → C++) and `parameterChange` (C++ → UI) both using `{ id: string, value: number }` with normalized `[0.0, 1.0]` floats matching JUCE APVTS host automation.
 - **Telemetry Frame Streams** — 60 FPS lock-free telemetry events (`spectrumFrame` passing `number[]` magnitudes, `meterFrame` passing `{ input: number, output: number }` peaks) dispatched via `emitEventIfBrowserIsVisible`, automatically dropping when the editor is occluded or closed.
-- **UI-only state** — `PluginState` fields with no APVTS counterpart (`driveRoute`, `driveOn`, `bitcrushOn`, `delayOn`, `chorusOn`, `delaySync`, `chorusWide`). These remain in React state and are never sent over the bridge.
+- **Host Parameter Mapping** — all plugin parameters (including module power states `DRIVE_ON`, `BITCRUSH_ON`, `DELAY_ON`, `CHORUS_ON`, routing `DRIVE_ROUTE`, delay sync `DELAY_SYNC`, and chorus width `CHORUS_WIDE`) are registered in APVTS and synchronized across the bridge.
 - **WebBrowserComponent** — the JUCE class that hosts a WebView (WebView2 on Windows, WebKit on macOS/Linux) and exposes a JavaScript↔C++ message channel. The PluginEditor embeds it; the PluginProcessor receives parameter changes via callback.
 ## DSP Architecture Terms
 
@@ -41,3 +41,11 @@
 - **Encapsulated Smoothing** — internal parameter smoothing owned by individual DSP modules via `juce::SmoothedValue` or `juce::LinearSmoothedValue` rather than hoisted into `PluginProcessor`, ensuring headless modules avoid parameter zipper noise during isolated execution and unit testing.
 - **UI Preferences ValueTree (`UIPreferences`)** — a dedicated child subtree within the APVTS root `Parameters` ValueTree holding persistent non-DSP UI preferences (`uiScale`, `spectrumDecay`, `skipBootSequence`) saved atomically in DAW sessions and presets.
 - **Synchronous State Serialization** — strictly executing `getStateInformation` and `setStateInformation` synchronously via JUCE XML binary containers (`copyXmlToBinary` / `getXmlFromBinary`), eliminating detached background threads and race conditions during host session loading.
+
+## Effect Suite Overhaul Terms
+
+- **Dynamic Bias Asymmetric Saturation** — the mathematical transfer function $f(x, b) = \frac{\tanh(x+b)-\tanh(b)}{1-\tanh^2(b)}$ with $b(d) = 0.25d(1-0.4d)$ and power-law drive tapering ($d^{2.2}$), introducing subtle 2nd-order harmonic warmth for synthesizer waveforms without harsh break-up at low settings.
+- **Progressive Lo-Fi Degradation Curve** — the coupled parameter curve in the Bitcrusher smoothly interpolating bit depth (16-bit to 4-bit) and downsampling (48 kHz to 2 kHz) along a gentle musical trajectory with anti-aliasing interpolation.
+- **Host-Synced Ping-Pong Delay** — the dual-mode stereo ping-pong delay with toggleable timebase: `SYNC` (14 discrete musical subdivisions from 1/32 to 1/1 synchronized with DAW BPM via JUCE `AudioPlayHead`) or `FREE` (1 ms to 2000 ms continuous).
+- **FL-Style Vintage Stereo Chorus** — the 3-voice BBD delay chorus architecture with independent multi-rate LFOs (0.45 Hz, 1.25 Hz, 2.45 Hz), Linkwitz-Riley 4th-order low-cut crossover at 320 Hz for mono low-end preservation, and volume-normalized multi-tap summing ($G_{\text{norm}} \approx 0.4387$).
+- **Chorus Width Scaling** — the stereo phase offset control modulating the inter-channel LFO phase relationship ($0^\circ \to 90^\circ$) to allow deep chorus detune without exaggerated stereo disassociation.
