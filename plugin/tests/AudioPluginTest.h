@@ -49,6 +49,15 @@ namespace synthortion
             testStateSerializationMissingNodesAndOlderRevisions();
             testStateSerializationSynchronousExecution();
             testEditorUIPreferencesChange();
+            testWarmDistortionMathematicalFormulas();
+            testWarmDistortionOversamplingAndLatency();
+            testWarmDistortionExciterGatingAndDynamicDamping();
+            testWarmDistortionAutoGainCompensation();
+            testBitCrusherCoupledTrajectoryMathematicalFormulas();
+            testBitCrusherIdentityTransparentOutputAtZero();
+            testBitCrusherFractionalPhaseAccumulatorAndLinearInterpolation();
+            testBitCrusherTpdfDynamicDitheringAndQuantization();
+            testBitCrusherClickFreeParameterModulation();
         }
         void testEditorSizeIs960x600()
         {
@@ -629,7 +638,7 @@ namespace synthortion
                 generateSine(dryBuf, 440.0f, sampleRate);
                 wetBuf.makeCopyOf(dryBuf);
 
-                dsp::BitCrusherParams params{ 1.0f, 4.0f, 2000.0f };
+                dsp::BitCrusherParams params{ 1.0f };
                 bc.process(wetBuf, params);
 
                 float diffSum = 0.0f;
@@ -644,7 +653,7 @@ namespace synthortion
                 {
                     float mix = (b % 2 == 0) ? 0.0f : 1.0f;
                     generateSine(wetBuf, 440.0f, sampleRate);
-                    bc.process(wetBuf, dsp::BitCrusherParams{ mix, 8.0f, 6000.0f });
+                    bc.process(wetBuf, dsp::BitCrusherParams{ mix });
                     for (int s = 0; s < blockSize; ++s)
                     {
                         float cur = wetBuf.getSample(0, s);
@@ -740,9 +749,9 @@ namespace synthortion
 
             // Warm-up one block each to ensure static/lazy structures (if any) are initialized
             dist.process(buffer, dsp::WarmDistortionParams{ 0.5f, false });
-            bitCrusher.process(buffer, dsp::BitCrusherParams{ 0.5f, 8.0f, 6000.0f });
+            bitCrusher.process(buffer, dsp::BitCrusherParams{ 0.5f });
             delay.process(buffer, dsp::PingPongDelayParams{ 250.0f, 0.5f, 0.4f, 12000.0f });
-            chorus.process(buffer, dsp::ChorusParams{ 0.5f, true });
+            chorus.process(buffer, dsp::ChorusParams{ 0.5f, 0.5f });
 
             // 2. Start allocation tracking
             g_allocationCount.store(0);
@@ -753,9 +762,9 @@ namespace synthortion
                 const float mod = static_cast<float>(block % 10) / 10.0f;
 
                 dist.process(buffer, dsp::WarmDistortionParams{ mod, false });
-                bitCrusher.process(buffer, dsp::BitCrusherParams{ mod, 8.0f, 6000.0f });
+                bitCrusher.process(buffer, dsp::BitCrusherParams{ mod });
                 delay.process(buffer, dsp::PingPongDelayParams{ 200.0f + mod * 100.0f, mod, 0.4f, 12000.0f });
-                chorus.process(buffer, dsp::ChorusParams{ mod, (block % 2 == 0) });
+                chorus.process(buffer, dsp::ChorusParams{ mod, (block % 2 == 0) ? 1.0f : 0.0f });
             }
 
             g_trackAllocations.store(false);
@@ -935,6 +944,183 @@ namespace synthortion
                 expectEquals (static_cast<double>(updatedObj->getProperty(UIPreferences::kSpectrumDecay)), 0.5);
                 expect (static_cast<bool>(updatedObj->getProperty(UIPreferences::kSkipBootSequence)) == true, "skipBootSequence should be updated to true");
             }
+        }
+
+        void testWarmDistortionMathematicalFormulas()
+        {
+            beginTest ("WarmDistortion: Mathematical formulas (Power-Law Tapering, Dynamic Bias, Normalized Asymmetric Tanh, Auto-Gain)");
+
+            // 1. Power-law drive tapering G_in(d) = 10^(1.2 * d^2.2)
+            expectWithinAbsoluteError (dsp::WarmDistortion::calculateInputGain (0.0f), 1.0f, 0.0001f, "G_in(0) should be 1.0 (0 dB)");
+            expectWithinAbsoluteError (dsp::WarmDistortion::calculateInputGain (0.5f), 1.824589f, 0.001f, "G_in(0.5) should be ~1.824589 (+5.22 dB)");
+            expectWithinAbsoluteError (dsp::WarmDistortion::calculateInputGain (1.0f), 15.848932f, 0.001f, "G_in(1.0) should be ~15.848932 (+24 dB)");
+
+            // 2. Dynamic bias b(d) = 0.25 * d * (1.0 - 0.4 * d)
+            expectWithinAbsoluteError (dsp::WarmDistortion::calculateDynamicBias (0.0f), 0.0f, 0.0001f, "b(0) should be 0.0");
+            expectWithinAbsoluteError (dsp::WarmDistortion::calculateDynamicBias (0.5f), 0.10f, 0.0001f, "b(0.5) should be 0.10");
+            expectWithinAbsoluteError (dsp::WarmDistortion::calculateDynamicBias (1.0f), 0.15f, 0.0001f, "b(1.0) should be 0.15");
+
+            // 3. Normalized asymmetric tanh f(x, b) = (tanh(x+b) - tanh(b)) / (1 - tanh^2(b))
+            // At x = 0, f(0, b) must be exactly 0.0 for any bias
+            expectWithinAbsoluteError (dsp::WarmDistortion::asymmetricTanh (0.0f, 0.0f), 0.0f, 0.00001f, "f(0, 0) == 0.0");
+            expectWithinAbsoluteError (dsp::WarmDistortion::asymmetricTanh (0.0f, 0.10f), 0.0f, 0.00001f, "f(0, 0.10) == 0.0");
+            expectWithinAbsoluteError (dsp::WarmDistortion::asymmetricTanh (0.0f, 0.15f), 0.0f, 0.00001f, "f(0, 0.15) == 0.0");
+
+            // At bias = 0, f(x, 0) is standard tanh(x)
+            expectWithinAbsoluteError (dsp::WarmDistortion::asymmetricTanh (0.5f, 0.0f), std::tanh (0.5f), 0.00001f, "f(x, 0) == tanh(x)");
+            expectWithinAbsoluteError (dsp::WarmDistortion::asymmetricTanh (-0.5f, 0.0f), std::tanh (-0.5f), 0.00001f, "f(-x, 0) == -tanh(x)");
+
+            // Small-signal derivative at x = 0 is 1.0 (unity small-signal gain)
+            const float eps = 0.0001f;
+            for (float bias : { 0.0f, 0.05f, 0.10f, 0.15f })
+            {
+                float derivative = (dsp::WarmDistortion::asymmetricTanh (eps, bias) - dsp::WarmDistortion::asymmetricTanh (-eps, bias)) / (2.0f * eps);
+                expectWithinAbsoluteError (derivative, 1.0f, 0.001f, "Small-signal derivative should be 1.0 for bias " + juce::String (bias));
+            }
+
+            // Asymmetry: positive vs negative saturation when bias > 0
+            float posSat = dsp::WarmDistortion::asymmetricTanh (2.0f, 0.15f);
+            float negSat = dsp::WarmDistortion::asymmetricTanh (-2.0f, 0.15f);
+            expect (std::abs (posSat) != std::abs (negSat), "Saturation with bias > 0 must be asymmetric");
+
+            // 4. Analytical auto-gain compensation G_comp(d) = 1.0 / sqrt(1 + 1.05 * (G_in^2 - 1) / (1 + 0.28 * G_in^2))
+            expectWithinAbsoluteError (dsp::WarmDistortion::calculateVolumeCompensation (0.0f), 1.0f, 0.0001f, "G_comp(0) should be 1.0");
+            expectWithinAbsoluteError (dsp::WarmDistortion::calculateVolumeCompensation (0.5f), 0.664349f, 0.005f, "G_comp(0.5) should be ~0.664");
+            expectWithinAbsoluteError (dsp::WarmDistortion::calculateVolumeCompensation (1.0f), 0.462116f, 0.005f, "G_comp(1.0) should be ~0.462");
+
+            // Monotonicity of auto-gain compensation (strictly decreasing with drive)
+            float prevComp = 1.1f;
+            for (int step = 0; step <= 20; ++step)
+            {
+                float d = static_cast<float> (step) / 20.0f;
+                float comp = dsp::WarmDistortion::calculateVolumeCompensation (d);
+                expect (comp <= prevComp, "G_comp must monotonically decrease with drive");
+                expect (comp >= 0.45f && comp <= 1.0f, "G_comp must be bounded in [0.45, 1.0]");
+                prevComp = comp;
+            }
+
+            // 5. Dynamic lowpass damping cutoff frequency (18 kHz -> 10 kHz)
+            expectWithinAbsoluteError (dsp::WarmDistortion::calculateDampingFrequency (0.0f), 18000.0f, 0.01f, "Damping cutoff at d=0 is 18 kHz");
+            expectWithinAbsoluteError (dsp::WarmDistortion::calculateDampingFrequency (0.5f), 14000.0f, 0.01f, "Damping cutoff at d=0.5 is 14 kHz");
+            expectWithinAbsoluteError (dsp::WarmDistortion::calculateDampingFrequency (1.0f), 10000.0f, 0.01f, "Damping cutoff at d=1 is 10 kHz");
+        }
+
+        void testWarmDistortionOversamplingAndLatency()
+        {
+            beginTest ("WarmDistortion: 4x Polyphase IIR oversampling filter and latency");
+
+            const double sampleRates[] = { 44100.0, 48000.0, 88200.0, 96000.0 };
+            for (double sr : sampleRates)
+            {
+                juce::dsp::ProcessSpec spec{ sr, 512, 2 };
+                dsp::WarmDistortion dist;
+                dist.prepare (spec);
+
+                expect (dist.getLatencySamples() > 0, "4x Polyphase IIR filter must report non-zero latency");
+                expect (dist.getOversampledSampleRate() == static_cast<float> (sr * 4.0), "Oversampled sample rate must be 4x base sample rate");
+            }
+        }
+
+        void testWarmDistortionExciterGatingAndDynamicDamping()
+        {
+            beginTest ("WarmDistortion: Exciter gated above 40% (d > 0.4) and dynamic lowpass damping");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 512;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32> (blockSize), 2 };
+
+            dsp::WarmDistortion dist;
+            dist.prepare (spec);
+
+            // Test 1: Quiescent DC offset is zero at any drive
+            for (float d : { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f })
+            {
+                juce::AudioBuffer<float> silence (2, blockSize);
+                silence.clear();
+                dist.reset();
+                dist.process (silence, dsp::WarmDistortionParams{ d, false });
+
+                for (int ch = 0; ch < 2; ++ch)
+                {
+                    for (int s = 0; s < blockSize; ++s)
+                    {
+                        expectWithinAbsoluteError (silence.getSample (ch, s), 0.0f, 1e-4f,
+                                                   "Zero input must produce zero output at drive " + juce::String (d));
+                    }
+                }
+            }
+
+            // Test 2: Exciter gating below 40% vs above 40%
+            auto generateSine = [](juce::AudioBuffer<float>& buf, float freq, double sr)
+            {
+                for (int s = 0; s < buf.getNumSamples(); ++s)
+                {
+                    float v = 0.2f * std::sin (2.0f * juce::MathConstants<float>::pi * freq * static_cast<float> (s) / static_cast<float> (sr));
+                    for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+                        buf.setSample (ch, s, v);
+                }
+            };
+
+            juce::AudioBuffer<float> bufLowDrive (2, blockSize);
+            juce::AudioBuffer<float> bufHighDrive (2, blockSize);
+            generateSine (bufLowDrive, 4000.0f, sampleRate);
+            generateSine (bufHighDrive, 4000.0f, sampleRate);
+
+            dist.reset();
+            dist.process (bufLowDrive, dsp::WarmDistortionParams{ 0.35f, false }); // Below 40% gate
+
+            dist.reset();
+            dist.process (bufHighDrive, dsp::WarmDistortionParams{ 0.85f, false }); // Above 40% gate
+
+            // High drive should have significant excitation and harmonic distortion compared to low drive
+            float lowPeak = bufLowDrive.getMagnitude (0, blockSize);
+            float highPeak = bufHighDrive.getMagnitude (0, blockSize);
+            expect (highPeak > lowPeak, "Drive > 0.4 must engage excitation and saturation");
+        }
+
+        void testWarmDistortionAutoGainCompensation()
+        {
+            beginTest ("WarmDistortion: Analytical loudness auto-gain compensation");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 1024;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32> (blockSize), 2 };
+
+            dsp::WarmDistortion distCompOff;
+            dsp::WarmDistortion distCompOn;
+            distCompOff.prepare (spec);
+            distCompOn.prepare (spec);
+
+            auto generateSine = [](juce::AudioBuffer<float>& buf, float freq, double sr)
+            {
+                for (int s = 0; s < buf.getNumSamples(); ++s)
+                {
+                    float v = 0.3f * std::sin (2.0f * juce::MathConstants<float>::pi * freq * static_cast<float> (s) / static_cast<float> (sr));
+                    for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+                        buf.setSample (ch, s, v);
+                }
+            };
+
+            // Run with high drive (d = 0.9)
+            juce::AudioBuffer<float> bufNoComp (2, blockSize);
+            juce::AudioBuffer<float> bufWithComp (2, blockSize);
+            generateSine (bufNoComp, 440.0f, sampleRate);
+            generateSine (bufWithComp, 440.0f, sampleRate);
+
+            // Warm-up several blocks to let smoothed values settle
+            for (int b = 0; b < 10; ++b)
+            {
+                distCompOff.process (bufNoComp, dsp::WarmDistortionParams{ 0.9f, false });
+                distCompOn.process (bufWithComp, dsp::WarmDistortionParams{ 0.9f, true });
+            }
+
+            float rmsNoComp = bufNoComp.getRMSLevel (0, 0, blockSize);
+            float rmsWithComp = bufWithComp.getRMSLevel (0, 0, blockSize);
+
+            expect (rmsWithComp < rmsNoComp, "Auto-gain compensation must reduce RMS level under heavy saturation");
+            float measuredRatio = rmsWithComp / rmsNoComp;
+            float expectedComp = dsp::WarmDistortion::calculateVolumeCompensation (0.9f);
+            expectWithinAbsoluteError (measuredRatio, expectedComp, 0.05f, "Measured RMS reduction must match analytical G_comp factor");
         }
     };
 

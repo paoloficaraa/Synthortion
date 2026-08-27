@@ -31,22 +31,39 @@ void operator delete(void* ptr, size_t) noexcept
 int main (int /*argc*/, char** /*argv*/)
 {
     juce::initialiseJuce_GUI();
-    juce::UnitTestRunner runner;
+    struct StdoutLogger : public juce::Logger {
+        void logMessage(const juce::String& message) override {
+            std::cerr << message.toStdString() << "\n";
+            std::cerr.flush();
+        }
+    } logger;
+    juce::Logger::setCurrentLogger(&logger);
+
+    struct CustomRunner : public juce::UnitTestRunner {
+        void logMessage(const juce::String& message) override {
+            std::cout << message.toStdString() << "\n";
+            std::cout.flush();
+        }
+    } runner;
+    runner.setAssertOnFailure (false);
     runner.runTestsInCategory ("Synthortion");
 
     int failures = 0;
     for (int i = 0; i < runner.getNumResults(); ++i)
     {
         const auto* res = runner.getResult (i);
-        std::cout << "Test: " << res->unitTestName << " - Passed: " << res->passes << " Failed: " << res->failures << std::endl;
-        if (res->failures > 0)
+        std::cerr << "Test: " << res->unitTestName.toStdString() << " - Passed: " << res->passes << " Failed: " << res->failures << "\n";
+        for (auto& msg : res->messages)
         {
-            for (auto& msg : res->messages)
-                std::cout << "  " << msg << std::endl;
+            std::cerr << "  " << msg.toStdString() << "\n";
         }
         failures += static_cast<int> (res->failures);
     }
+    std::cerr << "TOTAL FAILURES: " << failures << "\n";
+    std::cerr.flush();
+    std::cout.flush();
 
+    juce::Logger::setCurrentLogger(nullptr);
     juce::shutdownJuce_GUI();
 
     return failures == 0 ? 0 : 1;
