@@ -23,18 +23,39 @@ describe('parameterStore dynamic normalization & hydration', () => {
     expect(fromAPVTS('INPUT_GAIN', 1.0)).toEqual({ uiKey: 'inputGain', value: 12 })
   })
 
-  it('converts drive percentage correctly', () => {
+  it('converts drive and bitcrush percentage correctly', () => {
     expect(toAPVTS('drive', 0)).toBe(0.0)
     expect(toAPVTS('drive', 50)).toBe(0.5)
     expect(toAPVTS('drive', 100)).toBe(1.0)
-
     expect(fromAPVTS('COLOR', 0.5)).toEqual({ uiKey: 'drive', value: 50 })
+
+    expect(toAPVTS('bitcrush', 0)).toBe(0.0)
+    expect(toAPVTS('bitcrush', 50)).toBe(0.5)
+    expect(toAPVTS('bitcrush', 100)).toBe(1.0)
+    expect(fromAPVTS('BITCRUSH', 0.5)).toEqual({ uiKey: 'bitcrush', value: 50 })
   })
 
-  it('converts delay time correctly', () => {
+  it('converts chorus width percentage correctly', () => {
+    expect(toAPVTS('chorusWidth', 0)).toBe(0.0)
+    expect(toAPVTS('chorusWidth', 50)).toBe(0.5)
+    expect(toAPVTS('chorusWidth', 100)).toBe(1.0)
+    expect(fromAPVTS('CHORUS_WIDTH', 0.5)).toEqual({ uiKey: 'chorusWidth', value: 50 })
+  })
+
+  it('converts delay time correctly in SYNC and FREE modes', () => {
+    // Default mode is SYNC (0..13 steps)
+    expect(toAPVTS('delayTime', 0)).toBe(0.0)
+    expect(toAPVTS('delayTime', 6)).toBeCloseTo(6 / 13)
+    expect(toAPVTS('delayTime', 13)).toBe(1.0)
+
+    expect(fromAPVTS('DELAY_TIME', 0.0)).toEqual({ uiKey: 'delayTime', value: 0 })
+    expect(fromAPVTS('DELAY_TIME', 6 / 13)).toEqual({ uiKey: 'delayTime', value: 6 })
+    expect(fromAPVTS('DELAY_TIME', 1.0)).toEqual({ uiKey: 'delayTime', value: 13 })
+
+    // Switch to FREE mode (1..2000 ms) via DELAY_SYNC = 0.0 (false)
+    parameterStore.updateParameter('DELAY_SYNC', 0.0)
     expect(toAPVTS('delayTime', 1)).toBe(0.0)
     expect(toAPVTS('delayTime', 2000)).toBe(1.0)
-
     expect(fromAPVTS('DELAY_TIME', 0.0)).toEqual({ uiKey: 'delayTime', value: 1 })
     expect(fromAPVTS('DELAY_TIME', 1.0)).toEqual({ uiKey: 'delayTime', value: 2000 })
   })
@@ -56,14 +77,12 @@ describe('parameterStore dynamic normalization & hydration', () => {
     expect(fromAPVTS('DRIVE_ROUTE', 1.0)).toEqual({ uiKey: 'driveRoute', value: 'POST' })
   })
 
-  it('handles delaySync enums correctly', () => {
-    expect(toAPVTS('delaySync', 'SYNC')).toBe(0.0)
-    expect(toAPVTS('delaySync', 'FREE')).toBe(0.5)
-    expect(toAPVTS('delaySync', 'PING-PONG')).toBe(1.0)
+  it('handles delaySync enums correctly with APVTS boolean polarity', () => {
+    expect(toAPVTS('delaySync', 'SYNC')).toBe(1.0)
+    expect(toAPVTS('delaySync', 'FREE')).toBe(0.0)
 
-    expect(fromAPVTS('DELAY_SYNC', 0.0)).toEqual({ uiKey: 'delaySync', value: 'SYNC' })
-    expect(fromAPVTS('DELAY_SYNC', 0.5)).toEqual({ uiKey: 'delaySync', value: 'FREE' })
-    expect(fromAPVTS('DELAY_SYNC', 1.0)).toEqual({ uiKey: 'delaySync', value: 'PING-PONG' })
+    expect(fromAPVTS('DELAY_SYNC', 1.0)).toEqual({ uiKey: 'delaySync', value: 'SYNC' })
+    expect(fromAPVTS('DELAY_SYNC', 0.0)).toEqual({ uiKey: 'delaySync', value: 'FREE' })
   })
 
   it('has descriptors for all 16 APVTS parameters', () => {

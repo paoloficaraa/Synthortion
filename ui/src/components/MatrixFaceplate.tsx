@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import { Knob } from './Knob'
+import { Toggle } from './Toggle'
 import { CalibrationTicks } from './CalibrationTicks'
+import { DELAY_SUBDIVISIONS } from '../lib/parameterStore'
 import { initialState, type PluginState } from '../lib/pluginState'
-
 interface MatrixFaceplateProps {
   /** Full plugin state, owned by the App root. */
   state: PluginState
@@ -148,13 +149,14 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
     delayMix,
     delayTime,
     delayFbk,
+    delaySync,
     chorus,
+    chorusWidth,
     driveOn,
     bitcrushOn,
     delayOn,
     chorusOn,
   } = state
-
   return (
     <div
       data-testid="matrix-faceplate"
@@ -191,9 +193,9 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
           <Knob
             label="Bitcrush"
             value={bitcrush}
-            min={2}
-            max={24}
-            displayValue={`${Math.round(bitcrush)}B`}
+            min={0}
+            max={100}
+            displayValue={`${Math.round(bitcrush)}%`}
             defaultValue={initialState.bitcrush}
             enabled={bitcrushOn}
             onChange={(value) => onChange({ bitcrush: value })}
@@ -208,7 +210,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
         onTogglePower={() => onChange({ delayOn: !delayOn })}
         className="col-span-2"
       >
-        <div className="flex-1 flex flex-col items-center justify-center w-full gap-3 sm:gap-5">
+        <div className="flex-1 flex flex-col items-center justify-center w-full gap-2 sm:gap-3 py-1">
           <Knob
             label="Mix"
             value={delayMix}
@@ -219,17 +221,30 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             enabled={delayOn}
             onChange={(value) => onChange({ delayMix: value })}
           />
-          <div className="flex gap-6 sm:gap-10 items-center justify-center">
+          <div className="flex gap-4 sm:gap-8 items-center justify-center">
             <Knob
               label="Time"
-              value={delayTime}
-              min={0}
-              max={1000}
-              displayValue={`${Math.round(delayTime)}`}
+              value={
+                delaySync === 'SYNC'
+                  ? delayTime <= 13
+                    ? delayTime
+                    : 6
+                  : delayTime > 13
+                    ? delayTime
+                    : 250
+              }
+              min={delaySync === 'SYNC' ? 0 : 1}
+              max={delaySync === 'SYNC' ? 13 : 2000}
+              displayValue={
+                delaySync === 'SYNC'
+                  ? (DELAY_SUBDIVISIONS[Math.round(Math.max(0, Math.min(13, delayTime)))] ??
+                    '1/8D')
+                  : `${Math.round(delayTime > 13 ? delayTime : 250)}ms`
+              }
               size="small"
               enabled={delayOn}
-              defaultValue={initialState.delayTime}
-              onChange={(value) => onChange({ delayTime: value })}
+              defaultValue={delaySync === 'SYNC' ? 6 : 250}
+              onChange={(value) => onChange({ delayTime: Math.round(value) })}
             />
             <Knob
               label="Fbk"
@@ -243,6 +258,27 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
               onChange={(value) => onChange({ delayFbk: value })}
             />
           </div>
+          <div className="w-full max-w-[130px] px-1">
+            <Toggle
+              label="Delay sync"
+              options={[
+                { value: 'SYNC', label: 'SYNC' },
+                { value: 'FREE', label: 'FREE' },
+              ]}
+              value={delaySync}
+              enabled={delayOn}
+              onChange={(val) => {
+                const nextSync = val as 'SYNC' | 'FREE'
+                if (nextSync === 'FREE' && delaySync === 'SYNC') {
+                  onChange({ delaySync: 'FREE', delayTime: delayTime > 13 ? delayTime : 250 })
+                } else if (nextSync === 'SYNC' && delaySync === 'FREE') {
+                  onChange({ delaySync: 'SYNC', delayTime: delayTime <= 13 ? delayTime : 6 })
+                } else {
+                  onChange({ delaySync: nextSync })
+                }
+              }}
+            />
+          </div>
         </div>
       </ModuleFrame>
 
@@ -252,7 +288,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
         powerOn={chorusOn}
         onTogglePower={() => onChange({ chorusOn: !chorusOn })}
       >
-        <div className="flex-1 flex flex-col justify-center items-center w-full">
+        <div className="flex-1 flex flex-col items-center justify-center w-full gap-2 sm:gap-3 py-1">
           <Knob
             label="Chorus"
             value={chorus}
@@ -262,6 +298,17 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             enabled={chorusOn}
             onChange={(value) => onChange({ chorus: value })}
             defaultValue={initialState.chorus}
+          />
+          <Knob
+            label="Width"
+            value={chorusWidth}
+            min={0}
+            max={100}
+            displayValue={`${Math.round(chorusWidth)}%`}
+            size="small"
+            enabled={chorusOn}
+            onChange={(value) => onChange({ chorusWidth: value })}
+            defaultValue={initialState.chorusWidth}
           />
         </div>
       </ModuleFrame>

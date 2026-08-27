@@ -14,6 +14,8 @@ interface ToggleProps {
   value: string
   /** Called with the segment value when it is activated */
   onChange: (value: string) => void
+  /** Whether the toggle is enabled (defaults to true) */
+  enabled?: boolean
 }
 
 /**
@@ -27,12 +29,15 @@ interface ToggleProps {
  * A single-option Toggle doubles as an on/off switch (e.g. WIDE): pass the
  * boolean state as `value` (`'on'` / `'off'`) and flip it in `onChange`.
  */
-export function Toggle({ label, options, value, onChange }: ToggleProps) {
+export function Toggle({ label, options, value, onChange, enabled = true }: ToggleProps) {
   return (
     <div
       role="group"
       aria-label={label}
-      className="w-full flex gap-1 p-0.5 rounded-[3px] bg-elev-1"
+      aria-disabled={!enabled}
+      className={`w-full flex gap-1 p-0.5 rounded-[3px] bg-elev-1 transition-opacity duration-150 ${
+        enabled ? '' : 'opacity-30 pointer-events-none'
+      }`}
     >
       {options.map((option) => {
         const isActive = option.value === value
@@ -40,9 +45,10 @@ export function Toggle({ label, options, value, onChange }: ToggleProps) {
           <button
             key={option.value}
             type="button"
+            disabled={!enabled}
             aria-pressed={isActive}
             aria-label={option.label}
-            onClick={() => onChange(option.value)}
+            onClick={() => enabled && onChange(option.value)}
             className={`flex-1 border font-mono text-[9px] py-1.5 uppercase outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent transition-all duration-150 active:scale-[0.96] ${
               isActive
                 ? 'bg-fg text-bg border-fg'

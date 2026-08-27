@@ -107,6 +107,9 @@ describe('App', () => {
     expect(screen.getByRole('slider', { name: 'Time' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Fbk' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Chorus' })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Width' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'SYNC' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'FREE' })).toBeInTheDocument()
   })
 
   it('renders the faceplate controls at the prototype default state', () => {
@@ -118,7 +121,7 @@ describe('App', () => {
     )
     expect(screen.getByRole('slider', { name: 'Bitcrush' })).toHaveAttribute(
       'aria-valuenow',
-      '12'
+      '0'
     )
     expect(screen.getByRole('slider', { name: 'Mix' })).toHaveAttribute(
       'aria-valuenow',
@@ -126,7 +129,11 @@ describe('App', () => {
     )
     expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
       'aria-valuenow',
-      '250'
+      '6'
+    )
+    expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
+      'aria-valuetext',
+      '1/8D'
     )
     expect(screen.getByRole('slider', { name: 'Fbk' })).toHaveAttribute(
       'aria-valuenow',
@@ -135,6 +142,14 @@ describe('App', () => {
     expect(screen.getByRole('slider', { name: 'Chorus' })).toHaveAttribute(
       'aria-valuenow',
       '75'
+    )
+    expect(screen.getByRole('slider', { name: 'Width' })).toHaveAttribute(
+      'aria-valuenow',
+      '50'
+    )
+    expect(screen.getByRole('button', { name: 'SYNC' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
     )
   })
 
@@ -183,13 +198,37 @@ describe('App', () => {
     render(<App dspBridge={bridge} />)
 
     const bitcrush = screen.getByRole('slider', { name: 'Bitcrush' })
-    // min 2, max 24; dy = 20 → value = 12 + 20 * 0.5 * (22/100) = 14.2 → "14B"
+    // min 0, max 100; dy = 20 → value = 0 + 20 * 0.5 * (100/100) = 10 → "10%"
     fireEvent.pointerDown(bitcrush, { clientY: 200, pointerId: 1 })
     fireEvent.pointerMove(bitcrush, { clientY: 180, pointerId: 1 })
     fireEvent.pointerUp(bitcrush, { pointerId: 1 })
 
-    expect(bitcrush).toHaveAttribute('aria-valuetext', '14B')
-    expect(bridge.calls).toContainEqual({ id: 'BITCRUSH', value: 0.142 })
+    expect(bitcrush).toHaveAttribute('aria-valuetext', '10%')
+    expect(bridge.calls).toContainEqual({ id: 'BITCRUSH', value: 0.1 })
+  })
+
+  it('forwards the chorus width knob drag to the DSP bridge', () => {
+    const bridge = createMockDspBridge()
+    render(<App dspBridge={bridge} />)
+
+    const width = screen.getByRole('slider', { name: 'Width' })
+    // min 0, max 100; dy = 20 → value = 50 + 20 * 0.5 * (100/100) = 60 → "60%"
+    fireEvent.pointerDown(width, { clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(width, { clientY: 180, pointerId: 1 })
+    fireEvent.pointerUp(width, { pointerId: 1 })
+
+    expect(width).toHaveAttribute('aria-valuetext', '60%')
+    expect(bridge.calls).toContainEqual({ id: 'CHORUS_WIDTH', value: 0.6 })
+  })
+
+  it('forwards the delay sync mode toggle to the DSP bridge', () => {
+    const bridge = createMockDspBridge()
+    render(<App dspBridge={bridge} />)
+
+    const freeBtn = screen.getByRole('button', { name: 'FREE' })
+    fireEvent.click(freeBtn)
+
+    expect(bridge.calls).toContainEqual({ id: 'DELAY_SYNC', value: 0 })
   })
 
   it('forwards the engine bypass toggle to the DSP bridge', () => {

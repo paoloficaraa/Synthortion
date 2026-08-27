@@ -71,6 +71,25 @@ export interface MeterFramePayload {
 
 export type SpectrumFramePayload = number[]
 
+export const DELAY_SUBDIVISIONS = [
+  '1/32',
+  '1/16T',
+  '1/16',
+  '1/16D',
+  '1/8T',
+  '1/8',
+  '1/8D',
+  '1/4T',
+  '1/4',
+  '1/4D',
+  '1/2T',
+  '1/2',
+  '1/2D',
+  '1/1',
+] as const
+
+export type DelaySubdivision = (typeof DELAY_SUBDIVISIONS)[number]
+
 export const DEFAULT_PARAMETER_DESCRIPTORS: Record<string, ParameterDescriptor> = {
   INPUT_GAIN: {
     id: 'INPUT_GAIN',
@@ -120,13 +139,13 @@ export const DEFAULT_PARAMETER_DESCRIPTORS: Record<string, ParameterDescriptor> 
     type: 'float',
     min: 0,
     max: 100,
-    defaultValue: 12,
-    currentValue: 12,
+    defaultValue: 0,
+    currentValue: 0,
     skew: 1,
     step: 1,
     unit: '%',
-    normalizedDefault: 0.12,
-    normalizedValue: 0.12,
+    normalizedDefault: 0.0,
+    normalizedValue: 0.0,
   },
   DELAY_TIME: {
     id: 'DELAY_TIME',
@@ -243,21 +262,25 @@ export const DEFAULT_PARAMETER_DESCRIPTORS: Record<string, ParameterDescriptor> 
   DELAY_SYNC: {
     id: 'DELAY_SYNC',
     name: 'Delay Sync',
-    type: 'choice',
-    choices: ['SYNC', 'FREE', 'PING-PONG'],
-    defaultIndex: 0,
-    currentIndex: 0,
-    normalizedDefault: 0.0,
-    normalizedValue: 0.0,
-  },
-  CHORUS_WIDE: {
-    id: 'CHORUS_WIDE',
-    name: 'Chorus Wide',
     type: 'bool',
-    defaultValue: false,
-    currentValue: false,
-    normalizedDefault: 0.0,
-    normalizedValue: 0.0,
+    defaultValue: true,
+    currentValue: true,
+    normalizedDefault: 1.0,
+    normalizedValue: 1.0,
+  },
+  CHORUS_WIDTH: {
+    id: 'CHORUS_WIDTH',
+    name: 'Chorus Width',
+    type: 'float',
+    min: 0,
+    max: 100,
+    defaultValue: 50,
+    currentValue: 50,
+    skew: 1,
+    step: 1,
+    unit: '%',
+    normalizedDefault: 0.5,
+    normalizedValue: 0.5,
   },
 }
 
@@ -277,7 +300,7 @@ export const APVTS_ID_TO_UI_KEY: Record<string, keyof PluginState> = {
   CHORUS_ON: 'chorusOn',
   DRIVE_ROUTE: 'driveRoute',
   DELAY_SYNC: 'delaySync',
-  CHORUS_WIDE: 'chorusWide',
+  CHORUS_WIDTH: 'chorusWidth',
 }
 
 export const UI_KEY_TO_APVTS_ID: Record<keyof PluginState, string> = Object.fromEntries(
@@ -286,7 +309,7 @@ export const UI_KEY_TO_APVTS_ID: Record<keyof PluginState, string> = Object.from
 
 export function normalizeValue(descriptor: ParameterDescriptor, uiValue: unknown): number {
   if (descriptor.type === 'bool') {
-    const boolVal = Boolean(uiValue)
+    const boolVal = uiValue === 'SYNC' ? true : uiValue === 'FREE' ? false : Boolean(uiValue)
     if (descriptor.invert) {
       return boolVal ? 0.0 : 1.0
     }
@@ -330,6 +353,9 @@ export function denormalizeValue(
 
   if (descriptor.type === 'bool') {
     const boolVal = norm > 0.5
+    if (descriptor.id === 'DELAY_SYNC') {
+      return boolVal ? 'SYNC' : 'FREE'
+    }
     if (descriptor.invert) {
       return !boolVal
     }
@@ -490,10 +516,31 @@ export class ParameterStore {
     }
   }
 
+  isDelaySynced(): boolean {
+    const syncDesc = this.getDescriptor('DELAY_SYNC')
+    if (!syncDesc) return true
+    if (syncDesc.type === 'bool') {
+      return (syncDesc.normalizedValue ?? 1) > 0.5
+    }
+    if (syncDesc.type === 'choice') {
+      return syncDesc.choices?.[syncDesc.currentIndex ?? 0] === 'SYNC'
+    }
+    return true
+  }
+
   toNormalized(uiKeyOrApvtsId: string, uiValue: unknown): number {
     const apvtsId = UI_KEY_TO_APVTS_ID[uiKeyOrApvtsId as keyof PluginState] ?? uiKeyOrApvtsId
     const descriptor = this.getDescriptor(apvtsId)
     if (descriptor) {
+      if (apvtsId === 'DELAY_TIME') {
+        if (
+          typeof uiValue === 'number' &&
+          this.isDelaySynced() &&
+          uiValue <= DELAY_SUBDIVISIONS.length - 1
+        ) {
+          return Math.max(0, Math.min(1, uiValue / (DELAY_SUBDIVISIONS.length - 1)))
+        }
+      }
       return normalizeValue(descriptor, uiValue)
     }
     return typeof uiValue === 'number' ? uiValue : 0.0
@@ -507,6 +554,13 @@ export class ParameterStore {
     const uiKey = APVTS_ID_TO_UI_KEY[apvtsId]
     if (!descriptor || !uiKey) {
       return null
+    }
+    if (apvtsId === 'DELAY_TIME' && this.isDelaySynced()) {
+      const step = Math.min(
+        DELAY_SUBDIVISIONS.length - 1,
+        Math.max(0, Math.round(normalizedValue * (DELAY_SUBDIVISIONS.length - 1)))
+      )
+      return { uiKey, value: step }
     }
     const value = denormalizeValue(descriptor, normalizedValue)
     return { uiKey, value }

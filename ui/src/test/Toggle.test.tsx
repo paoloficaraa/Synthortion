@@ -94,4 +94,25 @@ describe('Toggle', () => {
     fireEvent.click(wide)
     expect(onChange).toHaveBeenCalledWith('on')
   })
+
+  it('disables buttons and prevents onChange when enabled is false', () => {
+    const onChange = vi.fn()
+    render(
+      <Toggle
+        label="Delay sync"
+        options={[
+          { value: 'SYNC', label: 'SYNC' },
+          { value: 'FREE', label: 'FREE' },
+        ]}
+        value="SYNC"
+        onChange={onChange}
+        enabled={false}
+      />
+    )
+
+    const free = screen.getByRole('button', { name: 'FREE' })
+    expect(free).toBeDisabled()
+    fireEvent.click(free)
+    expect(onChange).not.toHaveBeenCalled()
+  })
 })

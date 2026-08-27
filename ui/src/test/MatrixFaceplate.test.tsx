@@ -127,11 +127,15 @@ describe('MatrixFaceplate', () => {
     // Powered-on modules keep their numeric readouts.
     expect(screen.getByRole('slider', { name: 'Bitcrush' })).toHaveAttribute(
       'aria-valuetext',
-      '12B'
+      '0%'
     )
     expect(screen.getByRole('slider', { name: 'Chorus' })).toHaveAttribute(
       'aria-valuetext',
       '75%'
+    )
+    expect(screen.getByRole('slider', { name: 'Width' })).toHaveAttribute(
+      'aria-valuetext',
+      '50%'
     )
   })
 
@@ -212,5 +216,94 @@ describe('MatrixFaceplate', () => {
     expect(mixSlider).toBeInTheDocument()
     expect(timeSlider).toBeInTheDocument()
     expect(fbkSlider).toBeInTheDocument()
+  })
+
+  it('renders inline Cartesian [ SYNC ] / [ FREE ] toggle in DLY module and forwards mode changes', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(
+      <MatrixFaceplate state={initialState} onChange={onChange} />
+    )
+
+    const syncBtn = screen.getByRole('button', { name: 'SYNC' })
+    const freeBtn = screen.getByRole('button', { name: 'FREE' })
+
+    expect(syncBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(freeBtn).toHaveAttribute('aria-pressed', 'false')
+
+    // Click FREE button -> switches delaySync to FREE and updates delayTime to ms default
+    fireEvent.click(freeBtn)
+    expect(onChange).toHaveBeenCalledWith({ delaySync: 'FREE', delayTime: 250 })
+
+    // Rerender in FREE mode
+    rerender(
+      <MatrixFaceplate
+        state={{ ...initialState, delaySync: 'FREE', delayTime: 250 }}
+        onChange={onChange}
+      />
+    )
+    expect(screen.getByRole('button', { name: 'FREE' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(screen.getByRole('button', { name: 'SYNC' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    )
+
+    // Click SYNC button -> switches delaySync to SYNC and updates delayTime to grid subdivision index
+    fireEvent.click(screen.getByRole('button', { name: 'SYNC' }))
+    expect(onChange).toHaveBeenCalledWith({ delaySync: 'SYNC', delayTime: 6 })
+  })
+
+  it('renders dynamic fractional readouts in SYNC and milliseconds in FREE', () => {
+    const { rerender } = render(
+      <MatrixFaceplate
+        state={{ ...initialState, delaySync: 'SYNC', delayTime: 6 }}
+        onChange={() => {}}
+      />
+    )
+    const timeSlider = screen.getByRole('slider', { name: 'Time' })
+    expect(timeSlider).toHaveAttribute('aria-valuetext', '1/8D')
+
+    // Different subdivision step (index 8 -> 1/4)
+    rerender(
+      <MatrixFaceplate
+        state={{ ...initialState, delaySync: 'SYNC', delayTime: 8 }}
+        onChange={() => {}}
+      />
+    )
+    expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
+      'aria-valuetext',
+      '1/4'
+    )
+
+    // FREE mode (250ms)
+    rerender(
+      <MatrixFaceplate
+        state={{ ...initialState, delaySync: 'FREE', delayTime: 250 }}
+        onChange={() => {}}
+      />
+    )
+    expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
+      'aria-valuetext',
+      '250ms'
+    )
+  })
+
+  it('renders secondary Width knob in CHR module and forwards interaction through onChange', () => {
+    const onChange = vi.fn()
+    render(<MatrixFaceplate state={initialState} onChange={onChange} />)
+
+    const widthSlider = screen.getByRole('slider', { name: 'Width' })
+    expect(widthSlider).toBeInTheDocument()
+    expect(widthSlider).toHaveAttribute('aria-valuenow', '50')
+    expect(widthSlider).toHaveAttribute('aria-valuetext', '50%')
+
+    // Drag width knob (dy = 200 - 180 = 20 -> 50 + 20*0.5 = 60)
+    fireEvent.pointerDown(widthSlider, { clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(widthSlider, { clientY: 180, pointerId: 1 })
+    fireEvent.pointerUp(widthSlider, { pointerId: 1 })
+
+    expect(onChange).toHaveBeenCalledWith({ chorusWidth: 60 })
   })
 })

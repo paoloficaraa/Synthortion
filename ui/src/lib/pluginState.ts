@@ -19,10 +19,10 @@ export interface PluginState {
   delayMix: number
   delayTime: number
   delayFbk: number
-  delaySync: 'SYNC' | 'FREE' | 'PING-PONG'
+  delaySync: 'SYNC' | 'FREE'
   delayOn: boolean
   chorus: number
-  chorusWide: boolean
+  chorusWidth: number
   chorusOn: boolean
   inputGain: number
   outputGain: number
@@ -34,15 +34,15 @@ export const initialState: PluginState = {
   drive: 40,
   driveOn: true,
   driveRoute: 'PRE',
-  bitcrush: 12,
+  bitcrush: 0,
   bitcrushOn: true,
   delayMix: 30,
-  delayTime: 250,
+  delayTime: 6,
   delayFbk: 50,
   delaySync: 'SYNC',
   delayOn: true,
   chorus: 75,
-  chorusWide: false,
+  chorusWidth: 50,
   chorusOn: true,
   inputGain: 0,
   outputGain: 0,
