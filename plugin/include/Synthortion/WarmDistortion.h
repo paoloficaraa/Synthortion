@@ -26,9 +26,9 @@ public:
     static constexpr float kMaxDrive = 1.0f;
     static constexpr float kMinDriveThreshold = 0.001f;
     static constexpr float kExciterGateThreshold = 0.4f;
-    static constexpr float kExciterFrequency = 3500.0f;
-    static constexpr float kDampingBaseFreq = 18000.0f;
-    static constexpr float kDampingMinFreq = 10000.0f;
+    static constexpr float kExciterFrequency = 5000.0f;
+    static constexpr float kDampingBaseFreq = 10000.0f;
+    static constexpr float kDampingMinFreq = 8000.0f;
     static constexpr float kMaxFilterAlpha = 0.999f;
     
     static constexpr float kDenormThreshold = 1.0e-20f;

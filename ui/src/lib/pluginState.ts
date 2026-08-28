@@ -17,9 +17,10 @@ export interface PluginState {
   bitcrush: number
   bitcrushOn: boolean
   delayMix: number
-  delayTime: number
+  delayTimeFree: number
+  delayTimeSync: number
   delayFbk: number
-  delaySync: 'SYNC' | 'FREE'
+  delaySync: boolean
   delayOn: boolean
   chorus: number
   chorusWidth: number
@@ -37,9 +38,10 @@ export const initialState: PluginState = {
   bitcrush: 0,
   bitcrushOn: true,
   delayMix: 30,
-  delayTime: 6,
+  delayTimeFree: 250,
+  delayTimeSync: 6,
   delayFbk: 50,
-  delaySync: 'SYNC',
+  delaySync: true,
   delayOn: true,
   chorus: 75,
   chorusWidth: 50,

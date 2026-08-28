@@ -29,8 +29,8 @@ public:
     static constexpr float kSmoothingTimeSeconds = 0.05f;
 
     // Fixed specification constants
-    static constexpr float kBaseDelayMs = 15.0f;
-    static constexpr float kDepthMs = 2.5f;
+    static constexpr float kBaseDelayMs = 5.0f;
+    static constexpr float kDepthMs = 1.5f;
     static constexpr float kLfo1FreqHz = 0.45f;
     static constexpr float kLfo2FreqHz = 1.25f;
     static constexpr float kLfo3FreqHz = 2.45f;

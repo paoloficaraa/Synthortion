@@ -49,11 +49,28 @@ namespace synthortion {
             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
             0.0f));
 
+        auto makeTimeRange = []()
+        {
+            auto r = juce::NormalisableRange<float>(1.0f, 2000.0f, 1.0f);
+            r.setSkewForCentre(250.0f);
+            return r;
+        };
+
         layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{"DELAY_TIME", 1},
-            "Delay Time",
-            juce::NormalisableRange<float>(1.0f, 2000.0f, 1.0f),
+            juce::ParameterID{"DELAY_TIME_FREE", 1},
+            "Delay Time Free",
+            makeTimeRange(),
             250.0f));
+
+        juce::StringArray subdivisions;
+        for (int i = 0; i < dsp::PingPongDelay::kNumSubdivisions; ++i) {
+            subdivisions.add(dsp::PingPongDelay::getSubdivisionName(i));
+        }
+        layout.add(std::make_unique<juce::AudioParameterChoice>(
+            juce::ParameterID{"DELAY_TIME_SYNC", 1},
+            "Delay Time Sync",
+            subdivisions,
+            6)); // Default to 1/8D
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"DELAY_MIX", 1},
@@ -115,8 +132,10 @@ namespace synthortion {
         jassert(colorParam != nullptr);
         bitCrushParam = apvts.getRawParameterValue("BITCRUSH");
         jassert(bitCrushParam != nullptr);
-        delayTimeParam = apvts.getRawParameterValue("DELAY_TIME");
-        jassert(delayTimeParam != nullptr);
+        delayTimeFreeParam = apvts.getRawParameterValue("DELAY_TIME_FREE");
+        jassert(delayTimeFreeParam != nullptr);
+        delayTimeSyncParam = apvts.getRawParameterValue("DELAY_TIME_SYNC");
+        jassert(delayTimeSyncParam != nullptr);
         delayMixParam = apvts.getRawParameterValue("DELAY_MIX");
         jassert(delayMixParam != nullptr);
         delayFeedbackParam = apvts.getRawParameterValue("DELAY_FEEDBACK");
@@ -280,7 +299,8 @@ namespace synthortion {
         const float inputGain = inputGainParam->load(std::memory_order_relaxed);
         const float outputGain = outputGainParam->load(std::memory_order_relaxed);
         const float bitCrush = bitCrushParam->load(std::memory_order_relaxed);
-        const float delayTime = delayTimeParam->load(std::memory_order_relaxed);
+        const float delayTimeFree = delayTimeFreeParam->load(std::memory_order_relaxed);
+        const int delayTimeSync = static_cast<int>(delayTimeSyncParam->load(std::memory_order_relaxed));
         const float delayMix = delayMixParam->load(std::memory_order_relaxed);
         const float delayFeedback = delayFeedbackParam->load(std::memory_order_relaxed);
         const float chorusMix = chorusMixParam->load(std::memory_order_relaxed);
@@ -295,7 +315,7 @@ namespace synthortion {
         const bool chorusWide = chorusWideParam->load(std::memory_order_relaxed) > kBooleanThreshold;
 
         const double currentBpm = getCurrentBpm();
-        const float effectiveDelayTimeMs = dsp::PingPongDelay::calculateDelayTimeMs(delayTime, delaySync, currentBpm);
+        const float effectiveDelayTimeMs = dsp::PingPongDelay::calculateDelayTimeMs(delayTimeFree, delayTimeSync, delaySync, currentBpm);
 
         const dsp::WarmDistortionParams driveParams{ color, volumeComp };
         const dsp::BitCrusherParams bitcrushParams{ bitCrush };

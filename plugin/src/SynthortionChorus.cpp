@@ -56,9 +56,9 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer, const ChorusPa
     auto* leftData = buffer.getWritePointer(0);
     auto* rightData = numChannels > 1 ? buffer.getWritePointer(1) : nullptr;
 
-    const float phaseInc0 = juce::MathConstants<float>::twoPi * kLfo1FreqHz / static_cast<float>(sampleRate);
-    const float phaseInc1 = juce::MathConstants<float>::twoPi * kLfo2FreqHz / static_cast<float>(sampleRate);
-    const float phaseInc2 = juce::MathConstants<float>::twoPi * kLfo3FreqHz / static_cast<float>(sampleRate);
+    const float phaseInc0 = juce::MathConstants<float>::twoPi * getLfoRate(0) / static_cast<float>(sampleRate);
+    const float phaseInc1 = juce::MathConstants<float>::twoPi * getLfoRate(1) / static_cast<float>(sampleRate);
+    const float phaseInc2 = juce::MathConstants<float>::twoPi * getLfoRate(2) / static_cast<float>(sampleRate);
 
     const float offset0 = getVoicePhaseOffsetRad(0);
     const float offset1 = getVoicePhaseOffsetRad(1);

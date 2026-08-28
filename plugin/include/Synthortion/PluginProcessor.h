@@ -112,7 +112,8 @@ namespace synthortion
         std::atomic<float>* outputGainParam = nullptr;
         std::atomic<float>* colorParam = nullptr;
         std::atomic<float>* bitCrushParam = nullptr;
-        std::atomic<float>* delayTimeParam = nullptr;
+        std::atomic<float>* delayTimeFreeParam = nullptr;
+        std::atomic<float>* delayTimeSyncParam = nullptr;
         std::atomic<float>* delayMixParam = nullptr;
         std::atomic<float>* delayFeedbackParam = nullptr;
         std::atomic<float>* chorusMixParam = nullptr;

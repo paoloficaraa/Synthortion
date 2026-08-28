@@ -77,8 +77,6 @@ juce_generate_juce_header(SynthortionTests)
 
 target_sources(SynthortionTests
 PRIVATE
-    tests/Main.cpp
-    tests/AudioPluginTest.h
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
     src/WarmDistortion.cpp

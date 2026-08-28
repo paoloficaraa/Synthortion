@@ -192,30 +192,12 @@ float PingPongDelay::calculateSyncDelayTimeMs(int subdivisionIndex, double bpm) 
     return beatTimeMs * beats;
 }
 
-int PingPongDelay::calculateSubdivisionIndexFromNormalized(float normalized) noexcept
-{
-    const float norm = juce::jlimit(0.0f, 1.0f, normalized);
-    return juce::jlimit(0, kNumSubdivisions - 1, static_cast<int>(std::round(norm * static_cast<float>(kNumSubdivisions - 1))));
-}
-
-int PingPongDelay::calculateSubdivisionIndexFromParam(float delayTimeParam) noexcept
-{
-    if (delayTimeParam >= 0.0f && delayTimeParam <= static_cast<float>(kNumSubdivisions - 1) &&
-        std::abs(delayTimeParam - std::round(delayTimeParam)) < 1e-4f)
-    {
-        return static_cast<int>(std::round(delayTimeParam));
-    }
-    const float norm = juce::jlimit(0.0f, 1.0f, (delayTimeParam - kMinDelayTimeMs) / (kMaxFreeDelayTimeMs - kMinDelayTimeMs));
-    return calculateSubdivisionIndexFromNormalized(norm);
-}
-
-float PingPongDelay::calculateDelayTimeMs(float delayTimeParam, bool isSync, double bpm) noexcept
+float PingPongDelay::calculateDelayTimeMs(float delayTimeFree, int delayTimeSync, bool isSync, double bpm) noexcept
 {
     if (isSync)
     {
-        const int idx = calculateSubdivisionIndexFromParam(delayTimeParam);
-        return calculateSyncDelayTimeMs(idx, bpm);
+        return calculateSyncDelayTimeMs(delayTimeSync, bpm);
     }
-    return juce::jlimit(kMinDelayTimeMs, kMaxFreeDelayTimeMs, delayTimeParam);
+    return juce::jlimit(kMinDelayTimeMs, kMaxFreeDelayTimeMs, delayTimeFree);
 }
 } // namespace synthortion::dsp

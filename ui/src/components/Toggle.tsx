@@ -35,7 +35,7 @@ export function Toggle({ label, options, value, onChange, enabled = true }: Togg
       role="group"
       aria-label={label}
       aria-disabled={!enabled}
-      className={`w-full flex gap-1 p-0.5 rounded-[3px] bg-elev-1 transition-opacity duration-150 ${
+      className={`w-full flex gap-1 p-0.5 rounded-[1px] bg-elev-1 transition-opacity duration-150 ${
         enabled ? '' : 'opacity-30 pointer-events-none'
       }`}
     >

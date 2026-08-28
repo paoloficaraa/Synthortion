@@ -147,19 +147,29 @@ export const DEFAULT_PARAMETER_DESCRIPTORS: Record<string, ParameterDescriptor> 
     normalizedDefault: 0.0,
     normalizedValue: 0.0,
   },
-  DELAY_TIME: {
-    id: 'DELAY_TIME',
-    name: 'Delay Time',
+  DELAY_TIME_FREE: {
+    id: 'DELAY_TIME_FREE',
+    name: 'Delay Time Free',
     type: 'float',
     min: 1,
     max: 2000,
     defaultValue: 250,
     currentValue: 250,
-    skew: 1,
+    skew: 0.3328,
     step: 1,
     unit: 'ms',
-    normalizedDefault: (250 - 1) / (2000 - 1),
-    normalizedValue: (250 - 1) / (2000 - 1),
+    normalizedDefault: 0.5,
+    normalizedValue: 0.5,
+  },
+  DELAY_TIME_SYNC: {
+    id: 'DELAY_TIME_SYNC',
+    name: 'Delay Time Sync',
+    type: 'choice',
+    choices: [...DELAY_SUBDIVISIONS],
+    defaultIndex: 6,
+    currentIndex: 6,
+    normalizedDefault: 6 / 13,
+    normalizedValue: 6 / 13,
   },
   DELAY_MIX: {
     id: 'DELAY_MIX',
@@ -289,7 +299,8 @@ export const APVTS_ID_TO_UI_KEY: Record<string, keyof PluginState> = {
   OUTPUT_GAIN: 'outputGain',
   COLOR: 'drive',
   BITCRUSH: 'bitcrush',
-  DELAY_TIME: 'delayTime',
+  DELAY_TIME_FREE: 'delayTimeFree',
+  DELAY_TIME_SYNC: 'delayTimeSync',
   DELAY_MIX: 'delayMix',
   DELAY_FEEDBACK: 'delayFbk',
   CHORUS_MIX: 'chorus',
@@ -309,7 +320,8 @@ export const UI_KEY_TO_APVTS_ID: Record<keyof PluginState, string> = {
   outputGain: 'OUTPUT_GAIN',
   drive: 'COLOR',
   bitcrush: 'BITCRUSH',
-  delayTime: 'DELAY_TIME',
+  delayTimeFree: 'DELAY_TIME_FREE',
+  delayTimeSync: 'DELAY_TIME_SYNC',
   delayMix: 'DELAY_MIX',
   delayFbk: 'DELAY_FEEDBACK',
   chorus: 'CHORUS_MIX',
@@ -443,18 +455,11 @@ export class ParameterStore {
         const existing = this.descriptors.get(desc.id)
         const normVal = extractNormVal(desc, existing?.normalizedValue ?? 0)
 
-        if (existing) {
-          this.descriptors.set(desc.id, {
-            ...existing,
-            ...desc,
-            normalizedValue: normVal,
-          })
-        } else {
-          this.descriptors.set(desc.id, {
-            ...desc,
-            normalizedValue: normVal,
-          })
-        }
+        this.descriptors.set(desc.id, {
+          ...(existing ?? {}),
+          ...desc,
+          normalizedValue: normVal,
+        })
         this.updateParameter(desc.id, normVal)
       }
     }
@@ -530,30 +535,14 @@ export class ParameterStore {
 
   isDelaySynced(): boolean {
     const syncDesc = this.getDescriptor('DELAY_SYNC')
-    if (!syncDesc) return true
-    if (syncDesc.type === 'bool') {
-      return (syncDesc.normalizedValue ?? 1) > 0.5
-    }
-    if (syncDesc.type === 'choice') {
-      return syncDesc.choices?.[syncDesc.currentIndex ?? 0] === 'SYNC'
-    }
-    return true
+    if (!syncDesc || syncDesc.type !== 'bool') return true
+    return (syncDesc.normalizedValue ?? 1) > 0.5
   }
 
   toNormalized(uiKeyOrApvtsId: string, uiValue: unknown, isSynced?: boolean): number {
     const apvtsId = UI_KEY_TO_APVTS_ID[uiKeyOrApvtsId as keyof PluginState] ?? uiKeyOrApvtsId
     const descriptor = this.getDescriptor(apvtsId)
     if (descriptor) {
-      if (apvtsId === 'DELAY_TIME') {
-        const synced = isSynced !== undefined ? isSynced : this.isDelaySynced()
-        if (
-          typeof uiValue === 'number' &&
-          synced &&
-          uiValue <= DELAY_SUBDIVISIONS.length - 1
-        ) {
-          return Math.max(0, Math.min(1, uiValue / (DELAY_SUBDIVISIONS.length - 1)))
-        }
-      }
       return normalizeValue(descriptor, uiValue)
     }
     return typeof uiValue === 'number' ? uiValue : 0.0
@@ -568,22 +557,10 @@ export class ParameterStore {
     if (!descriptor || !uiKey) {
       return null
     }
-    if (apvtsId === 'DELAY_TIME' && this.isDelaySynced()) {
-      const step = Math.min(
-        DELAY_SUBDIVISIONS.length - 1,
-        Math.max(0, Math.round(normalizedValue * (DELAY_SUBDIVISIONS.length - 1)))
-      )
-      return { uiKey, value: step }
-    }
     const value = denormalizeValue(descriptor, normalizedValue)
     return { uiKey, value }
   }
-
-  private notify(): void {
-    this.listeners.forEach((cb) => cb())
-  }
 }
-
 export const parameterStore = new ParameterStore()
 
 export function toAPVTS(

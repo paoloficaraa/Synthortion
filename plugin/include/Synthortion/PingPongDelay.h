@@ -20,7 +20,7 @@ public:
     static constexpr float kDefaultBpm = 120.0f;
     static constexpr float kDefaultDelayTimeMs = 250.0f;
     static constexpr float kDefaultFeedback = 0.4f;
-    static constexpr float kDefaultDampingFreq = 12000.0f;
+    static constexpr float kDefaultDampingFreq = 2000.0f;
     static constexpr float kMinDelayTimeMs = 1.0f;
     static constexpr float kMaxFreeDelayTimeMs = 2000.0f;
     static constexpr float kMaxDelayTimeMs = 5000.0f;
@@ -38,9 +38,7 @@ public:
     static float getSubdivisionBeats(int subdivisionIndex) noexcept;
     static const char* getSubdivisionName(int subdivisionIndex) noexcept;
     static float calculateSyncDelayTimeMs(int subdivisionIndex, double bpm) noexcept;
-    static int calculateSubdivisionIndexFromNormalized(float normalized) noexcept;
-    static int calculateSubdivisionIndexFromParam(float delayTimeParam) noexcept;
-    static float calculateDelayTimeMs(float delayTimeParam, bool isSync, double bpm) noexcept;
+    static float calculateDelayTimeMs(float delayTimeFree, int delayTimeSync, bool isSync, double bpm) noexcept;
     static float getDampingFrequency() noexcept { return kDefaultDampingFreq; }
     static float getSmoothingTimeSeconds() noexcept { return kSmoothingTimeSeconds; }
 

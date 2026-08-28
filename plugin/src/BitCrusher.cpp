@@ -4,8 +4,6 @@ namespace synthortion::dsp {
 
 BitCrusher::BitCrusher()
 {
-    randomGenerators[0].setSeed(0x12345678);
-    randomGenerators[1].setSeed(0x87654321);
     reset();
 }
 

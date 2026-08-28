@@ -147,7 +147,8 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
     drive,
     bitcrush,
     delayMix,
-    delayTime,
+    delayTimeFree,
+    delayTimeSync,
     delayFbk,
     delaySync,
     chorus,
@@ -157,13 +158,10 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
     delayOn,
     chorusOn,
   } = state
-  const isDelaySync = delaySync === 'SYNC'
-  const effectiveDelayTime = isDelaySync
-    ? Math.max(0, Math.min(13, delayTime > 13 ? 6 : Math.round(delayTime)))
-    : Math.max(1, Math.min(2000, delayTime <= 0 ? 250 : Math.round(delayTime)))
+  const isDelaySync = delaySync === true
   const delayTimeDisplay = isDelaySync
-    ? (DELAY_SUBDIVISIONS[effectiveDelayTime] ?? '1/8D')
-    : `${Math.round(effectiveDelayTime)}ms`
+    ? (DELAY_SUBDIVISIONS[delayTimeSync] ?? '1/8D')
+    : `${Math.round(delayTimeFree)}ms`
   return (
     <div
       data-testid="matrix-faceplate"
@@ -231,14 +229,14 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
           <div className="flex gap-4 sm:gap-8 items-center justify-center">
             <Knob
               label="Time"
-              value={effectiveDelayTime}
+              value={isDelaySync ? delayTimeSync : delayTimeFree}
               min={isDelaySync ? 0 : 1}
               max={isDelaySync ? 13 : 2000}
               displayValue={delayTimeDisplay}
               size="small"
               enabled={delayOn}
               defaultValue={isDelaySync ? 6 : 250}
-              onChange={(value) => onChange({ delayTime: Math.round(value) })}
+              onChange={(value) => isDelaySync ? onChange({ delayTimeSync: Math.round(value) }) : onChange({ delayTimeFree: Math.round(value) })}
             />
             <Knob
               label="Fbk"
@@ -256,20 +254,13 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
             <Toggle
               label="Delay sync"
               options={[
-                { value: 'SYNC', label: 'SYNC' },
-                { value: 'FREE', label: 'FREE' },
+                { value: 'on', label: 'SYNC' },
+                { value: 'off', label: 'FREE' },
               ]}
-              value={delaySync}
+              value={delaySync ? 'on' : 'off'}
               enabled={delayOn}
               onChange={(val) => {
-                const nextSync = val as 'SYNC' | 'FREE'
-                if (nextSync === 'FREE' && delaySync === 'SYNC') {
-                  onChange({ delaySync: 'FREE', delayTime: delayTime > 13 ? delayTime : 250 })
-                } else if (nextSync === 'SYNC' && delaySync === 'FREE') {
-                  onChange({ delaySync: 'SYNC', delayTime: delayTime <= 13 ? delayTime : 6 })
-                } else {
-                  onChange({ delaySync: nextSync })
-                }
+                onChange({ delaySync: val === 'on' })
               }}
             />
           </div>
