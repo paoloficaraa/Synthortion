@@ -4,6 +4,12 @@ else()
     set(SYNTHORTION_COPY_AFTER_BUILD TRUE)
 endif()
 
+if(APPLE)
+    set(SYNTHORTION_FORMATS AU VST3)
+else()
+    set(SYNTHORTION_FORMATS VST3)
+endif()
+
 juce_add_plugin(Synthortion
     COMPANY_NAME "WavesCrate"
     BUNDLE_ID com.wavescrate.synthortion
@@ -13,7 +19,7 @@ juce_add_plugin(Synthortion
     NEEDS_WEBVIEW2 TRUE
     PLUGIN_MANUFACTURER_CODE MACP
     PLUGIN_CODE P729
-    FORMATS AU VST3
+    FORMATS ${SYNTHORTION_FORMATS}
     COPY_PLUGIN_AFTER_BUILD ${SYNTHORTION_COPY_AFTER_BUILD}
 )
 target_sources(Synthortion
