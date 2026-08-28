@@ -1,3 +1,9 @@
+if(DEFINED ENV{CI})
+    set(SYNTHORTION_COPY_AFTER_BUILD FALSE)
+else()
+    set(SYNTHORTION_COPY_AFTER_BUILD TRUE)
+endif()
+
 juce_add_plugin(Synthortion
     COMPANY_NAME "WavesCrate"
     BUNDLE_ID com.wavescrate.synthortion
@@ -8,9 +14,8 @@ juce_add_plugin(Synthortion
     PLUGIN_MANUFACTURER_CODE MACP
     PLUGIN_CODE P729
     FORMATS AU VST3
-    COPY_PLUGIN_AFTER_BUILD TRUE
+    COPY_PLUGIN_AFTER_BUILD ${SYNTHORTION_COPY_AFTER_BUILD}
 )
-
 target_sources(Synthortion
 PRIVATE
     src/PluginProcessor.cpp
@@ -63,7 +68,7 @@ if(TARGET Synthortion_VST3)
             "${CMAKE_BINARY_DIR}/plugin/Synthortion_artefacts/$<CONFIG>/VST3/Synthortion.vst3/Contents/Resources/dist"
         COMMENT "Copying UI dist to VST3 bundle resources"
     )
-    if(WIN32)
+    if(WIN32 AND NOT DEFINED ENV{CI})
         add_custom_command(TARGET Synthortion_VST3 POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E remove_directory
                 "C:/Program Files/Common Files/VST3/Synthortion.vst3/Contents/Resources/dist"
