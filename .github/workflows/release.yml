@@ -37,10 +37,17 @@ jobs:
         run: |
           npm ci
           npm run build
+      - name: Set up MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Set up CMake & Ninja
+        uses: lukka/get-cmake@v4.3.3
 
       - name: Configure CMake
         run: |
-          cmake -B build -G "Visual Studio 17 2022" -A x64
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Plugin
         run: |
@@ -49,11 +56,10 @@ jobs:
       - name: Package Windows VST3
         shell: pwsh
         run: |
-          $vst3Path = "build/plugin/Synthortion_artefacts/Release/VST3/Synthortion.vst3"
+          $vst3Path = if (Test-Path "build/plugin/Synthortion_artefacts/Release/VST3/Synthortion.vst3") { "build/plugin/Synthortion_artefacts/Release/VST3/Synthortion.vst3" } else { "build/plugin/Synthortion_artefacts/VST3/Synthortion.vst3" }
           $zipPath = "Synthortion-Windows-x64-VST3.zip"
           Compress-Archive -Path $vst3Path -DestinationPath $zipPath -Force
           Get-Item $zipPath | Select-Object Name, Length, LastWriteTime
-
       - name: Upload Windows VST3 Artifact
         uses: actions/upload-artifact@v4
         with:
