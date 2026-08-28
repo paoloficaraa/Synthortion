@@ -54,19 +54,37 @@ if(UNIX AND NOT APPLE)
     target_include_directories(Synthortion PRIVATE ${WEBKIT2GTK_INCLUDE_DIRS} ${GTK3_INCLUDE_DIRS} ${CURL_INCLUDE_DIRS})
     target_link_libraries(Synthortion PRIVATE ${WEBKIT2GTK_LIBRARIES} ${GTK3_LIBRARIES} ${CURL_LIBRARIES})
 endif()
-add_custom_command(TARGET Synthortion_VST3 POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E remove_directory
-        "${CMAKE_BINARY_DIR}/plugin/Synthortion_artefacts/$<CONFIG>/VST3/Synthortion.vst3/Contents/Resources/dist"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ui/dist"
-        "${CMAKE_BINARY_DIR}/plugin/Synthortion_artefacts/$<CONFIG>/VST3/Synthortion.vst3/Contents/Resources/dist"
-    COMMAND ${CMAKE_COMMAND} -E remove_directory
-        "C:/Program Files/Common Files/VST3/Synthortion.vst3/Contents/Resources/dist"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ui/dist"
-        "C:/Program Files/Common Files/VST3/Synthortion.vst3/Contents/Resources/dist"
-    COMMENT "Copying UI dist to VST3 bundle resources (clean sync)"
-)
+if(TARGET Synthortion_VST3)
+    add_custom_command(TARGET Synthortion_VST3 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E remove_directory
+            "${CMAKE_BINARY_DIR}/plugin/Synthortion_artefacts/$<CONFIG>/VST3/Synthortion.vst3/Contents/Resources/dist"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/../ui/dist"
+            "${CMAKE_BINARY_DIR}/plugin/Synthortion_artefacts/$<CONFIG>/VST3/Synthortion.vst3/Contents/Resources/dist"
+        COMMENT "Copying UI dist to VST3 bundle resources"
+    )
+    if(WIN32)
+        add_custom_command(TARGET Synthortion_VST3 POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E remove_directory
+                "C:/Program Files/Common Files/VST3/Synthortion.vst3/Contents/Resources/dist"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_CURRENT_SOURCE_DIR}/../ui/dist"
+                "C:/Program Files/Common Files/VST3/Synthortion.vst3/Contents/Resources/dist"
+            COMMENT "Copying UI dist to local VST3 folder"
+        )
+    endif()
+endif()
+
+if(APPLE AND TARGET Synthortion_AU)
+    add_custom_command(TARGET Synthortion_AU POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E remove_directory
+            "${CMAKE_BINARY_DIR}/plugin/Synthortion_artefacts/$<CONFIG>/AU/Synthortion.component/Contents/Resources/dist"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/../ui/dist"
+            "${CMAKE_BINARY_DIR}/plugin/Synthortion_artefacts/$<CONFIG>/AU/Synthortion.component/Contents/Resources/dist"
+        COMMENT "Copying UI dist to AU bundle resources"
+    )
+endif()
 
 juce_add_console_app(SynthortionTests
     PRODUCT_NAME "Synthortion Tests"

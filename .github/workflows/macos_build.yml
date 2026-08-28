@@ -14,6 +14,17 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build Web UI
+        working-directory: ui
+        run: |
+          npm ci
+          npm run build
+
       - name: Set up CMake
         uses: lukka/get-cmake@v4.3.3
 
