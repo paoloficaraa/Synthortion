@@ -297,7 +297,7 @@ namespace synthortion {
 
         const dsp::WarmDistortionParams driveParams{ color, volumeComp };
         const dsp::BitCrusherParams bitcrushParams{ bitCrush };
-        const dsp::ChorusParams chorusParams{ chorusMix, chorusWide };
+        const dsp::ChorusParams chorusParams{ chorusMix, chorusWide ? 1.0f : 0.0f };
         const dsp::PingPongDelayParams delayParams{ delayTime, delayMix, delayFeedback, 12000.0f };
         inputGainSmoother.setTargetValue(inputGain);
         outputGainSmoother.setTargetValue(outputGain);

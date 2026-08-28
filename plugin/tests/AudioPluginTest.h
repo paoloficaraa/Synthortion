@@ -20,11 +20,37 @@ namespace synthortion
     class AudioPluginTests final : public juce::UnitTest
     {
     public:
+        struct ContinuousStereoOscillator {
+            float phaseL = 0.0f;
+            float phaseR = 0.0f;
+            float phaseInc = 0.0f;
+
+            ContinuousStereoOscillator(float freq, double sr, float initialPhaseL = 0.0f, float initialPhaseR = 0.0f)
+                : phaseL(initialPhaseL), phaseR(initialPhaseR),
+                  phaseInc(juce::MathConstants<float>::twoPi * freq / static_cast<float>(sr))
+            {}
+
+            void generate(juce::AudioBuffer<float>& buf)
+            {
+                const int numSamples = buf.getNumSamples();
+                for (int s = 0; s < numSamples; ++s)
+                {
+                    buf.setSample(0, s, 0.5f * std::sin(phaseL));
+                    buf.setSample(1, s, 0.5f * std::sin(phaseR));
+                    phaseL += phaseInc;
+                    if (phaseL >= juce::MathConstants<float>::twoPi)
+                        phaseL -= juce::MathConstants<float>::twoPi;
+                    phaseR += phaseInc;
+                    if (phaseR >= juce::MathConstants<float>::twoPi)
+                        phaseR -= juce::MathConstants<float>::twoPi;
+                }
+            }
+        };
+
         AudioPluginTests()
             : juce::UnitTest ("Synthortion component tests", "Synthortion")
         {
         }
-
         void runTest() override
         {
             testEditorSizeIs960x600();
@@ -57,6 +83,11 @@ namespace synthortion
             testBitCrusherIdentityAtZero();
             testBitCrusherFractionalPhaseAccumulatorAndLinearInterpolation();
             testBitCrusherTPDFDitherAndQuantization();
+            testChorusMathematicalSpecifications();
+            testChorusIdentityAtZeroMix();
+            testChorusMonoLowEndPreservationAndCrossover();
+            testChorusStereoWidthScalingAndPhaseSpread();
+            testChorusThreeVoiceModulationAndDecoupledLFOs();
         }
         void testEditorSizeIs960x600()
         {
@@ -704,7 +735,7 @@ namespace synthortion
                 generateSine(dryBuf, 440.0f, sampleRate);
                 wetBuf.makeCopyOf(dryBuf);
 
-                dsp::ChorusParams params{ 1.0f, true };
+                dsp::ChorusParams params{ 1.0f, 1.0f };
                 chorus.process(wetBuf, params);
 
                 // Run several blocks to let LFO modulate
@@ -750,7 +781,7 @@ namespace synthortion
             dist.process(buffer, dsp::WarmDistortionParams{ 0.5f, false });
             bitCrusher.process(buffer, dsp::BitCrusherParams{ 0.5f });
             delay.process(buffer, dsp::PingPongDelayParams{ 250.0f, 0.5f, 0.4f, 12000.0f });
-            chorus.process(buffer, dsp::ChorusParams{ 0.5f, false });
+            chorus.process(buffer, dsp::ChorusParams{ 0.5f, 0.0f });
 
             // 2. Start allocation tracking
             g_allocationCount.store(0);
@@ -763,7 +794,7 @@ namespace synthortion
                 dist.process(buffer, dsp::WarmDistortionParams{ mod, false });
                 bitCrusher.process(buffer, dsp::BitCrusherParams{ mod });
                 delay.process(buffer, dsp::PingPongDelayParams{ 200.0f + mod * 100.0f, mod, 0.4f, 12000.0f });
-                chorus.process(buffer, dsp::ChorusParams{ mod, (block % 2 == 0) });
+                chorus.process(buffer, dsp::ChorusParams{ mod, (block % 2 == 0) ? 1.0f : 0.0f });
             }
 
             g_trackAllocations.store(false);
@@ -1334,6 +1365,261 @@ namespace synthortion
                 }
             }
             expect (decorrelated, "Left and Right channels must have independent decorrelated dither noise");
+        }
+
+        void testChorusMathematicalSpecifications()
+        {
+            beginTest ("SynthortionChorus: Mathematical Specifications (LFO Rates, Phase Offsets, Base Delay, Depth, G_norm, Crossover, Width Scaling)");
+
+            // 1. Decoupled LFO rates: 0.45 Hz, 1.25 Hz, 2.45 Hz
+            expectWithinAbsoluteError (dsp::SynthortionChorus::getLfoRate (0), 0.45f, 1e-4f, "LFO 1 rate must be 0.45 Hz");
+            expectWithinAbsoluteError (dsp::SynthortionChorus::getLfoRate (1), 1.25f, 1e-4f, "LFO 2 rate must be 1.25 Hz");
+            expectWithinAbsoluteError (dsp::SynthortionChorus::getLfoRate (2), 2.45f, 1e-4f, "LFO 3 rate must be 2.45 Hz");
+
+            // 2. Inter-voice phase offsets: 0 deg (0 rad), 120 deg (2*pi/3 rad), 240 deg (4*pi/3 rad)
+            const float pi = juce::MathConstants<float>::pi;
+            expectWithinAbsoluteError (dsp::SynthortionChorus::getVoicePhaseOffsetRad (0), 0.0f, 1e-5f, "Voice 1 phase offset is 0 deg");
+            expectWithinAbsoluteError (dsp::SynthortionChorus::getVoicePhaseOffsetRad (1), 2.0f * pi / 3.0f, 1e-4f, "Voice 2 phase offset is 120 deg (2*pi/3 rad)");
+            expectWithinAbsoluteError (dsp::SynthortionChorus::getVoicePhaseOffsetRad (2), 4.0f * pi / 3.0f, 1e-4f, "Voice 3 phase offset is 240 deg (4*pi/3 rad)");
+
+            // 3. Base delay (15.0 ms) and Depth (2.5 ms)
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateBaseDelaySamples (44100.0), 661.5f, 0.01f, "Base delay at 44.1 kHz is 661.5 samples");
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateBaseDelaySamples (48000.0), 720.0f, 0.01f, "Base delay at 48.0 kHz is 720.0 samples");
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateBaseDelaySamples (96000.0), 1440.0f, 0.01f, "Base delay at 96.0 kHz is 1440.0 samples");
+
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateDepthSamples (44100.0), 110.25f, 0.01f, "Depth at 44.1 kHz is 110.25 samples");
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateDepthSamples (48000.0), 120.0f, 0.01f, "Depth at 48.0 kHz is 120.0 samples");
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateDepthSamples (96000.0), 240.0f, 0.01f, "Depth at 96.0 kHz is 240.0 samples");
+
+            // 4. Normalized summation gain G_norm = 1.0 / 3^0.75
+            const float expectedGNorm = 1.0f / std::pow (3.0f, 0.75f);
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateNormalizedGain(), expectedGNorm, 1e-6f, "G_norm formula matches 1.0 / 3^0.75");
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateNormalizedGain(), 0.43869134f, 1e-4f, "G_norm is approximately 0.4387");
+
+            // 5. Crossover frequency: 320.0 Hz
+            expectWithinAbsoluteError (dsp::SynthortionChorus::getCrossoverFrequency(), 320.0f, 0.01f, "Crossover cutoff frequency is 320.0 Hz");
+
+            // 6. Continuous stereo width scaling: phase spread 0 deg to 60 deg (w * 60 deg)
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateStereoPhaseOffsetRad (0.0f), 0.0f, 1e-5f, "Width 0.0 gives 0 deg phase spread");
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateStereoPhaseOffsetRad (0.5f), 30.0f * pi / 180.0f, 1e-4f, "Width 0.5 gives 30 deg phase spread");
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateStereoPhaseOffsetRad (1.0f), 60.0f * pi / 180.0f, 1e-4f, "Width 1.0 gives 60 deg phase spread");
+
+            // Clamping for width < 0 and width > 1
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateStereoPhaseOffsetRad (-0.5f), 0.0f, 1e-5f, "Width < 0 clamped to 0 deg");
+            expectWithinAbsoluteError (dsp::SynthortionChorus::calculateStereoPhaseOffsetRad (1.5f), 60.0f * pi / 180.0f, 1e-4f, "Width > 1 clamped to 60 deg");
+        }
+
+        void testChorusIdentityAtZeroMix()
+        {
+            beginTest ("SynthortionChorus: Identity transparent output at mix = 0");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 512;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32> (blockSize), 2 };
+
+            dsp::SynthortionChorus chorus;
+            chorus.prepare (spec);
+
+            // 1. Silence test
+            juce::AudioBuffer<float> silence (2, blockSize);
+            silence.clear();
+            chorus.process (silence, dsp::ChorusParams{ 0.0f, 0.5f });
+            for (int ch = 0; ch < 2; ++ch)
+                for (int s = 0; s < blockSize; ++s)
+                    expect (silence.getSample (ch, s) == 0.0f, "Silence remains exact zero at mix = 0");
+
+            // 2. Sine tone test
+            juce::AudioBuffer<float> drySine (2, blockSize);
+            juce::AudioBuffer<float> wetSine (2, blockSize);
+            for (int s = 0; s < blockSize; ++s)
+            {
+                float v = 0.5f * std::sin (2.0f * juce::MathConstants<float>::pi * 440.0f * static_cast<float> (s) / static_cast<float> (sampleRate));
+                drySine.setSample (0, s, v);
+                drySine.setSample (1, s, -v);
+            }
+            wetSine.makeCopyOf (drySine);
+
+            chorus.process (wetSine, dsp::ChorusParams{ 0.0f, 0.5f });
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                for (int s = 0; s < blockSize; ++s)
+                {
+                    expect (wetSine.getSample (ch, s) == drySine.getSample (ch, s),
+                            "Audio at mix = 0 must be 100% bit-exact transparent");
+                }
+            }
+
+            // 3. Pseudo-random noise test
+            juce::AudioBuffer<float> dryNoise (2, blockSize);
+            juce::AudioBuffer<float> wetNoise (2, blockSize);
+            juce::Random rng (54321);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int s = 0; s < blockSize; ++s)
+                    dryNoise.setSample (ch, s, rng.nextFloat() * 1.8f - 0.9f);
+            wetNoise.makeCopyOf (dryNoise);
+
+            chorus.process (wetNoise, dsp::ChorusParams{ 0.0f, 0.5f });
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                for (int s = 0; s < blockSize; ++s)
+                {
+                    expect (wetNoise.getSample (ch, s) == dryNoise.getSample (ch, s),
+                            "Noise audio at mix = 0 must match dry audio exactly");
+                }
+            }
+        }
+
+        void testChorusMonoLowEndPreservationAndCrossover()
+        {
+            beginTest ("SynthortionChorus: Linkwitz-Riley 4th-order crossover at 320 Hz and mono low-end preservation");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 1024;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32> (blockSize), 2 };
+
+            dsp::SynthortionChorus chorus;
+            chorus.prepare (spec);
+
+
+            // 1. Low frequency tone (80 Hz, well below 320 Hz crossover):
+            // In-phase mono bass: (L = sin, R = sin).
+            // With mix = 1.0f, low-end passes through cleanly without delay-induced pitch modulation.
+            juce::AudioBuffer<float> bassBuffer (2, blockSize);
+            ContinuousStereoOscillator inPhaseBass (80.0f, sampleRate, 0.0f, 0.0f);
+
+            // Warm-up several blocks to let smoothed values settle
+            for (int b = 0; b < 10; ++b)
+            {
+                inPhaseBass.generate (bassBuffer);
+                chorus.process (bassBuffer, dsp::ChorusParams{ 1.0f, 1.0f });
+            }
+
+            // Low frequency peak should remain intact (~0.5)
+            float bassPeakL = bassBuffer.getMagnitude (0, 0, blockSize);
+            float bassPeakR = bassBuffer.getMagnitude (1, 0, blockSize);
+            expectWithinAbsoluteError (bassPeakL, 0.5f, 0.05f, "In-phase low frequency peak should remain intact");
+            expectWithinAbsoluteError (bassPeakR, 0.5f, 0.05f, "In-phase low frequency peak should remain intact on right channel");
+
+            // 2. Out-of-phase low frequency tone: (L = sin, R = -sin).
+            // Mono low-end summing (0.5 * (L + R) = 0) sums out-of-phase sub-bass to center mono, cancelling wide side-band bass.
+            chorus.reset();
+            juce::AudioBuffer<float> outOfPhaseBass (2, blockSize);
+            ContinuousStereoOscillator outOfPhaseOsc (80.0f, sampleRate, 0.0f, juce::MathConstants<float>::pi);
+            for (int b = 0; b < 10; ++b)
+            {
+                outOfPhaseOsc.generate (outOfPhaseBass);
+                chorus.process (outOfPhaseBass, dsp::ChorusParams{ 1.0f, 1.0f });
+            }
+            float outOfPhasePeakL = outOfPhaseBass.getMagnitude (0, 0, blockSize);
+            float outOfPhasePeakR = outOfPhaseBass.getMagnitude (1, 0, blockSize);
+            expect (outOfPhasePeakL < 0.05f, "Out-of-phase low frequency should be cancelled by mono low-end sum on L");
+            expect (outOfPhasePeakR < 0.05f, "Out-of-phase low frequency should be cancelled by mono low-end sum on R");
+
+            // 3. High frequency tone (2000 Hz, well above 320 Hz crossover):
+            // Modulated by the 3 delay voices.
+            chorus.reset();
+            juce::AudioBuffer<float> highBuffer (2, blockSize);
+            juce::AudioBuffer<float> dryHigh (2, blockSize);
+            ContinuousStereoOscillator highOsc (2000.0f, sampleRate, 0.0f, 0.0f);
+
+            // Process several blocks
+            float diffSum = 0.0f;
+            for (int b = 0; b < 10; ++b)
+            {
+                highOsc.generate (highBuffer);
+                dryHigh.makeCopyOf (highBuffer);
+                chorus.process (highBuffer, dsp::ChorusParams{ 1.0f, 0.5f });
+                for (int s = 0; s < blockSize; ++s)
+                    diffSum += std::abs (highBuffer.getSample (0, s) - dryHigh.getSample (0, s));
+            }
+            expect (diffSum > 1.0f, "High frequency signal above 320 Hz must undergo delay modulation and chorus effect");
+        }
+        void testChorusStereoWidthScalingAndPhaseSpread()
+        {
+            beginTest ("SynthortionChorus: Continuous stereo width scaling CHORUS_WIDTH modulating phase spread 0 deg to 60 deg");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 1024;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32> (blockSize), 2 };
+
+            dsp::SynthortionChorus chorusMonoWidth;
+            dsp::SynthortionChorus chorusFullWidth;
+            chorusMonoWidth.prepare (spec);
+            chorusFullWidth.prepare (spec);
+
+            ContinuousStereoOscillator oscMono (1000.0f, sampleRate, 0.0f, 0.0f);
+            ContinuousStereoOscillator oscFull (1000.0f, sampleRate, 0.0f, 0.0f);
+
+            // 1. Width = 0.0: Phase spread is 0 deg. Left and Right channels must be identical.
+            juce::AudioBuffer<float> bufMono (2, blockSize);
+            for (int b = 0; b < 10; ++b)
+            {
+                oscMono.generate (bufMono);
+                chorusMonoWidth.process (bufMono, dsp::ChorusParams{ 1.0f, 0.0f });
+            }
+
+            float monoDiff = 0.0f;
+            for (int s = 0; s < blockSize; ++s)
+                monoDiff += std::abs (bufMono.getSample (0, s) - bufMono.getSample (1, s));
+            expectWithinAbsoluteError (monoDiff, 0.0f, 1e-4f, "Width = 0 must produce identical Left and Right output (mono phase spread)");
+
+            // 2. Width = 1.0: Phase spread is 60 deg. Left and Right channels must differ.
+            juce::AudioBuffer<float> bufFull (2, blockSize);
+            for (int b = 0; b < 10; ++b)
+            {
+                oscFull.generate (bufFull);
+                chorusFullWidth.process (bufFull, dsp::ChorusParams{ 1.0f, 1.0f });
+            }
+
+            float fullDiff = 0.0f;
+            for (int s = 0; s < blockSize; ++s)
+                fullDiff += std::abs (bufFull.getSample (0, s) - bufFull.getSample (1, s));
+            expect (fullDiff > 1.0f, "Width = 1.0 must introduce stereo difference between L and R via 60 deg phase spread");
+        }
+
+        void testChorusThreeVoiceModulationAndDecoupledLFOs()
+        {
+            beginTest ("SynthortionChorus: 3-Voice fractional delay lines with decoupled LFOs and inter-voice phase offsets");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 1024;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32> (blockSize), 2 };
+
+            dsp::SynthortionChorus chorus;
+            chorus.prepare (spec);
+
+            // Create an impulse signal at sample 0 to trace the 3 multi-tap voices
+            juce::AudioBuffer<float> impulseBuffer (2, blockSize);
+            impulseBuffer.clear();
+            impulseBuffer.setSample (0, 0, 1.0f);
+            impulseBuffer.setSample (1, 0, 1.0f);
+
+            // Process several blocks to let the impulse propagate through the ~15 ms (720 samples) delay line
+            std::vector<float> impulseResponseL;
+            impulseResponseL.reserve (blockSize * 5);
+
+            chorus.process (impulseBuffer, dsp::ChorusParams{ 1.0f, 0.5f });
+            for (int s = 0; s < blockSize; ++s)
+                impulseResponseL.push_back (impulseBuffer.getSample (0, s));
+
+            for (int b = 1; b < 5; ++b)
+            {
+                impulseBuffer.clear();
+                chorus.process (impulseBuffer, dsp::ChorusParams{ 1.0f, 0.5f });
+                for (int s = 0; s < blockSize; ++s)
+                    impulseResponseL.push_back (impulseBuffer.getSample (0, s));
+            }
+
+            // Peak energy around base delay (15 ms = 720 samples)
+            float maxNearBaseDelay = 0.0f;
+            const int baseDelay = 720;
+            const int searchWindow = 200; // 720 +/- 200 samples
+            for (int s = baseDelay - searchWindow; s < baseDelay + searchWindow; ++s)
+            {
+                if (s >= 0 && s < static_cast<int> (impulseResponseL.size()))
+                    maxNearBaseDelay = std::max (maxNearBaseDelay, std::abs (impulseResponseL[static_cast<size_t> (s)]));
+            }
+            expect (maxNearBaseDelay > 0.05f, "Impulse response must show delayed multi-tap voice energy around 15 ms base delay");
         }
     };
 

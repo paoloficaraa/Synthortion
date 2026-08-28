@@ -25,7 +25,7 @@ struct PingPongDelayParams {
 
 struct ChorusParams {
     float mix = 0.0f;                 // 0.0 .. 1.0
-    bool wide = false;                // stereo phase widening mode
+    float width = 0.5f;               // 0.0 .. 1.0 (continuous stereo width, 0..60 deg phase spread)
 };
 
 // DspModule concept
