@@ -11,6 +11,11 @@
 **Synthortion** is a professional distortion and creative multi-effects plugin built with **JUCE 8** and **C++20**, featuring an integrated **React 19 / TypeScript** user interface embedded via a high-performance native WebView bridge.
 
 Combining tape-inspired non-linear saturation, lo-fi bitcrushing, vintage 3-voice BBD chorus, and host-synced ping-pong delay, Synthortion wraps high-grade DSP in a strict monochrome digital instrument aesthetic with ASCII-terminal surfaces and a 60 FPS real-time Braille / Xerox dither spectrum visualizer.
+
+<p align="center">
+  <img src="assets/preview.png" alt="Synthortion Plugin Preview" width="100%">
+</p>
+
 ---
 
 ## Table of Contents
