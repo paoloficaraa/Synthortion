@@ -11,9 +11,42 @@
 **Synthortion** is a professional distortion and creative multi-effects plugin built with **JUCE 8** and **C++20**, featuring an integrated **React 19 / TypeScript** user interface embedded via a high-performance native WebView bridge.
 
 Combining tape-inspired non-linear saturation, lo-fi bitcrushing, vintage 3-voice BBD chorus, and host-synced ping-pong delay, Synthortion wraps high-grade DSP in a strict monochrome digital instrument aesthetic with ASCII-terminal surfaces and a 60 FPS real-time Braille / Xerox dither spectrum visualizer.
-
 ---
 
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Key Features](#key-features)
+  - [1. Drive (Warm Distortion)](#1-drive-warm-distortion)
+  - [2. Creative Multi-FX](#2-creative-multi-fx)
+  - [3. Analysis & Metering](#3-analysis--metering)
+  - [4. Digital Instrument UI & Design System](#4-digital-instrument-ui--design-system)
+- [Processing Chain](#processing-chain)
+- [Parameters](#parameters)
+  - [Global & Master Controls](#global--master-controls)
+  - [Drive Module (Warm Distortion)](#drive-module-warm-distortion)
+  - [Bitcrusher Module](#bitcrusher-module)
+  - [Chorus Module](#chorus-module)
+  - [Delay Module](#delay-module)
+  - [UI Preferences](#ui-preferences-persisted-in-session-state)
+- [Technical Snapshot](#technical-snapshot)
+- [Installation Guide](#installation-guide)
+  - [Windows Installation (VST3)](#-windows-installation-vst3)
+  - [macOS Installation (VST3 & AU)](#-macos-installation-vst3--audio-unit--au)
+- [Building from Source](#building-from-source)
+  - [Prerequisites](#prerequisites)
+  - [1. Clone & Initialize](#1-clone--initialize-submodules)
+  - [2. Build React Frontend](#2-build-the-react-frontend)
+  - [3. Build Plugin (CMake)](#3-build-the-plugin-cmake)
+- [Running Tests](#running-tests)
+  - [C++ DSP Unit Tests](#c-dsp-unit-tests)
+  - [Frontend Tests](#frontend-unit--integration-tests)
+- [Repository Layout](#repository-layout)
+- [Architecture Decision Records (ADRs)](#architecture-decision-records-adrs)
+- [License](#license)
+- [Author](#author)
+
+---
 ## Architecture
 
 Synthortion couples a headless C++20 DSP engine to a modern web frontend via JUCE 8's native event IPC:
