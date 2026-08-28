@@ -226,7 +226,7 @@ describe('App', () => {
     fireEvent.pointerUp(width, { pointerId: 1 })
 
     expect(width).toHaveAttribute('aria-valuetext', '60%')
-    expect(bridge.calls).toContainEqual({ id: 'CHORUS_WIDTH', value: 0.6 })
+    expect(bridge.calls).toContainEqual({ id: 'CHORUS_WIDE', value: 0.6 })
   })
 
   it('forwards the delay sync mode toggle and time knob drags in SYNC and FREE modes to the DSP bridge', () => {
@@ -241,7 +241,7 @@ describe('App', () => {
     fireEvent.pointerUp(time, { pointerId: 1 })
 
     expect(time).toHaveAttribute('aria-valuetext', '1/4T')
-    expect(bridge.calls).toContainEqual({ id: 'DELAY_TIME', value: 7 / 13 })
+    expect(bridge.calls).toContainEqual({ id: 'DELAY_TIME_SYNC', value: 7 / 13 })
 
     // Toggle to FREE mode
     const freeBtn = screen.getByRole('button', { name: 'FREE' })

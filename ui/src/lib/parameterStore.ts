@@ -278,8 +278,8 @@ export const DEFAULT_PARAMETER_DESCRIPTORS: Record<string, ParameterDescriptor> 
     normalizedDefault: 1.0,
     normalizedValue: 1.0,
   },
-  CHORUS_WIDTH: {
-    id: 'CHORUS_WIDTH',
+  CHORUS_WIDE: {
+    id: 'CHORUS_WIDE',
     name: 'Chorus Width',
     type: 'float',
     min: 0,
@@ -332,7 +332,7 @@ export const UI_KEY_TO_APVTS_ID: Record<keyof PluginState, string> = {
   chorusOn: 'CHORUS_ON',
   driveRoute: 'DRIVE_ROUTE',
   delaySync: 'DELAY_SYNC',
-  chorusWidth: 'CHORUS_WIDTH',
+  chorusWidth: 'CHORUS_WIDE',
 }
 
 export function normalizeValue(descriptor: ParameterDescriptor, uiValue: unknown): number {
@@ -381,9 +381,6 @@ export function denormalizeValue(
 
   if (descriptor.type === 'bool') {
     const boolVal = norm > 0.5
-    if (descriptor.id === 'DELAY_SYNC') {
-      return boolVal ? 'SYNC' : 'FREE'
-    }
     if (descriptor.invert) {
       return !boolVal
     }
@@ -392,9 +389,12 @@ export function denormalizeValue(
 
   if (descriptor.type === 'choice') {
     const choices = descriptor.choices
-    if (!choices || choices.length === 0) return ''
-    if (choices.length === 1) return choices[0]
+    if (!choices || choices.length === 0) return descriptor.id === 'DELAY_TIME_SYNC' ? 0 : ''
     const index = Math.min(choices.length - 1, Math.round(norm * (choices.length - 1)))
+    if (descriptor.id === 'DELAY_TIME_SYNC') {
+      return index
+    }
+    if (choices.length === 1) return choices[0]
     return choices[index]
   }
 
@@ -420,6 +420,9 @@ export class ParameterStore {
   private listeners: Set<() => void> = new Set()
   private prefListeners: Set<(prefs: UIPreferences) => void> = new Set()
 
+  private notify(): void {
+    this.listeners?.forEach((cb) => cb())
+  }
   constructor() {
     this.reset()
   }
@@ -484,7 +487,11 @@ export class ParameterStore {
   getDescriptor(id: string): ParameterDescriptor | undefined {
     return (
       this.descriptors.get(id) ??
-      (id === 'CHORUS_WIDE' ? this.descriptors.get('CHORUS_WIDTH') : undefined)
+      (id === 'CHORUS_WIDTH'
+        ? this.descriptors.get('CHORUS_WIDE')
+        : id === 'CHORUS_WIDE'
+          ? this.descriptors.get('CHORUS_WIDTH')
+          : undefined)
     )
   }
 
@@ -539,7 +546,7 @@ export class ParameterStore {
     return (syncDesc.normalizedValue ?? 1) > 0.5
   }
 
-  toNormalized(uiKeyOrApvtsId: string, uiValue: unknown, isSynced?: boolean): number {
+  toNormalized(uiKeyOrApvtsId: string, uiValue: unknown): number {
     const apvtsId = UI_KEY_TO_APVTS_ID[uiKeyOrApvtsId as keyof PluginState] ?? uiKeyOrApvtsId
     const descriptor = this.getDescriptor(apvtsId)
     if (descriptor) {
@@ -565,10 +572,9 @@ export const parameterStore = new ParameterStore()
 
 export function toAPVTS(
   uiKey: keyof PluginState,
-  uiValue: unknown,
-  isSynced?: boolean
+  uiValue: unknown
 ): number {
-  return parameterStore.toNormalized(uiKey, uiValue, isSynced)
+  return parameterStore.toNormalized(uiKey, uiValue)
 }
 
 export function fromAPVTS(

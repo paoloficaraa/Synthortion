@@ -94,7 +94,7 @@ describe('Full-Stack Integration: Bridge Handshake, Parameter Automation, Teleme
       chorusWidth: 50,
       delayMix: 30,
       delayFbk: 50,
-      delaySync: 'SYNC',
+      delaySync: true,
       driveRoute: 'PRE',
       engineActive: true,
       driveOn: true,
@@ -106,7 +106,7 @@ describe('Full-Stack Integration: Bridge Handshake, Parameter Automation, Teleme
     unsubscribeChanges()
   })
 
-  it('handles bidirectional parameter automation across all 16 APVTS parameters', () => {
+  it('handles bidirectional parameter automation across all 17 APVTS parameters', () => {
     const receivedUpdates: Partial<PluginState>[] = []
     const unsubscribe = subscribeToDspChanges((partial) => {
       receivedUpdates.push(partial)
@@ -118,20 +118,20 @@ describe('Full-Stack Integration: Bridge Handshake, Parameter Automation, Teleme
       { id: 'OUTPUT_GAIN', value: 0.0, expectedKey: 'outputGain', expectedVal: -60 },
       { id: 'COLOR', value: 0.85, expectedKey: 'drive', expectedVal: 85 },
       { id: 'BITCRUSH', value: 0.60, expectedKey: 'bitcrush', expectedVal: 60 },
-      { id: 'DELAY_TIME', value: 0.5, expectedKey: 'delayTime', expectedVal: 7 }, // index 7 (1/4T) in SYNC mode (0.5 * 13 = 6.5 -> 7)
+      { id: 'DELAY_TIME_SYNC', value: 7 / 13, expectedKey: 'delayTimeSync', expectedVal: 7 },
+      { id: 'DELAY_TIME_FREE', value: 0.5, expectedKey: 'delayTimeFree', expectedVal: 250.04369287197676 },
       { id: 'DELAY_MIX', value: 0.75, expectedKey: 'delayMix', expectedVal: 75 },
       { id: 'DELAY_FEEDBACK', value: 0.5, expectedKey: 'delayFbk', expectedVal: 47.5 }, // 0.5 * 95 = 47.5
       { id: 'CHORUS_MIX', value: 0.90, expectedKey: 'chorus', expectedVal: 90 },
       { id: 'CHORUS_WIDE', value: 1.0, expectedKey: 'chorusWidth', expectedVal: 100 },
       { id: 'DRIVE_ROUTE', value: 1.0, expectedKey: 'driveRoute', expectedVal: 'POST' },
-      { id: 'DELAY_SYNC', value: 0.0, expectedKey: 'delaySync', expectedVal: 'FREE' },
+      { id: 'DELAY_SYNC', value: 0.0, expectedKey: 'delaySync', expectedVal: false },
       { id: 'PLUGIN_BYPASS', value: 1.0, expectedKey: 'engineActive', expectedVal: false },
       { id: 'DRIVE_ON', value: 0.0, expectedKey: 'driveOn', expectedVal: false },
       { id: 'BITCRUSH_ON', value: 0.0, expectedKey: 'bitcrushOn', expectedVal: false },
       { id: 'DELAY_ON', value: 0.0, expectedKey: 'delayOn', expectedVal: false },
       { id: 'CHORUS_ON', value: 0.0, expectedKey: 'chorusOn', expectedVal: false },
     ]
-
     for (const auto of hostAutomations) {
       mockBackend.trigger('parameterChange', { id: auto.id, value: auto.value })
       const lastUpdate = receivedUpdates[receivedUpdates.length - 1]
@@ -222,10 +222,10 @@ describe('Full-Stack Integration: Bridge Handshake, Parameter Automation, Teleme
     expect(fromAPVTS('BITCRUSH', 1.0)?.value).toBe(100)
 
     // Delay time in SYNC mode (discrete 0..13) vs FREE mode (1..2000 ms)
-    expect(toAPVTS('delayTime', 8, true)).toBeCloseTo(8 / 13, 4)
-    expect(fromAPVTS('DELAY_TIME', 8 / 13)?.value).toBe(8)
-    expect(toAPVTS('delayTime', 250, false)).toBeCloseTo((250 - 1) / 1999, 4)
-
+    expect(toAPVTS('delayTimeSync', 8)).toBeCloseTo(8 / 13, 4)
+    expect(fromAPVTS('DELAY_TIME_SYNC', 8 / 13)?.value).toBe(8)
+    expect(toAPVTS('delayTimeFree', 250)).toBeCloseTo(0.5, 2)
+    expect(fromAPVTS('DELAY_TIME_FREE', 0.0)?.value).toBe(1)
     // Boolean parameters with polarity
     expect(toAPVTS('engineActive', true)).toBe(0.0) // Inverted: PLUGIN_BYPASS = 0 when active
     expect(fromAPVTS('PLUGIN_BYPASS', 0.0)?.value).toBe(true)
@@ -243,10 +243,10 @@ describe('Full-Stack Integration: Bridge Handshake, Parameter Automation, Teleme
     expect(toAPVTS('driveRoute', 'POST')).toBe(1.0)
     expect(fromAPVTS('DRIVE_ROUTE', 1.0)?.value).toBe('POST')
 
-    expect(toAPVTS('delaySync', 'SYNC')).toBe(1.0)
-    expect(fromAPVTS('DELAY_SYNC', 1.0)?.value).toBe('SYNC')
-    expect(toAPVTS('delaySync', 'FREE')).toBe(0.0)
-    expect(fromAPVTS('DELAY_SYNC', 0.0)?.value).toBe('FREE')
+    expect(toAPVTS('delaySync', true)).toBe(1.0)
+    expect(fromAPVTS('DELAY_SYNC', 1.0)?.value).toBe(true)
+    expect(toAPVTS('delaySync', false)).toBe(0.0)
+    expect(fromAPVTS('DELAY_SYNC', 0.0)?.value).toBe(false)
   })
 
   it('mounts full React App and propagates UI interactions to DSP bridge', () => {
@@ -284,8 +284,7 @@ describe('Full-Stack Integration: Bridge Handshake, Parameter Automation, Teleme
     // Test Delay sync toggle button
     const freeButton = screen.getByRole('button', { name: 'FREE' })
     fireEvent.click(freeButton)
-    expect(onChange).toHaveBeenCalledWith({ delaySync: 'FREE', delayTime: 250 })
-
+    expect(onChange).toHaveBeenCalledWith({ delaySync: false })
     // Rerender with powered off state
     const poweredOffState: PluginState = {
       ...initialState,

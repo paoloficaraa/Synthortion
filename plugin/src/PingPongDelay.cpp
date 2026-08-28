@@ -72,7 +72,7 @@ void PingPongDelay::process(juce::AudioBuffer<float> &buffer, const PingPongDela
     for (int i = 0; i < numSamples; ++i)
     {
         const float currentDelayMs = smoothedDelayTime.getNextValue();
-        const float currentFeedback = smoothedFeedback.getNextValue();
+        const float currentFeedback = juce::jlimit(0.0f, 0.95f, smoothedFeedback.getNextValue());
         smoothedMix.getNextValue();
 
         const float delaySamples = juce::jlimit(
@@ -89,8 +89,12 @@ void PingPongDelay::process(juce::AudioBuffer<float> &buffer, const PingPongDela
         const float feedbackLeft = dampingFilterLeft.processSample(delayedLeft);
         const float feedbackRight = dampingFilterRight.processSample(delayedRight);
 
-        const float leftInput = leftChannel[i] + (feedbackRight * currentFeedback);
-        const float rightInput = rightChannel[i] + (feedbackLeft * currentFeedback);
+        // Ping-pong delay topology:
+        // Mono input fed into Left channel;
+        // Left feedback feeds Right channel, Right feedback feeds Left channel
+        const float monoInput = 0.5f * (leftChannel[i] + rightChannel[i]);
+        const float leftInput = monoInput + (feedbackRight * currentFeedback);
+        const float rightInput = (feedbackLeft * currentFeedback);
 
         delayLine.pushSample(0, leftInput);
         delayLine.pushSample(1, rightInput);

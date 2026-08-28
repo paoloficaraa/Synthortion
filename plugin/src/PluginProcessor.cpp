@@ -40,15 +40,14 @@ namespace synthortion {
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"COLOR", 1},
             "Color",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-            0.0f));
+            juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f),
+            40.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"BITCRUSH", 1},
             "Bitcrush",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+            juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f),
             0.0f));
-
         auto makeTimeRange = []()
         {
             auto r = juce::NormalisableRange<float>(1.0f, 2000.0f, 1.0f);
@@ -75,21 +74,20 @@ namespace synthortion {
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"DELAY_MIX", 1},
             "Delay Mix",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-            0.0f));
+            juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f),
+            30.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"DELAY_FEEDBACK", 1},
             "Delay Feedback",
-            juce::NormalisableRange<float>(0.0f, 0.95f, 0.01f),
-            0.4f));
+            juce::NormalisableRange<float>(0.0f, 95.0f, 1.0f),
+            50.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"CHORUS_MIX", 1},
             "Chorus Mix",
-            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-            0.0f));
-
+            juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f),
+            75.0f));
         layout.add(std::make_unique<juce::AudioParameterBool>(
             juce::ParameterID{"PLUGIN_BYPASS", 1},
             "Bypass",
@@ -107,9 +105,11 @@ namespace synthortion {
             juce::ParameterID{"DRIVE_ROUTE", 1}, "Drive Route Post", false));
         layout.add(std::make_unique<juce::AudioParameterBool>(
             juce::ParameterID{"DELAY_SYNC", 1}, "Delay Sync", true));
-        layout.add(std::make_unique<juce::AudioParameterBool>(
-            juce::ParameterID{"CHORUS_WIDE", 1}, "Chorus Wide", false));
-
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID{"CHORUS_WIDE", 1},
+            "Chorus Width",
+            juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f),
+            50.0f));
         return layout;
     }
 
@@ -312,15 +312,22 @@ namespace synthortion {
         const bool chorusOn = chorusOnParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         const bool drivePost = driveRouteParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         const bool delaySync = delaySyncParam->load(std::memory_order_relaxed) > kBooleanThreshold;
-        const bool chorusWide = chorusWideParam->load(std::memory_order_relaxed) > kBooleanThreshold;
+        const float chorusWidth = chorusWideParam->load(std::memory_order_relaxed);
 
         const double currentBpm = getCurrentBpm();
         const float effectiveDelayTimeMs = dsp::PingPongDelay::calculateDelayTimeMs(delayTimeFree, delayTimeSync, delaySync, currentBpm);
 
-        const dsp::WarmDistortionParams driveParams{ color, volumeComp };
-        const dsp::BitCrusherParams bitcrushParams{ bitCrush };
-        const dsp::ChorusParams chorusParams{ chorusMix, chorusWide ? 1.0f : 0.0f };
-        const dsp::PingPongDelayParams delayParams{ effectiveDelayTimeMs, delayMix, delayFeedback, 12000.0f };
+        const float colorNorm = color / 100.0f;
+        const float bitCrushNorm = bitCrush / 100.0f;
+        const float chorusMixNorm = chorusMix / 100.0f;
+        const float chorusWidthNorm = chorusWidth / 100.0f;
+        const float delayMixNorm = delayMix / 100.0f;
+        const float delayFeedbackNorm = delayFeedback / 100.0f;
+
+        const dsp::WarmDistortionParams driveParams{ colorNorm, volumeComp };
+        const dsp::BitCrusherParams bitcrushParams{ bitCrushNorm };
+        const dsp::ChorusParams chorusParams{ chorusMixNorm, chorusWidthNorm };
+        const dsp::PingPongDelayParams delayParams{ effectiveDelayTimeMs, delayMixNorm, delayFeedbackNorm, 12000.0f };
         inputGainSmoother.setTargetValue(inputGain);
         outputGainSmoother.setTargetValue(outputGain);
 

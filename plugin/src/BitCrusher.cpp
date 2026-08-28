@@ -32,29 +32,12 @@ void BitCrusher::process(juce::AudioBuffer<float>& buffer, const BitCrusherParam
     smoothedCrush.setTargetValue(targetCrush);
 
     // 100% transparent identity output at c = 0
-    if (targetCrush <= 0.0f && smoothedCrush.getCurrentValue() <= 0.0f && !smoothedCrush.isSmoothing())
+    if (targetCrush <= 1.0e-5f && smoothedCrush.getCurrentValue() <= 1.0e-5f && !smoothedCrush.isSmoothing())
         return;
 
     const bool isSmoothing = smoothedCrush.isSmoothing();
     const double fs = (sampleRate > 0.0) ? sampleRate : 44100.0;
     const float fsFloat = static_cast<float>(fs);
-
-    float staticPhaseStep = 1.0f;
-    float staticDeltaQ = 0.0f;
-    if (!isSmoothing)
-    {
-        const float c = smoothedCrush.getCurrentValue();
-        if (c <= 1.0e-5f)
-        {
-            smoothedCrush.skip(numSamples);
-            return;
-        }
-
-        const float targetRate = calculateTargetSampleRate(c, fs);
-        staticPhaseStep = juce::jlimit(0.0f, 1.0f, targetRate / fsFloat);
-        const float bitDepth = calculateBitDepth(c);
-        staticDeltaQ = calculateQuantizationStep(bitDepth);
-    }
 
     for (int s = 0; s < numSamples; ++s)
     {
@@ -62,8 +45,10 @@ void BitCrusher::process(juce::AudioBuffer<float>& buffer, const BitCrusherParam
         if (c <= 1.0e-5f)
             continue;
 
-        const float phaseStep = isSmoothing ? juce::jlimit(0.0f, 1.0f, calculateTargetSampleRate(c, fs) / fsFloat) : staticPhaseStep;
-        const float deltaQ = isSmoothing ? calculateQuantizationStep(calculateBitDepth(c)) : staticDeltaQ;
+        const float targetRate = calculateTargetSampleRate(c, fs);
+        const float phaseStep = juce::jlimit(0.0001f, 1.0f, targetRate / fsFloat);
+        const float bitDepth = calculateBitDepth(c);
+        const float deltaQ = calculateQuantizationStep(bitDepth);
 
         if (isFirstSample)
         {
@@ -82,10 +67,7 @@ void BitCrusher::process(juce::AudioBuffer<float>& buffer, const BitCrusherParam
             phase += phaseStep;
             if (phase >= 1.0f)
             {
-                phase -= 1.0f;
-                if (phase >= 1.0f)
-                    phase = std::fmod(phase, 1.0f);
-
+                phase = std::fmod(phase, 1.0f);
                 for (int ch = 0; ch < numChannels; ++ch)
                 {
                     const size_t safeCh = static_cast<size_t>(ch < kNumChannels ? ch : 0);
@@ -98,21 +80,28 @@ void BitCrusher::process(juce::AudioBuffer<float>& buffer, const BitCrusherParam
         for (int ch = 0; ch < numChannels; ++ch)
         {
             const size_t safeCh = static_cast<size_t>(ch < kNumChannels ? ch : 0);
+            const float inSample = buffer.getSample(ch, s);
             float* channelData = buffer.getWritePointer(ch);
 
-            // Fractional Sample & Hold with linear interpolation
-            const float interpolated = previousSample[safeCh] + phase * (currentSample[safeCh] - previousSample[safeCh]);
+            // Fractional sample & hold: at phaseStep ~1.0 (no downsample), use original inSample directly
+            const float downsampled = (phaseStep >= 0.999f)
+                ? inSample
+                : (previousSample[safeCh] + phase * (currentSample[safeCh] - previousSample[safeCh]));
 
-            // Triangular PDF dynamic dither: (r1 - r2) * deltaQ
-            const float r1 = randomGenerators[safeCh].nextFloat();
-            const float r2 = randomGenerators[safeCh].nextFloat();
-            const float dither = (r1 - r2) * deltaQ;
+            // Quantization with gentle scaled TPDF dither only when bit reduction is active
+            float processed = downsampled;
+            if (bitDepth < 15.99f && deltaQ > 0.0f)
+            {
+                const float r1 = randomGenerators[safeCh].nextFloat();
+                const float r2 = randomGenerators[safeCh].nextFloat();
+                const float dither = (r1 - r2) * deltaQ * 0.5f * c;
+                const float dithered = downsampled + dither;
+                processed = std::round(dithered / deltaQ) * deltaQ;
+            }
 
-            // Quantization
-            const float dithered = interpolated + dither;
-            const float quantized = std::round(dithered / deltaQ) * deltaQ;
-
-            channelData[s] = juce::jlimit(-1.0f, 1.0f, quantized);
+            // Smoothly blend dry input and processed signal proportional to crush
+            const float wet = juce::jlimit(-1.0f, 1.0f, processed);
+            channelData[s] = (1.0f - c) * inSample + c * wet;
         }
     }
 

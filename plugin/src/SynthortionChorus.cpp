@@ -50,9 +50,8 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer, const ChorusPa
     smoothedMix.setTargetValue(juce::jlimit(0.0f, 1.0f, params.mix));
     smoothedWidth.setTargetValue(juce::jlimit(0.0f, 1.0f, params.width));
 
-    if (smoothedMix.getCurrentValue() <= 0.0f && !smoothedMix.isSmoothing() && params.mix <= 0.0f)
+    if (smoothedMix.getCurrentValue() <= 1.0e-5f && !smoothedMix.isSmoothing() && params.mix <= 1.0e-5f)
         return;
-
     auto* leftData = buffer.getWritePointer(0);
     auto* rightData = numChannels > 1 ? buffer.getWritePointer(1) : nullptr;
 
@@ -69,6 +68,12 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer, const ChorusPa
         const float mix = smoothedMix.getNextValue();
         const float width = smoothedWidth.getNextValue();
         const float stereoPhaseOffsetRad = calculateStereoPhaseOffsetRad(width);
+
+        if (mix <= 1.0e-5f)
+            continue;
+
+        // Scale modulation depth with mix so low mix creates a gentle, subtle shimmer
+        const float currentDepthSamples = depthSamples * juce::jlimit(0.15f, 1.0f, 0.15f + 0.85f * mix);
 
         // Advance decoupled LFO phases
         lfoPhases[0] += phaseInc0;
@@ -103,9 +108,9 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer, const ChorusPa
         const float phiL1 = lfoPhases[1] + offset1;
         const float phiL2 = lfoPhases[2] + offset2;
 
-        const float delayL0 = baseDelaySamples + (std::sin(phiL0) * depthSamples);
-        const float delayL1 = baseDelaySamples + (std::sin(phiL1) * depthSamples);
-        const float delayL2 = baseDelaySamples + (std::sin(phiL2) * depthSamples);
+        const float delayL0 = baseDelaySamples + (std::sin(phiL0) * currentDepthSamples);
+        const float delayL1 = baseDelaySamples + (std::sin(phiL1) * currentDepthSamples);
+        const float delayL2 = baseDelaySamples + (std::sin(phiL2) * currentDepthSamples);
 
         // Pop 3 Left channel taps
         float voiceSumL = 0.0f;
@@ -124,9 +129,9 @@ void SynthortionChorus::process(juce::AudioBuffer<float>& buffer, const ChorusPa
             const float phiR1 = phiL1 + stereoPhaseOffsetRad;
             const float phiR2 = phiL2 + stereoPhaseOffsetRad;
 
-            const float delayR0 = baseDelaySamples + (std::sin(phiR0) * depthSamples);
-            const float delayR1 = baseDelaySamples + (std::sin(phiR1) * depthSamples);
-            const float delayR2 = baseDelaySamples + (std::sin(phiR2) * depthSamples);
+            const float delayR0 = baseDelaySamples + (std::sin(phiR0) * currentDepthSamples);
+            const float delayR1 = baseDelaySamples + (std::sin(phiR1) * currentDepthSamples);
+            const float delayR2 = baseDelaySamples + (std::sin(phiR2) * currentDepthSamples);
 
             // Pop 3 Right channel taps
             float voiceSumR = 0.0f;

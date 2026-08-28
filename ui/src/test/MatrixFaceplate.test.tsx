@@ -230,14 +230,14 @@ describe('MatrixFaceplate', () => {
     expect(syncBtn).toHaveAttribute('aria-pressed', 'true')
     expect(freeBtn).toHaveAttribute('aria-pressed', 'false')
 
-    // Click FREE button -> switches delaySync to FREE and updates delayTime to ms default
+    // Click FREE button -> switches delaySync to false
     fireEvent.click(freeBtn)
-    expect(onChange).toHaveBeenCalledWith({ delaySync: 'FREE', delayTime: 250 })
+    expect(onChange).toHaveBeenCalledWith({ delaySync: false })
 
     // Rerender in FREE mode
     rerender(
       <MatrixFaceplate
-        state={{ ...initialState, delaySync: 'FREE', delayTime: 250 }}
+        state={{ ...initialState, delaySync: false, delayTimeFree: 250 }}
         onChange={onChange}
       />
     )
@@ -250,15 +250,15 @@ describe('MatrixFaceplate', () => {
       'false'
     )
 
-    // Click SYNC button -> switches delaySync to SYNC and updates delayTime to grid subdivision index
+    // Click SYNC button -> switches delaySync to true
     fireEvent.click(screen.getByRole('button', { name: 'SYNC' }))
-    expect(onChange).toHaveBeenCalledWith({ delaySync: 'SYNC', delayTime: 6 })
+    expect(onChange).toHaveBeenCalledWith({ delaySync: true })
   })
 
   it('renders dynamic fractional readouts in SYNC and milliseconds in FREE', () => {
     const { rerender } = render(
       <MatrixFaceplate
-        state={{ ...initialState, delaySync: 'SYNC', delayTime: 6 }}
+        state={{ ...initialState, delaySync: true, delayTimeSync: 6 }}
         onChange={() => {}}
       />
     )
@@ -271,7 +271,7 @@ describe('MatrixFaceplate', () => {
     // Boundary subdivision step 0 (1/32)
     rerender(
       <MatrixFaceplate
-        state={{ ...initialState, delaySync: 'SYNC', delayTime: 0 }}
+        state={{ ...initialState, delaySync: true, delayTimeSync: 0 }}
         onChange={() => {}}
       />
     )
@@ -283,7 +283,7 @@ describe('MatrixFaceplate', () => {
     // Different subdivision step (index 8 -> 1/4)
     rerender(
       <MatrixFaceplate
-        state={{ ...initialState, delaySync: 'SYNC', delayTime: 8 }}
+        state={{ ...initialState, delaySync: true, delayTimeSync: 8 }}
         onChange={() => {}}
       />
     )
@@ -295,7 +295,7 @@ describe('MatrixFaceplate', () => {
     // Boundary subdivision step 13 (1/1)
     rerender(
       <MatrixFaceplate
-        state={{ ...initialState, delaySync: 'SYNC', delayTime: 13 }}
+        state={{ ...initialState, delaySync: true, delayTimeSync: 13 }}
         onChange={() => {}}
       />
     )
@@ -307,7 +307,7 @@ describe('MatrixFaceplate', () => {
     // FREE mode (250ms)
     rerender(
       <MatrixFaceplate
-        state={{ ...initialState, delaySync: 'FREE', delayTime: 250 }}
+        state={{ ...initialState, delaySync: false, delayTimeFree: 250 }}
         onChange={() => {}}
       />
     )
@@ -320,7 +320,7 @@ describe('MatrixFaceplate', () => {
     // FREE mode with low millisecond values (10ms, 1ms)
     rerender(
       <MatrixFaceplate
-        state={{ ...initialState, delaySync: 'FREE', delayTime: 10 }}
+        state={{ ...initialState, delaySync: false, delayTimeFree: 10 }}
         onChange={() => {}}
       />
     )
@@ -335,13 +335,17 @@ describe('MatrixFaceplate', () => {
 
     rerender(
       <MatrixFaceplate
-        state={{ ...initialState, delaySync: 'FREE', delayTime: 1 }}
+        state={{ ...initialState, delaySync: false, delayTimeFree: 1 }}
         onChange={() => {}}
       />
     )
     expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
       'aria-valuetext',
       '1ms'
+    )
+    expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
+      'aria-valuenow',
+      '1'
     )
   })
 

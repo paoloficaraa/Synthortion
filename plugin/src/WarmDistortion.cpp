@@ -92,8 +92,14 @@ void WarmDistortion::process(juce::AudioBuffer<float>& buffer, const WarmDistort
     if (safeSamples == 0)
         return;
 
+    const float targetDrive = juce::jlimit(kMinDrive, kMaxDrive, params.drive);
+    smoothedDrive.setTargetValue(targetDrive);
+
+    // 100% transparent identity output at drive = 0
+    if (targetDrive <= 1.0e-5f && smoothedDrive.getCurrentValue() <= 1.0e-5f && !smoothedDrive.isSmoothing())
+        return;
+
     volumeCompensationEnabled = params.volumeCompensation;
-    smoothedDrive.setTargetValue(juce::jlimit(kMinDrive, kMaxDrive, params.drive));
     const bool isSmoothingDrive = smoothedDrive.isSmoothing();
     for (int i = 0; i < safeSamples; ++i)
     {
@@ -183,10 +189,15 @@ void WarmDistortion::process(juce::AudioBuffer<float>& buffer, const WarmDistort
 
 float WarmDistortion::applySaturation(float input, float drive, int /*channel*/)
 {
+    if (drive <= 1.0e-5f)
+        return input;
+
     const float inputGain = calculateInputGain(drive);
     const float dynamicBias = calculateDynamicBias(drive);
     const float x = input * inputGain;
-    return asymmetricTanh(x, dynamicBias);
+    const float sat = asymmetricTanh(x, dynamicBias);
+    const float blend = juce::jlimit(0.0f, 1.0f, drive);
+    return (1.0f - blend) * input + blend * sat;
 }
 
 void WarmDistortion::applyDriveDependentFiltering(float& sample, float drive, int channel)

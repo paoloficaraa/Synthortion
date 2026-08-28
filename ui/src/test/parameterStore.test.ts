@@ -49,28 +49,20 @@ describe('parameterStore dynamic normalization & hydration', () => {
   })
 
   it('converts delay time correctly in SYNC and FREE modes including low millisecond values', () => {
-    // Default mode is SYNC (0..13 steps)
-    expect(toAPVTS('delayTime', 0)).toBe(0.0)
-    expect(toAPVTS('delayTime', 6)).toBeCloseTo(6 / 13)
-    expect(toAPVTS('delayTime', 13)).toBe(1.0)
+    // SYNC mode (0..13 steps)
+    expect(toAPVTS('delayTimeSync', 0)).toBe(0.0)
+    expect(toAPVTS('delayTimeSync', 6)).toBeCloseTo(6 / 13)
+    expect(toAPVTS('delayTimeSync', 13)).toBe(1.0)
 
-    expect(fromAPVTS('DELAY_TIME', 0.0)).toEqual({ uiKey: 'delayTime', value: 0 })
-    expect(fromAPVTS('DELAY_TIME', 6 / 13)).toEqual({ uiKey: 'delayTime', value: 6 })
-    expect(fromAPVTS('DELAY_TIME', 1.0)).toEqual({ uiKey: 'delayTime', value: 13 })
+    expect(fromAPVTS('DELAY_TIME_SYNC', 0.0)).toEqual({ uiKey: 'delayTimeSync', value: 0 })
+    expect(fromAPVTS('DELAY_TIME_SYNC', 6 / 13)).toEqual({ uiKey: 'delayTimeSync', value: 6 })
+    expect(fromAPVTS('DELAY_TIME_SYNC', 1.0)).toEqual({ uiKey: 'delayTimeSync', value: 13 })
 
-    // Switch to FREE mode (1..2000 ms) via DELAY_SYNC = 0.0 (false)
-    parameterStore.updateParameter('DELAY_SYNC', 0.0)
-    expect(toAPVTS('delayTime', 1)).toBe(0.0)
-    expect(toAPVTS('delayTime', 10)).toBeCloseTo((10 - 1) / (2000 - 1))
-    expect(toAPVTS('delayTime', 250)).toBeCloseTo((250 - 1) / (2000 - 1))
-    expect(toAPVTS('delayTime', 2000)).toBe(1.0)
-    expect(fromAPVTS('DELAY_TIME', 0.0)).toEqual({ uiKey: 'delayTime', value: 1 })
-    expect(fromAPVTS('DELAY_TIME', (10 - 1) / (2000 - 1))).toEqual({ uiKey: 'delayTime', value: 10 })
-    expect(fromAPVTS('DELAY_TIME', 1.0)).toEqual({ uiKey: 'delayTime', value: 2000 })
-
-    // Explicit isSynced parameter override
-    expect(toAPVTS('delayTime', 6, true)).toBeCloseTo(6 / 13)
-    expect(toAPVTS('delayTime', 10, false)).toBeCloseTo((10 - 1) / (2000 - 1))
+    // FREE mode (1..2000 ms)
+    expect(toAPVTS('delayTimeFree', 1)).toBe(0.0)
+    expect(toAPVTS('delayTimeFree', 2000)).toBe(1.0)
+    expect(fromAPVTS('DELAY_TIME_FREE', 0.0)).toEqual({ uiKey: 'delayTimeFree', value: 1 })
+    expect(fromAPVTS('DELAY_TIME_FREE', 1.0)).toEqual({ uiKey: 'delayTimeFree', value: 2000 })
   })
 
   it('handles inverted engineActive / PLUGIN_BYPASS bool', () => {
@@ -90,17 +82,17 @@ describe('parameterStore dynamic normalization & hydration', () => {
     expect(fromAPVTS('DRIVE_ROUTE', 1.0)).toEqual({ uiKey: 'driveRoute', value: 'POST' })
   })
 
-  it('handles delaySync enums correctly with APVTS boolean polarity', () => {
-    expect(toAPVTS('delaySync', 'SYNC')).toBe(1.0)
-    expect(toAPVTS('delaySync', 'FREE')).toBe(0.0)
+  it('handles delaySync boolean correctly with APVTS boolean polarity', () => {
+    expect(toAPVTS('delaySync', true)).toBe(1.0)
+    expect(toAPVTS('delaySync', false)).toBe(0.0)
 
-    expect(fromAPVTS('DELAY_SYNC', 1.0)).toEqual({ uiKey: 'delaySync', value: 'SYNC' })
-    expect(fromAPVTS('DELAY_SYNC', 0.0)).toEqual({ uiKey: 'delaySync', value: 'FREE' })
+    expect(fromAPVTS('DELAY_SYNC', 1.0)).toEqual({ uiKey: 'delaySync', value: true })
+    expect(fromAPVTS('DELAY_SYNC', 0.0)).toEqual({ uiKey: 'delaySync', value: false })
   })
 
-  it('has descriptors for all 16 APVTS parameters', () => {
-    expect(Object.keys(DEFAULT_PARAMETER_DESCRIPTORS)).toHaveLength(16)
-    expect(parameterStore.getAllDescriptors()).toHaveLength(16)
+  it('has descriptors for all 17 APVTS parameters', () => {
+    expect(Object.keys(DEFAULT_PARAMETER_DESCRIPTORS)).toHaveLength(17)
+    expect(parameterStore.getAllDescriptors()).toHaveLength(17)
   })
 
   it('hydrates dynamic parameter descriptors and recalculates ranges', () => {
