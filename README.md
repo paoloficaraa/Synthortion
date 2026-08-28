@@ -176,12 +176,73 @@ Input ──► [Input Gain] ──► [Routing Switch] ──► [Output Gain] 
 
 ---
 
-## Build & Installation
+## Installation Guide
+
+### 🪟 Windows Installation (VST3)
+
+1. **Download & Extract:**
+   - Extract `Synthortion_Windows_x64_VST3.zip`. You will find the `Synthortion.vst3` bundle directory.
+
+2. **Copy to VST3 Folder:**
+   - Copy the entire `Synthortion.vst3` folder into the system VST3 directory:
+     ```text
+     C:\Program Files\Common Files\VST3\
+     ```
+     *(The destination must be `C:\Program Files\Common Files\VST3\Synthortion.vst3`)*.
+
+3. **Prerequisites (WebView2):**
+   - Synthortion requires the **Microsoft Edge WebView2 Runtime** (pre-installed on Windows 10/11; if missing, download it for free from [Microsoft's official site](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)).
+
+4. **Load in DAW:**
+   - Open your DAW (FL Studio, Ableton Live, Reaper, Cubase, Studio One, Bitwig, etc.).
+   - Run a plugin scan (**Rescan plugin list**).
+   - Load **Synthortion** as an audio effect on any audio or instrument track.
+
+---
+
+### 🍏 macOS Installation (VST3 & Audio Unit / AU)
+
+1. **Download & Extract:**
+   - Download the artifacts from GitHub Actions:
+     - `Synthortion_mac_universal_vst3.zip` (for VST3 hosts like Ableton, FL Studio, Reaper, Cubase)
+     - `Synthortion_mac_universal_au.zip` (for Logic Pro, GarageBand, Ableton)
+   - Extract the zip files to retrieve `Synthortion.vst3` and `Synthortion.component`.
+
+2. **Copy to Plug-Ins Folders:**
+   - **VST3:** Copy `Synthortion.vst3` to:
+     ```text
+     /Library/Audio/Plug-Ins/VST3/
+     ```
+     *(or `~/Library/Audio/Plug-Ins/VST3/` for current user only)*.
+   - **Audio Unit (AU):** Copy `Synthortion.component` to:
+     ```text
+     /Library/Audio/Plug-Ins/Components/
+     ```
+     *(or `~/Library/Audio/Plug-Ins/Components/` for current user only)*.
+
+3. **Bypass Apple Gatekeeper (Important):**
+   Because pre-release test builds are not codesigned with an Apple Developer certificate, macOS will block the plugin by default (*"Cannot be opened because it is from an unidentified developer"*).
+   Open **Terminal** and run the following commands to remove the quarantine flag:
+   ```bash
+   # For VST3:
+   sudo xattr -cr /Library/Audio/Plug-Ins/VST3/Synthortion.vst3
+
+   # For Audio Unit (AU):
+   sudo xattr -cr /Library/Audio/Plug-Ins/Components/Synthortion.component
+   ```
+
+4. **Load in DAW:**
+   - **Logic Pro:** Open **Logic Pro > Settings > Plug-in Manager**, locate *Synthortion*, and click **Reset & Rescan Selection**.
+   - **Ableton / Reaper / FL Studio:** Open preferences, ensure VST3/AU plug-in sources are enabled, and run a **Rescan**.
+
+---
+
+## Building from Source
 
 ### Prerequisites
 - **CMake 3.22+**
-- **C++20 compliant compiler** (MSVC 2022, Clang 16+, GCC 12+, Apple Clang)
-- **Node.js 18+** and **npm** (for building the React frontend)
+- **C++20 compliant compiler** (MSVC 2022 on Windows, Apple Clang on macOS, GCC 12+ / Clang 16+ on Linux)
+- **Node.js 18+** and **npm** (to build the React UI bundle)
 - **JUCE 8 submodule** initialized
 
 ### 1. Clone & Initialize Submodules
@@ -194,7 +255,7 @@ git submodule update --init --recursive
 
 ### 2. Build the React Frontend
 
-The UI assets must be bundled into `ui/dist` before compiling the C++ plugin:
+The UI assets must be compiled into `ui/dist` before building the C++ binaries:
 
 ```bash
 cd ui
@@ -203,21 +264,20 @@ npm run build
 cd ..
 ```
 
-### 3. Build the Plugin (VST3 / AU)
+### 3. Build the Plugin (CMake)
 
+**On Windows (Visual Studio / Ninja):**
 ```bash
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
 ```
+*(The build automatically copies `Synthortion.vst3` to `C:\Program Files\Common Files\VST3\`)*
 
-For a Debug build:
-
+**On macOS (Universal Binary: Apple Silicon & Intel):**
 ```bash
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --config Debug
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+cmake --build build --config Release --parallel
 ```
-
-During compilation, the CMake build system automatically embeds and copies the `ui/dist` bundle into the VST3 and AU plugin bundles.
 
 ---
 

@@ -1,0 +1,170 @@
+name: Release Build (Windows & macOS)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag/version name (e.g. v0.1.0-beta)'
+        required: false
+        default: 'v0.1.0-beta'
+
+permissions:
+  contents: write
+
+jobs:
+  # =========================================================================
+  # 🪟 Windows Build (VST3 x64)
+  # =========================================================================
+  build-windows:
+    name: Build Windows VST3 (x64)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository (recursive)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build Web UI
+        working-directory: ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set up CMake
+        uses: lukka/get-cmake@v4.3.3
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Plugin
+        run: |
+          cmake --build build --config Release --parallel
+
+      - name: Package Windows VST3
+        shell: pwsh
+        run: |
+          $vst3Path = "build/plugin/Synthortion_artefacts/Release/VST3/Synthortion.vst3"
+          $zipPath = "Synthortion-Windows-x64-VST3.zip"
+          Compress-Archive -Path $vst3Path -DestinationPath $zipPath -Force
+          Get-Item $zipPath | Select-Object Name, Length, LastWriteTime
+
+      - name: Upload Windows VST3 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Synthortion-Windows-x64-VST3
+          path: Synthortion-Windows-x64-VST3.zip
+          if-no-files-found: error
+
+  # =========================================================================
+  # 🍏 macOS Build (VST3 & AU Universal: Apple Silicon + Intel)
+  # =========================================================================
+  build-macos:
+    name: Build macOS VST3 + AU (Universal)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository (recursive)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build Web UI
+        working-directory: ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set up CMake
+        uses: lukka/get-cmake@v4.3.3
+
+      - name: Configure CMake (Universal arm64 + x86_64)
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+
+      - name: Build Plugin
+        run: |
+          cmake --build build --config Release --parallel
+
+      - name: Package macOS VST3 & AU
+        run: |
+          cd build/plugin/Synthortion_artefacts/Release/VST3
+          ditto -c -k --keepParent Synthortion.vst3 ../../../../Synthortion-macOS-Universal-VST3.zip
+          cd ../AU
+          ditto -c -k --keepParent Synthortion.component ../../../../Synthortion-macOS-Universal-AU.zip
+          cd ../../../../
+          ls -lh Synthortion-macOS-Universal-*.zip
+
+      - name: Upload macOS VST3 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Synthortion-macOS-Universal-VST3
+          path: Synthortion-macOS-Universal-VST3.zip
+          if-no-files-found: error
+
+      - name: Upload macOS AU Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Synthortion-macOS-Universal-AU
+          path: Synthortion-macOS-Universal-AU.zip
+          if-no-files-found: error
+
+  # =========================================================================
+  # 🚀 Publish GitHub Release
+  # =========================================================================
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows VST3
+        uses: actions/download-artifact@v4
+        with:
+          name: Synthortion-Windows-x64-VST3
+          path: release-assets
+
+      - name: Download macOS VST3
+        uses: actions/download-artifact@v4
+        with:
+          name: Synthortion-macOS-Universal-VST3
+          path: release-assets
+
+      - name: Download macOS AU
+        uses: actions/download-artifact@v4
+        with:
+          name: Synthortion-macOS-Universal-AU
+          path: release-assets
+
+      - name: Determine Tag Name
+        id: tag_info
+        run: |
+          if [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_info.outputs.tag }}
+          name: Synthortion ${{ steps.tag_info.outputs.tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            release-assets/Synthortion-Windows-x64-VST3.zip
+            release-assets/Synthortion-macOS-Universal-VST3.zip
+            release-assets/Synthortion-macOS-Universal-AU.zip
