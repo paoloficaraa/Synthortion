@@ -284,7 +284,7 @@ namespace synthortion {
         const float delayMix = delayMixParam->load(std::memory_order_relaxed);
         const float delayFeedback = delayFeedbackParam->load(std::memory_order_relaxed);
         const float chorusMix = chorusMixParam->load(std::memory_order_relaxed);
-        const bool volumeComp = false; // Hardcoded since UI control removed
+        const bool volumeComp = true; // Analytical loudness auto-gain compensation
         const bool bypass = bypassParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         const bool driveOn = driveOnParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         const bool bitcrushOn = bitcrushOnParam->load(std::memory_order_relaxed) > kBooleanThreshold;
@@ -292,29 +292,13 @@ namespace synthortion {
         const bool chorusOn = chorusOnParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         const bool drivePost = driveRouteParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         const bool delaySync = delaySyncParam->load(std::memory_order_relaxed) > kBooleanThreshold;
+        juce::ignoreUnused(delaySync);
         const bool chorusWide = chorusWideParam->load(std::memory_order_relaxed) > kBooleanThreshold;
 
-        double hostBpm = 120.0;
-        if (auto* ph = getPlayHead())
-        {
-            if (auto pos = ph->getPosition())
-            {
-                if (auto bpmOpt = pos->getBpm())
-                {
-                    if (*bpmOpt > 0.0 && std::isfinite(*bpmOpt))
-                        hostBpm = *bpmOpt;
-                }
-            }
-        }
-
-        const float normDelayTime = juce::jlimit(0.0f, 1.0f, (delayTime - 1.0f) / (2000.0f - 1.0f));
-        const int subdivisionIndex = dsp::PingPongDelay::normalizedToSubdivisionIndex(normDelayTime);
-        const float effectiveDelayTime = delaySync ? dsp::PingPongDelay::getSubdivisionTimeMs(subdivisionIndex, hostBpm) : delayTime;
-
         const dsp::WarmDistortionParams driveParams{ color, volumeComp };
-        const dsp::BitCrusherParams bitcrushParams{ bitCrush };
-        const dsp::ChorusParams chorusParams{ chorusMix, chorusWide ? 1.0f : 0.5f };
-        const dsp::PingPongDelayParams delayParams{ effectiveDelayTime, delayMix, delayFeedback, 12000.0f, subdivisionIndex, delaySync, hostBpm };
+        const dsp::BitCrusherParams bitcrushParams{ bitCrush, 8.0f, 6000.0f };
+        const dsp::ChorusParams chorusParams{ chorusMix, chorusWide };
+        const dsp::PingPongDelayParams delayParams{ delayTime, delayMix, delayFeedback, 12000.0f };
         inputGainSmoother.setTargetValue(inputGain);
         outputGainSmoother.setTargetValue(outputGain);
 

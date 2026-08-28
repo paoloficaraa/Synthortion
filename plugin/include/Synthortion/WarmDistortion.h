@@ -110,6 +110,17 @@ public:
         return kDampingBaseFreq - (kDampingBaseFreq - kDampingMinFreq) * d;
     }
 
+    static float calculateGateDrive(float drive) noexcept
+    {
+        if (drive <= kExciterGateThreshold)
+            return 0.0f;
+        const float d = juce::jlimit(kExciterGateThreshold, kMaxDrive, drive);
+        return (d - kExciterGateThreshold) / (kMaxDrive - kExciterGateThreshold);
+    }
+
+    float getOversampledSampleRate() const;
+
+private:
     float applySaturation(float input, float drive, int channel);
     void addDenormalizationNoise(float &sample, int channel);
     void addAnalogNoise(float &sample, float drive, int channel);
@@ -117,7 +128,6 @@ public:
     void applyHighFrequencyExciter(float &sample, float drive, int channel);
     void applyWowAndFlutter(float& sample, float drive, int channel);
     
-    float getOversampledSampleRate() const;
     size_t getSafeChannel(size_t channel) const;
 
     float driveAmount = 0.0f;

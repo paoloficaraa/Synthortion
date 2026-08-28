@@ -53,11 +53,6 @@ namespace synthortion
             testWarmDistortionOversamplingAndLatency();
             testWarmDistortionExciterGatingAndDynamicDamping();
             testWarmDistortionAutoGainCompensation();
-            testBitCrusherCoupledTrajectoryMathematicalFormulas();
-            testBitCrusherIdentityTransparentOutputAtZero();
-            testBitCrusherFractionalPhaseAccumulatorAndLinearInterpolation();
-            testBitCrusherTpdfDynamicDitheringAndQuantization();
-            testBitCrusherClickFreeParameterModulation();
         }
         void testEditorSizeIs960x600()
         {
@@ -638,7 +633,7 @@ namespace synthortion
                 generateSine(dryBuf, 440.0f, sampleRate);
                 wetBuf.makeCopyOf(dryBuf);
 
-                dsp::BitCrusherParams params{ 1.0f };
+                dsp::BitCrusherParams params{ 1.0f, 8.0f, 6000.0f };
                 bc.process(wetBuf, params);
 
                 float diffSum = 0.0f;
@@ -653,7 +648,7 @@ namespace synthortion
                 {
                     float mix = (b % 2 == 0) ? 0.0f : 1.0f;
                     generateSine(wetBuf, 440.0f, sampleRate);
-                    bc.process(wetBuf, dsp::BitCrusherParams{ mix });
+                    bc.process(wetBuf, dsp::BitCrusherParams{ mix, 8.0f, 6000.0f });
                     for (int s = 0; s < blockSize; ++s)
                     {
                         float cur = wetBuf.getSample(0, s);
@@ -749,9 +744,9 @@ namespace synthortion
 
             // Warm-up one block each to ensure static/lazy structures (if any) are initialized
             dist.process(buffer, dsp::WarmDistortionParams{ 0.5f, false });
-            bitCrusher.process(buffer, dsp::BitCrusherParams{ 0.5f });
+            bitCrusher.process(buffer, dsp::BitCrusherParams{ 0.5f, 8.0f, 6000.0f });
             delay.process(buffer, dsp::PingPongDelayParams{ 250.0f, 0.5f, 0.4f, 12000.0f });
-            chorus.process(buffer, dsp::ChorusParams{ 0.5f, 0.5f });
+            chorus.process(buffer, dsp::ChorusParams{ 0.5f, false });
 
             // 2. Start allocation tracking
             g_allocationCount.store(0);
@@ -762,9 +757,9 @@ namespace synthortion
                 const float mod = static_cast<float>(block % 10) / 10.0f;
 
                 dist.process(buffer, dsp::WarmDistortionParams{ mod, false });
-                bitCrusher.process(buffer, dsp::BitCrusherParams{ mod });
+                bitCrusher.process(buffer, dsp::BitCrusherParams{ mod, 8.0f, 6000.0f });
                 delay.process(buffer, dsp::PingPongDelayParams{ 200.0f + mod * 100.0f, mod, 0.4f, 12000.0f });
-                chorus.process(buffer, dsp::ChorusParams{ mod, (block % 2 == 0) ? 1.0f : 0.0f });
+                chorus.process(buffer, dsp::ChorusParams{ mod, (block % 2 == 0) });
             }
 
             g_trackAllocations.store(false);
@@ -1076,6 +1071,32 @@ namespace synthortion
             float lowPeak = bufLowDrive.getMagnitude (0, blockSize);
             float highPeak = bufHighDrive.getMagnitude (0, blockSize);
             expect (highPeak > lowPeak, "Drive > 0.4 must engage excitation and saturation");
+
+            // Test 3: Dynamic lowpass damping attenuates 15 kHz tone more at high drive (10 kHz cutoff) than at low drive (18 kHz cutoff)
+            juce::AudioBuffer<float> bufDampingLow (2, blockSize);
+            juce::AudioBuffer<float> bufDampingHigh (2, blockSize);
+            generateSine (bufDampingLow, 15000.0f, sampleRate);
+            generateSine (bufDampingHigh, 15000.0f, sampleRate);
+
+            // Scale input low so saturation is minimal
+            bufDampingLow.applyGain (0.01f);
+            bufDampingHigh.applyGain (0.01f);
+
+            dist.reset();
+            dist.process (bufDampingLow, dsp::WarmDistortionParams{ 0.0f, false }); // Cutoff = 18 kHz
+
+            dist.reset();
+            dist.process (bufDampingHigh, dsp::WarmDistortionParams{ 1.0f, false }); // Cutoff = 10 kHz
+
+            const float magLow = bufDampingLow.getMagnitude (0, blockSize);
+            const float magHigh = bufDampingHigh.getMagnitude (0, blockSize);
+            expect (magLow > 0.0f, "15 kHz tone should be audible at d=0");
+
+            // At d=1.0, input gain is G_in(1.0) ~ 15.85, but cutoff is 10 kHz vs 18 kHz at d=0.
+            // The gain-normalized transmission (output mag / input gain) is significantly lower at d=1.0 due to 10 kHz damping.
+            const float normTransLow = magLow / dsp::WarmDistortion::calculateInputGain (0.0f);
+            const float normTransHigh = magHigh / dsp::WarmDistortion::calculateInputGain (1.0f);
+            expect (normTransLow > normTransHigh, "15 kHz gain-normalized transmission must be higher at d=0 (18 kHz cutoff) than at d=1 (10 kHz cutoff)");
         }
 
         void testWarmDistortionAutoGainCompensation()

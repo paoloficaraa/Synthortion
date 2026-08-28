@@ -205,13 +205,6 @@ void WarmDistortion::applyDriveDependentFiltering(float& sample, float drive, in
 void WarmDistortion::applyHighFrequencyExciter(float &sample, float drive, int channel)
 {
     const size_t safeChannel = getSafeChannel(static_cast<size_t>(channel));
-
-    if (drive <= kExciterGateThreshold)
-    {
-        exciterHighpass[safeChannel] = sample;
-        return;
-    }
-
     const float oversampledSampleRate = getOversampledSampleRate();
     const float alpha = std::min(kMaxFilterAlpha,
                                  1.0f - std::exp(-juce::MathConstants<float>::twoPi * kExciterFrequency / oversampledSampleRate));
@@ -219,7 +212,10 @@ void WarmDistortion::applyHighFrequencyExciter(float &sample, float drive, int c
     const float highFreqSignal = sample - exciterHighpass[safeChannel];
     exciterHighpass[safeChannel] += alpha * highFreqSignal;
 
-    const float gateDrive = (drive - kExciterGateThreshold) / (kMaxDrive - kExciterGateThreshold);
+    const float gateDrive = calculateGateDrive(drive);
+    if (gateDrive <= 0.0f)
+        return;
+
     const float drivenHigh = highFreqSignal * (1.0f + kExciterHarmonicDrive * gateDrive);
 
     float excitedSignal;
@@ -242,8 +238,9 @@ void WarmDistortion::applyHighFrequencyExciter(float &sample, float drive, int c
 void WarmDistortion::applyWowAndFlutter(float& sample, float drive, int channel)
 {
     const size_t safeChannel = getSafeChannel(static_cast<size_t>(channel));
+    const float gateDrive = calculateGateDrive(drive);
 
-    if (drive <= kExciterGateThreshold)
+    if (gateDrive <= 0.0f)
     {
         wowFlutterBuffer[safeChannel][wowFlutterWritePos[safeChannel]] = sample;
         wowFlutterWritePos[safeChannel] = (wowFlutterWritePos[safeChannel] + 1) % kWowFlutterBufferSize;
@@ -251,7 +248,6 @@ void WarmDistortion::applyWowAndFlutter(float& sample, float drive, int channel)
     }
 
     const float oversampledSampleRate = getOversampledSampleRate();
-    const float gateDrive = (drive - kExciterGateThreshold) / (kMaxDrive - kExciterGateThreshold);
 
     wowFlutterBuffer[safeChannel][wowFlutterWritePos[safeChannel]] = sample;
 
@@ -301,11 +297,11 @@ void WarmDistortion::applyWowAndFlutter(float& sample, float drive, int channel)
 void WarmDistortion::addAnalogNoise(float &sample, float drive, int channel)
 {
     const size_t safeChannel = getSafeChannel(static_cast<size_t>(channel));
+    const float gateDrive = calculateGateDrive(drive);
 
-    if (drive <= kExciterGateThreshold || std::abs(sample) <= 1.0e-6f)
+    if (gateDrive <= 0.0f || std::abs(sample) <= 1.0e-6f)
         return;
 
-    const float gateDrive = (drive - kExciterGateThreshold) / (kMaxDrive - kExciterGateThreshold);
     const float white = noiseGenerator[safeChannel].nextFloat() - kDenormNoiseOffset;
 
     auto& state = pinkNoiseState[safeChannel];
