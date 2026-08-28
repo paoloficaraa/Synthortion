@@ -125,23 +125,23 @@ describe('App', () => {
     )
     expect(screen.getByRole('slider', { name: 'Mix' })).toHaveAttribute(
       'aria-valuenow',
-      '30'
+      '0'
     )
     expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
       'aria-valuenow',
-      '6'
+      '4'
     )
     expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
       'aria-valuetext',
-      '1/8D'
+      '1/8T'
     )
     expect(screen.getByRole('slider', { name: 'Fbk' })).toHaveAttribute(
       'aria-valuenow',
-      '50'
+      '10'
     )
     expect(screen.getByRole('slider', { name: 'Chorus' })).toHaveAttribute(
       'aria-valuenow',
-      '75'
+      '0'
     )
     expect(screen.getByRole('slider', { name: 'Width' })).toHaveAttribute(
       'aria-valuenow',
@@ -211,13 +211,13 @@ describe('App', () => {
     render(<App dspBridge={bridge} />)
 
     const chorus = screen.getByRole('slider', { name: 'Chorus' })
-    // initial 75; dy = 200 - 180 = 20 → 75 + 20 * 0.5 * 1 = 85 → "85%"
+    // initial 0; dy = 200 - 180 = 20 → 0 + 20 * 0.5 * 1 = 10 → "10%"
     fireEvent.pointerDown(chorus, { clientY: 200, pointerId: 1 })
     fireEvent.pointerMove(chorus, { clientY: 180, pointerId: 1 })
     fireEvent.pointerUp(chorus, { pointerId: 1 })
 
-    expect(chorus).toHaveAttribute('aria-valuetext', '85%')
-    expect(bridge.calls).toContainEqual({ id: 'CHORUS_MIX', value: 0.85 })
+    expect(chorus).toHaveAttribute('aria-valuetext', '10%')
+    expect(bridge.calls).toContainEqual({ id: 'CHORUS_MIX', value: 0.1 })
 
     const width = screen.getByRole('slider', { name: 'Width' })
     // min 0, max 100; dy = 20 → value = 50 + 20 * 0.5 * (100/100) = 60 → "60%"
@@ -234,14 +234,14 @@ describe('App', () => {
     render(<App dspBridge={bridge} />)
 
     const time = screen.getByRole('slider', { name: 'Time' })
-    // Default SYNC: value 6 (1/8D) -> min 0, max 13 (range 13)
-    // dy = 200 - 180 = 20 -> 6 + 20 * 0.5 * (13/100) = 6 + 1.3 = 7.3 -> round = 7
+    // Default SYNC: value 4 (1/8T) -> min 0, max 13 (range 13)
+    // dy = 200 - 180 = 20 -> 4 + 20 * 0.5 * (13/100) = 4 + 1.3 = 5.3 -> round = 5
     fireEvent.pointerDown(time, { clientY: 200, pointerId: 1 })
     fireEvent.pointerMove(time, { clientY: 180, pointerId: 1 })
     fireEvent.pointerUp(time, { pointerId: 1 })
 
-    expect(time).toHaveAttribute('aria-valuetext', '1/4T')
-    expect(bridge.calls).toContainEqual({ id: 'DELAY_TIME_SYNC', value: 7 / 13 })
+    expect(time).toHaveAttribute('aria-valuetext', '1/8')
+    expect(bridge.calls).toContainEqual({ id: 'DELAY_TIME_SYNC', value: 5 / 13 })
 
     // Toggle to FREE mode
     const freeBtn = screen.getByRole('button', { name: 'FREE' })

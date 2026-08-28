@@ -160,7 +160,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
   } = state
   const isDelaySync = delaySync === true
   const delayTimeDisplay = isDelaySync
-    ? (DELAY_SUBDIVISIONS[delayTimeSync] ?? '1/8D')
+    ? (DELAY_SUBDIVISIONS[delayTimeSync] ?? '1/8T')
     : `${Math.round(delayTimeFree)}ms`
   return (
     <div
@@ -235,7 +235,7 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
               displayValue={delayTimeDisplay}
               size="small"
               enabled={delayOn}
-              defaultValue={isDelaySync ? 6 : 250}
+              defaultValue={isDelaySync ? initialState.delayTimeSync : initialState.delayTimeFree}
               onChange={(value) => isDelaySync ? onChange({ delayTimeSync: Math.round(value) }) : onChange({ delayTimeFree: Math.round(value) })}
             />
             <Knob

@@ -175,7 +175,7 @@ Input ──► [Input Gain] ──► [Routing Switch] ──► [Output Gain] 
 ### Chorus Module
 | Parameter ID | UI Key | Range | Default | Unit | Description |
 |---|---|---|---|---|---|
-| `CHORUS_MIX` | `chorus` | 0.0 .. 100.0 | `75.0` | % | Chorus dry/wet mix balance |
+| `CHORUS_MIX` | `chorus` | 0.0 .. 100.0 | `0.0` | % | Chorus dry/wet mix balance |
 | `CHORUS_WIDE` | `chorusWidth` | 0.0 .. 100.0 | `50.0` | % | Stereo LFO phase width spread ($0^\circ \to 60^\circ$) |
 | `CHORUS_ON` | `chorusOn` | Bool | `true` | — | Chorus module power toggle |
 
@@ -183,10 +183,10 @@ Input ──► [Input Gain] ──► [Routing Switch] ──► [Output Gain] 
 | Parameter ID | UI Key | Range | Default | Unit | Description |
 |---|---|---|---|---|---|
 | `DELAY_TIME_FREE` | `delayTimeFree` | 1.0 .. 2000.0 | `250.0` | ms | Free delay time (used when `DELAY_SYNC` is off) |
-| `DELAY_TIME_SYNC` | `delayTimeSync` | Choice (0..13) | `6` (1/8D) | — | Host-synced subdivision (1/32 to 1/1, triplets, dotted) |
+| `DELAY_TIME_SYNC` | `delayTimeSync` | Choice (0..13) | `4` (1/8T) | — | Host-synced subdivision (1/32 to 1/1, triplets, dotted) |
 | `DELAY_SYNC` | `delaySync` | Bool | `true` | — | Delay timebase mode: `true` = Host Sync, `false` = Free Time |
-| `DELAY_MIX` | `delayMix` | 0.0 .. 100.0 | `30.0` | % | Delay dry/wet mix balance |
-| `DELAY_FEEDBACK` | `delayFbk` | 0.0 .. 95.0 | `50.0` | % | Delay feedback regeneration level |
+| `DELAY_MIX` | `delayMix` | 0.0 .. 100.0 | `0.0` | % | Delay dry/wet mix balance |
+| `DELAY_FEEDBACK` | `delayFbk` | 0.0 .. 95.0 | `10.0` | % | Delay feedback regeneration level |
 | `DELAY_ON` | `delayOn` | Bool | `true` | — | Delay module power toggle |
 
 ### UI Preferences (Persisted in Session State)

@@ -49,3 +49,16 @@
 - **Host-Synced Ping-Pong Delay** — the dual-mode stereo ping-pong delay with toggleable timebase: `SYNC` (14 discrete musical subdivisions from 1/32 to 1/1 synchronized with DAW BPM via JUCE `AudioPlayHead`) or `FREE` (1 ms to 2000 ms continuous).
 - **FL-Style Vintage Stereo Chorus** — the 3-voice BBD delay chorus architecture with independent multi-rate LFOs (0.45 Hz, 1.25 Hz, 2.45 Hz), Linkwitz-Riley 4th-order low-cut crossover at 320 Hz for mono low-end preservation, and volume-normalized multi-tap summing ($G_{\text{norm}} \approx 0.4387$).
 - **Chorus Width Scaling** — the stereo phase offset control modulating the inter-channel LFO phase relationship ($0^\circ \to 90^\circ$) to allow deep chorus detune without exaggerated stereo disassociation.
+
+## Preset System Terms
+
+- **Preset Format (`.synthortionpreset`)** — the versioned JSON schema containing metadata (`name`, `category`, `author`, `description`, `tags`), APVTS parameter mappings, and `uiPreferences`.
+- **Factory Presets** — immutable presets embedded directly into C++ binary data, accessible without disk dependencies and exposed to DAW host program lists.
+- **User Presets** — user-created preset files stored in standard OS application data paths (`%APPDATA%/Synthortion/Presets/` on Windows, `~/Library/Audio/Presets/Synthortion/` on macOS) with category subfolders.
+- **Preset Browser Modal** — the terminal-styled ASCII modal overlay in the React UI providing category navigation, search filtering, tag inspection, preset deletion, and direct preset recall.
+- **Preset Native Bridge Protocol** — the JUCE 8 native event IPC events (`requestPresetList`, `presetListUpdated`, `loadPreset`, `savePreset`, `deletePreset`, `presetLoaded`) coordinating file I/O, APVTS synchronization, and UI state hydration.
+- **PresetManager** — the C++ subsystem owned by `AudioPluginAudioProcessor` orchestrating immutable embedded factory presets, OS directory scanning, atomic file I/O via `juce::TemporaryFile`, in-memory catalog indexing, and synchronous APVTS state replacement.
+- **Preset Catalog** — the unified in-memory registry of preset descriptors (`PresetHeader`) combining embedded factory presets and indexed user presets for 60 FPS ASCII browser navigation without disk latency.
+- **Atomic Preset Swap** — the disk writing safeguard utilizing `juce::TemporaryFile` to write JSON payloads to a temporary file before atomically replacing the destination `.synthortionpreset`, preventing file corruption during host crashes or write interruptions.
+- **Dirty Preset Indicator (`*`)** — the visual asterisk flag rendered in the VGA header readout when live APVTS parameter state deviates from the currently loaded preset snapshot.
+- **Factory Preset Registry** — the immutable in-memory array of embedded `.synthortionpreset` JSON resources compiled into the plugin binary via CMake `juce_add_binary_data`.

@@ -131,7 +131,7 @@ describe('MatrixFaceplate', () => {
     )
     expect(screen.getByRole('slider', { name: 'Chorus' })).toHaveAttribute(
       'aria-valuetext',
-      '75%'
+      '0%'
     )
     expect(screen.getByRole('slider', { name: 'Width' })).toHaveAttribute(
       'aria-valuetext',

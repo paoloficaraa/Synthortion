@@ -69,25 +69,25 @@ namespace synthortion {
             juce::ParameterID{"DELAY_TIME_SYNC", 1},
             "Delay Time Sync",
             subdivisions,
-            6)); // Default to 1/8D
+            4)); // Default to 1/8T
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"DELAY_MIX", 1},
             "Delay Mix",
             juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f),
-            30.0f));
+            0.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"DELAY_FEEDBACK", 1},
             "Delay Feedback",
             juce::NormalisableRange<float>(0.0f, 95.0f, 1.0f),
-            50.0f));
+            10.0f));
 
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{"CHORUS_MIX", 1},
             "Chorus Mix",
             juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f),
-            75.0f));
+            0.0f));
         layout.add(std::make_unique<juce::AudioParameterBool>(
             juce::ParameterID{"PLUGIN_BYPASS", 1},
             "Bypass",
