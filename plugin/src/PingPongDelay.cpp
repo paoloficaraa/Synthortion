@@ -152,4 +152,70 @@ void PingPongDelay::updateDampingFilters()
     dampingFilterLeft.coefficients = coefficients;
     dampingFilterRight.coefficients = coefficients;
 }
+float PingPongDelay::getSubdivisionBeats(int subdivisionIndex) noexcept
+{
+    static constexpr std::array<float, kNumSubdivisions> kSubdivisionBeats = {
+        0.125f,               // 1/32  (1/8 beat)
+        1.0f / 6.0f,          // 1/16T (1/6 beat)
+        0.25f,                // 1/16  (1/4 beat)
+        0.375f,               // 1/16D (3/8 beat)
+        1.0f / 3.0f,          // 1/8T  (1/3 beat)
+        0.5f,                 // 1/8   (1/2 beat)
+        0.75f,                // 1/8D  (3/4 beat)
+        2.0f / 3.0f,          // 1/4T  (2/3 beat)
+        1.0f,                 // 1/4   (1 beat)
+        1.5f,                 // 1/4D  (1.5 beats)
+        4.0f / 3.0f,          // 1/2T  (4/3 beats)
+        2.0f,                 // 1/2   (2 beats)
+        3.0f,                 // 1/2D  (3 beats)
+        4.0f                  // 1/1   (4 beats)
+    };
+    const int idx = juce::jlimit(0, kNumSubdivisions - 1, subdivisionIndex);
+    return kSubdivisionBeats[static_cast<size_t>(idx)];
+}
+
+const char* PingPongDelay::getSubdivisionName(int subdivisionIndex) noexcept
+{
+    static constexpr std::array<const char*, kNumSubdivisions> kSubdivisionNames = {
+        "1/32", "1/16T", "1/16", "1/16D", "1/8T", "1/8", "1/8D",
+        "1/4T", "1/4", "1/4D", "1/2T", "1/2", "1/2D", "1/1"
+    };
+    const int idx = juce::jlimit(0, kNumSubdivisions - 1, subdivisionIndex);
+    return kSubdivisionNames[static_cast<size_t>(idx)];
+}
+
+float PingPongDelay::calculateSyncDelayTimeMs(int subdivisionIndex, double bpm) noexcept
+{
+    const double effectiveBpm = (bpm > 0.0 && std::isfinite(bpm)) ? bpm : static_cast<double>(kDefaultBpm);
+    const float beats = getSubdivisionBeats(subdivisionIndex);
+    const float beatTimeMs = static_cast<float>(60000.0 / effectiveBpm);
+    return beatTimeMs * beats;
+}
+
+int PingPongDelay::calculateSubdivisionIndexFromNormalized(float normalized) noexcept
+{
+    const float norm = juce::jlimit(0.0f, 1.0f, normalized);
+    return juce::jlimit(0, kNumSubdivisions - 1, static_cast<int>(std::round(norm * static_cast<float>(kNumSubdivisions - 1))));
+}
+
+int PingPongDelay::calculateSubdivisionIndexFromParam(float delayTimeParam) noexcept
+{
+    if (delayTimeParam >= 0.0f && delayTimeParam <= static_cast<float>(kNumSubdivisions - 1) &&
+        std::abs(delayTimeParam - std::round(delayTimeParam)) < 1e-4f)
+    {
+        return static_cast<int>(std::round(delayTimeParam));
+    }
+    const float norm = juce::jlimit(0.0f, 1.0f, (delayTimeParam - kMinDelayTimeMs) / (kMaxFreeDelayTimeMs - kMinDelayTimeMs));
+    return calculateSubdivisionIndexFromNormalized(norm);
+}
+
+float PingPongDelay::calculateDelayTimeMs(float delayTimeParam, bool isSync, double bpm) noexcept
+{
+    if (isSync)
+    {
+        const int idx = calculateSubdivisionIndexFromParam(delayTimeParam);
+        return calculateSyncDelayTimeMs(idx, bpm);
+    }
+    return juce::jlimit(kMinDelayTimeMs, kMaxFreeDelayTimeMs, delayTimeParam);
+}
 } // namespace synthortion::dsp

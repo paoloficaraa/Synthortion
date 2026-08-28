@@ -292,13 +292,15 @@ namespace synthortion {
         const bool chorusOn = chorusOnParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         const bool drivePost = driveRouteParam->load(std::memory_order_relaxed) > kBooleanThreshold;
         const bool delaySync = delaySyncParam->load(std::memory_order_relaxed) > kBooleanThreshold;
-        juce::ignoreUnused(delaySync);
         const bool chorusWide = chorusWideParam->load(std::memory_order_relaxed) > kBooleanThreshold;
+
+        const double currentBpm = getCurrentBpm();
+        const float effectiveDelayTimeMs = dsp::PingPongDelay::calculateDelayTimeMs(delayTime, delaySync, currentBpm);
 
         const dsp::WarmDistortionParams driveParams{ color, volumeComp };
         const dsp::BitCrusherParams bitcrushParams{ bitCrush };
         const dsp::ChorusParams chorusParams{ chorusMix, chorusWide ? 1.0f : 0.0f };
-        const dsp::PingPongDelayParams delayParams{ delayTime, delayMix, delayFeedback, 12000.0f };
+        const dsp::PingPongDelayParams delayParams{ effectiveDelayTimeMs, delayMix, delayFeedback, 12000.0f };
         inputGainSmoother.setTargetValue(inputGain);
         outputGainSmoother.setTargetValue(outputGain);
 
@@ -438,6 +440,22 @@ namespace synthortion {
                 }
             }
         }
+    }
+    double AudioPluginAudioProcessor::getCurrentBpm() const noexcept
+    {
+        if (auto* currentPlayHead = getPlayHead())
+        {
+            if (auto position = currentPlayHead->getPosition())
+            {
+                if (position->getBpm().hasValue())
+                {
+                    const double hostBpm = *position->getBpm();
+                    if (hostBpm > 0.0 && std::isfinite(hostBpm))
+                        return hostBpm;
+                }
+            }
+        }
+        return static_cast<double>(dsp::PingPongDelay::kDefaultBpm);
     }
 }
 

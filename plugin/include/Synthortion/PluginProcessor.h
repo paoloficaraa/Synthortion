@@ -90,6 +90,7 @@ namespace synthortion
 
         struct MeterPeaks { float input = 0.0f; float output = 0.0f; };
         MeterPeaks getMeterPeaks() const noexcept { return { inputPeak.load(), outputPeak.load() }; }
+        double getCurrentBpm() const noexcept;
 
     private:
         static constexpr float kSmootherRampTime = 0.05f;

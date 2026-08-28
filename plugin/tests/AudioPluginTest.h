@@ -88,6 +88,10 @@ namespace synthortion
             testChorusMonoLowEndPreservationAndCrossover();
             testChorusStereoWidthScalingAndPhaseSpread();
             testChorusThreeVoiceModulationAndDecoupledLFOs();
+            testPingPongDelayMathematicalGridAndSubdivisions();
+            testPingPongDelayStereoCrossFeedbackAndDamping();
+            testPingPongDelayDualModeTimebaseAndLagrangeSmoothing();
+            testPingPongDelayAudioPlayHeadBpmTrackingAndProcessorIntegration();
         }
         void testEditorSizeIs960x600()
         {
@@ -1620,6 +1624,488 @@ namespace synthortion
                     maxNearBaseDelay = std::max (maxNearBaseDelay, std::abs (impulseResponseL[static_cast<size_t> (s)]));
             }
             expect (maxNearBaseDelay > 0.05f, "Impulse response must show delayed multi-tap voice energy around 15 ms base delay");
+        }
+        void testPingPongDelayMathematicalGridAndSubdivisions()
+        {
+            beginTest ("PingPongDelay: 14-Step Musical Subdivision Grid & Mathematical Timing (1/32 to 1/1, BPM Sync & Fallback)");
+
+            // 1. Verify 14 subdivisions count and constants
+            expectEquals (dsp::PingPongDelay::kNumSubdivisions, 14, "Must have exactly 14 subdivisions in the grid");
+            expectWithinAbsoluteError (dsp::PingPongDelay::kDefaultBpm, 120.0f, 1e-4f, "Default standalone BPM fallback is 120.0");
+            expectWithinAbsoluteError (dsp::PingPongDelay::kMinDelayTimeMs, 1.0f, 1e-4f, "Minimum delay time is 1.0 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::kMaxFreeDelayTimeMs, 2000.0f, 1e-4f, "Max free delay time is 2000.0 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::getDampingFrequency(), 12000.0f, 1e-4f, "Damping frequency is 12.0 kHz");
+            expectWithinAbsoluteError (dsp::PingPongDelay::getSmoothingTimeSeconds(), 0.05f, 1e-4f, "Smoothing ramp time is 50 ms");
+
+            // 2. Verify all 14 subdivision names and beat ratios
+            const char* expectedNames[14] = {
+                "1/32", "1/16T", "1/16", "1/16D", "1/8T", "1/8", "1/8D",
+                "1/4T", "1/4", "1/4D", "1/2T", "1/2", "1/2D", "1/1"
+            };
+            const float expectedBeats[14] = {
+                0.125f,               // 1/32
+                1.0f / 6.0f,          // 1/16T
+                0.25f,                // 1/16
+                0.375f,               // 1/16D
+                1.0f / 3.0f,          // 1/8T
+                0.5f,                 // 1/8
+                0.75f,                // 1/8D
+                2.0f / 3.0f,          // 1/4T
+                1.0f,                 // 1/4
+                1.5f,                 // 1/4D
+                4.0f / 3.0f,          // 1/2T
+                2.0f,                 // 1/2
+                3.0f,                 // 1/2D
+                4.0f                  // 1/1
+            };
+
+            for (int i = 0; i < 14; ++i)
+            {
+                expect (juce::String(dsp::PingPongDelay::getSubdivisionName(i)) == expectedNames[i],
+                        juce::String("Subdivision ") + juce::String(i) + " name must be " + expectedNames[i]);
+                expectWithinAbsoluteError (dsp::PingPongDelay::getSubdivisionBeats(i), expectedBeats[i], 1e-5f,
+                        juce::String("Subdivision ") + juce::String(i) + " beat multiplier mismatch");
+            }
+
+            // 3. Mathematical timing at 120.0 BPM (1 beat = 500 ms)
+            const double bpm120 = 120.0;
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (0, bpm120), 62.5f, 1e-3f, "1/32 at 120 BPM = 62.5 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (1, bpm120), 500.0f / 6.0f, 1e-3f, "1/16T at 120 BPM = 83.333 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (2, bpm120), 125.0f, 1e-3f, "1/16 at 120 BPM = 125.0 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (3, bpm120), 187.5f, 1e-3f, "1/16D at 120 BPM = 187.5 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (4, bpm120), 500.0f / 3.0f, 1e-3f, "1/8T at 120 BPM = 166.667 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (5, bpm120), 250.0f, 1e-3f, "1/8 at 120 BPM = 250.0 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (6, bpm120), 375.0f, 1e-3f, "1/8D at 120 BPM = 375.0 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (7, bpm120), 1000.0f / 3.0f, 1e-3f, "1/4T at 120 BPM = 333.333 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (8, bpm120), 500.0f, 1e-3f, "1/4 at 120 BPM = 500.0 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (9, bpm120), 750.0f, 1e-3f, "1/4D at 120 BPM = 750.0 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (10, bpm120), 2000.0f / 3.0f, 1e-3f, "1/2T at 120 BPM = 666.667 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (11, bpm120), 1000.0f, 1e-3f, "1/2 at 120 BPM = 1000.0 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (12, bpm120), 1500.0f, 1e-3f, "1/2D at 120 BPM = 1500.0 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (13, bpm120), 2000.0f, 1e-3f, "1/1 at 120 BPM = 2000.0 ms");
+
+            // 4. Mathematical timing at 140.0 BPM (1 beat = 428.5714 ms)
+            const double bpm140 = 140.0;
+            const float beatMs140 = static_cast<float>(60000.0 / 140.0);
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (8, bpm140), beatMs140, 1e-3f, "1/4 at 140 BPM");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (5, bpm140), beatMs140 * 0.5f, 1e-3f, "1/8 at 140 BPM");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (6, bpm140), beatMs140 * 0.75f, 1e-3f, "1/8D at 140 BPM");
+
+            // 5. Fallback on invalid BPM (<= 0, NaN, infinity) -> defaults to 120 BPM
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (8, 0.0), 500.0f, 1e-3f, "BPM 0.0 fallback to 120 BPM");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (8, -50.0), 500.0f, 1e-3f, "Negative BPM fallback to 120 BPM");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (8, std::numeric_limits<double>::quiet_NaN()), 500.0f, 1e-3f, "NaN BPM fallback to 120 BPM");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateSyncDelayTimeMs (8, std::numeric_limits<double>::infinity()), 500.0f, 1e-3f, "Infinity BPM fallback to 120 BPM");
+
+            // 6. Subdivision index conversion from normalized and discrete values
+            expectEquals (dsp::PingPongDelay::calculateSubdivisionIndexFromNormalized (0.0f), 0);
+            expectEquals (dsp::PingPongDelay::calculateSubdivisionIndexFromNormalized (1.0f), 13);
+            expectEquals (dsp::PingPongDelay::calculateSubdivisionIndexFromNormalized (5.0f / 13.0f), 5); // 1/8
+            expectEquals (dsp::PingPongDelay::calculateSubdivisionIndexFromNormalized (8.0f / 13.0f), 8); // 1/4
+
+            // 7. Dual-mode calculation helper (FREE mode vs SYNC mode)
+            // FREE mode: returns raw ms clamped to [1.0, 2000.0]
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateDelayTimeMs (350.0f, false, 120.0), 350.0f, 1e-3f, "FREE mode returns raw ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateDelayTimeMs (0.5f, false, 120.0), 1.0f, 1e-3f, "FREE mode clamps min 1.0 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateDelayTimeMs (3000.0f, false, 120.0), 2000.0f, 1e-3f, "FREE mode clamps max 2000.0 ms");
+
+            // SYNC mode: calculates subdivision ms based on index or param
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateDelayTimeMs (8.0f, true, 120.0), 500.0f, 1e-3f, "SYNC mode with index 8 gives 500 ms");
+            expectWithinAbsoluteError (dsp::PingPongDelay::calculateDelayTimeMs (5.0f, true, 120.0), 250.0f, 1e-3f, "SYNC mode with index 5 gives 250 ms");
+        }
+        void testPingPongDelayStereoCrossFeedbackAndDamping()
+        {
+            beginTest ("PingPongDelay: Stereo Cross-Feedback Alternating Taps & 12 kHz Damping Filter");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 256;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32>(blockSize), 2 };
+
+            dsp::PingPongDelay delay;
+            delay.prepare (spec);
+            delay.reset();
+
+            // 1. Identity transparent passthrough when mix = 0
+            {
+                juce::AudioBuffer<float> dryBuf (2, blockSize);
+                for (int ch = 0; ch < 2; ++ch)
+                    for (int s = 0; s < blockSize; ++s)
+                        dryBuf.setSample (ch, s, 0.77f);
+
+                dsp::PingPongDelayParams zeroMixParams{ 100.0f, 0.0f, 0.5f, 12000.0f };
+                delay.process (dryBuf, zeroMixParams);
+
+                for (int ch = 0; ch < 2; ++ch)
+                    for (int s = 0; s < blockSize; ++s)
+                        expectWithinAbsoluteError (dryBuf.getSample (ch, s), 0.77f, 1e-4f, "Mix = 0 must pass dry audio untouched");
+            }
+
+            // 2. Alternating stereo ping-pong cross-feedback localization
+            // Delay time = 10.0 ms = 480 samples. Feedback = 0.5. Mix = 1.0 (100% wet)
+            delay.reset();
+            const float delayTimeMs = 10.0f;
+            const int delaySamples = static_cast<int>(sampleRate * (delayTimeMs / 1000.0f)); // 480 samples
+            const float feedback = 0.5f;
+            dsp::PingPongDelayParams ppParams{ delayTimeMs, 1.0f, feedback, 12000.0f };
+
+            // Settle smoothers
+            for (int b = 0; b < 20; ++b)
+            {
+                juce::AudioBuffer<float> silence (2, blockSize);
+                silence.clear();
+                delay.process (silence, ppParams);
+            }
+
+            // Feed 1 single impulse on Left channel only (L=1.0, R=0.0)
+            juce::AudioBuffer<float> impulseBuf (2, blockSize);
+            impulseBuf.clear();
+            impulseBuf.setSample (0, 0, 1.0f);
+            delay.process (impulseBuf, ppParams);
+
+            std::vector<float> recordedL;
+            std::vector<float> recordedR;
+            recordedL.reserve (static_cast<size_t>(sampleRate * 2));
+            recordedR.reserve (static_cast<size_t>(sampleRate * 2));
+
+            for (int s = 0; s < blockSize; ++s)
+            {
+                recordedL.push_back (impulseBuf.getSample (0, s));
+                recordedR.push_back (impulseBuf.getSample (1, s));
+            }
+
+            // Collect subsequent blocks
+            for (int b = 1; b < 50; ++b)
+            {
+                juce::AudioBuffer<float> silBuf (2, blockSize);
+                silBuf.clear();
+                delay.process (silBuf, ppParams);
+                for (int s = 0; s < blockSize; ++s)
+                {
+                    recordedL.push_back (silBuf.getSample (0, s));
+                    recordedR.push_back (silBuf.getSample (1, s));
+                }
+            }
+
+            // Tap 1 at t = delaySamples (480 samples): Left channel has peak ~1.0, Right channel has ~0.0
+            float tap1SumL = 0.0f, tap1EnergyR = 0.0f;
+            for (int s = delaySamples - 10; s <= delaySamples + 10; ++s)
+            {
+                if (s >= 0 && s < static_cast<int>(recordedL.size()))
+                {
+                    tap1SumL += recordedL[static_cast<size_t>(s)];
+                    tap1EnergyR += std::abs (recordedR[static_cast<size_t>(s)]);
+                }
+            }
+            expect (tap1SumL > 0.9f && tap1SumL < 1.1f, "Tap 1 (480 samples) must emerge on Left channel with unit energy");
+            expect (tap1EnergyR < 0.01f, "Tap 1 (480 samples) must have zero energy on Right channel");
+
+            // Tap 2 at t = 2 * delaySamples (960 samples): Right channel has signed sum ~0.5, Left channel has ~0.0
+            float tap2SumR = 0.0f, tap2EnergyL = 0.0f;
+            for (int s = 2 * delaySamples - 20; s <= 2 * delaySamples + 20; ++s)
+            {
+                if (s >= 0 && s < static_cast<int>(recordedR.size()))
+                {
+                    tap2SumR += recordedR[static_cast<size_t>(s)];
+                    tap2EnergyL += std::abs (recordedL[static_cast<size_t>(s)]);
+                }
+            }
+            expect (tap2SumR > 0.40f && tap2SumR < 0.55f, "Tap 2 (960 samples) must emerge on Right channel with fb=0.5 energy");
+            expect (tap2EnergyL < 0.01f, "Tap 2 (960 samples) must have zero energy on Left channel");
+
+            // Tap 3 at t = 3 * delaySamples (1440 samples): Left channel has signed sum ~0.25, Right channel has ~0.0
+            float tap3SumL = 0.0f, tap3EnergyR = 0.0f;
+            for (int s = 3 * delaySamples - 30; s <= 3 * delaySamples + 30; ++s)
+            {
+                if (s >= 0 && s < static_cast<int>(recordedL.size()))
+                {
+                    tap3SumL += recordedL[static_cast<size_t>(s)];
+                    tap3EnergyR += std::abs (recordedR[static_cast<size_t>(s)]);
+                }
+            }
+            expect (tap3SumL > 0.20f && tap3SumL < 0.28f, "Tap 3 (1440 samples) must ping back to Left channel with fb^2=0.25 energy");
+            expect (tap3EnergyR < 0.01f, "Tap 3 (1440 samples) must have zero energy on Right channel");
+
+            // Tap 4 at t = 4 * delaySamples (1920 samples): Right channel has signed sum ~0.125, Left channel has ~0.0
+            float tap4SumR = 0.0f, tap4EnergyL = 0.0f;
+            for (int s = 4 * delaySamples - 40; s <= 4 * delaySamples + 40; ++s)
+            {
+                if (s >= 0 && s < static_cast<int>(recordedR.size()))
+                {
+                    tap4SumR += recordedR[static_cast<size_t>(s)];
+                    tap4EnergyL += std::abs (recordedL[static_cast<size_t>(s)]);
+                }
+            }
+            expect (tap4SumR > 0.09f && tap4SumR < 0.15f, "Tap 4 (1920 samples) must pong back to Right channel with fb^3=0.125 energy");
+            expect (tap4EnergyL < 0.01f, "Tap 4 (1920 samples) must have zero energy on Left channel");
+            // High frequency (16 kHz) should decay faster through multiple feedback cycles than low frequency (1 kHz)
+            delay.reset();
+            auto measureFeedbackEnergy = [&](float testFreq) -> float {
+                delay.reset();
+                dsp::PingPongDelayParams dampParams{ 10.0f, 1.0f, 0.7f, 12000.0f };
+                // Settle
+                for (int b = 0; b < 20; ++b)
+                {
+                    juce::AudioBuffer<float> s (2, blockSize);
+                    s.clear();
+                    delay.process (s, dampParams);
+                }
+                // Inject short tone burst (e.g. 5 ms)
+                const int burstSamples = static_cast<int>(sampleRate * 0.005);
+                juce::AudioBuffer<float> burst (2, blockSize);
+                burst.clear();
+                for (int s = 0; s < burstSamples; ++s)
+                {
+                    float val = std::sin (2.0f * juce::MathConstants<float>::pi * testFreq * static_cast<float>(s) / static_cast<float>(sampleRate));
+                    burst.setSample (0, s, val);
+                    burst.setSample (1, s, val);
+                }
+                delay.process (burst, dampParams);
+
+                // Record energy in late echoes (taps 4 to 8, approx 1500 to 4000 samples)
+                float lateEnergy = 0.0f;
+                for (int b = 1; b < 30; ++b)
+                {
+                    juce::AudioBuffer<float> s (2, blockSize);
+                    s.clear();
+                    delay.process (s, dampParams);
+                    if (b >= 8) // Late blocks
+                    {
+                        for (int ch = 0; ch < 2; ++ch)
+                            for (int smp = 0; smp < blockSize; ++smp)
+                                lateEnergy += std::abs (s.getSample (ch, smp));
+                    }
+                }
+                return lateEnergy;
+            };
+
+            const float lowFreqLateEnergy = measureFeedbackEnergy (1000.0f);
+            const float highFreqLateEnergy = measureFeedbackEnergy (16000.0f);
+            expect (lowFreqLateEnergy > 5.0f, "1 kHz tone must sustain feedback echoes");
+            expect (highFreqLateEnergy < lowFreqLateEnergy * 0.3f, "16 kHz tone must be strongly attenuated by 12 kHz damping filter over feedback cycles");
+        }
+
+        void testPingPongDelayDualModeTimebaseAndLagrangeSmoothing()
+        {
+            beginTest ("PingPongDelay: Dual-Mode Timebase (FREE vs SYNC) & Lagrange 3rd-Order Smoothing (50 ms Ramp Time)");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 256;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32>(blockSize), 2 };
+
+            dsp::PingPongDelay delay;
+            delay.prepare (spec);
+            delay.reset();
+
+            // 1. Lagrange 3rd-order fractional delay accuracy
+            // Delay by 10.5 ms = 504.0 samples vs 10.25 ms = 492.0 samples
+            {
+                delay.reset();
+                const float delayMs = 10.5f;
+                dsp::PingPongDelayParams fracParams{ delayMs, 1.0f, 0.0f, 12000.0f }; // mix=1, fb=0
+
+                // Settle
+                for (int b = 0; b < 20; ++b)
+                {
+                    juce::AudioBuffer<float> s (2, blockSize);
+                    s.clear();
+                    delay.process (s, fracParams);
+                }
+
+                // Feed 1 kHz sine wave
+                ContinuousStereoOscillator osc (1000.0f, sampleRate);
+                juce::AudioBuffer<float> inBuf (2, blockSize * 10);
+                osc.generate (inBuf);
+
+                juce::AudioBuffer<float> outBuf (2, blockSize * 10);
+                for (int ch = 0; ch < 2; ++ch)
+                    outBuf.copyFrom (ch, 0, inBuf, ch, 0, blockSize * 10);
+
+                for (int b = 0; b < 10; ++b)
+                {
+                    juce::AudioBuffer<float> blk (outBuf.getArrayOfWritePointers(), 2, b * blockSize, blockSize);
+                    delay.process (blk, fracParams);
+                }
+
+                // Compare output with analytical delayed sine wave
+                // Phase shift for 10.5 ms of 1000 Hz: phase = 2*pi * 1000 * 0.0105 = 21*pi = pi (inverted!)
+                const int checkStart = blockSize * 5;
+                const int checkLen = blockSize * 2;
+                float maxDiff = 0.0f;
+                for (int s = 0; s < checkLen; ++s)
+                {
+                    const float inSample = inBuf.getSample (0, checkStart + s);
+                    const float outSample = outBuf.getSample (0, checkStart + s);
+                    // Since phase is exactly 21*pi = odd multiple of pi, outSample should be -inSample
+                    maxDiff = std::max (maxDiff, std::abs (outSample - (-inSample)));
+                }
+                expect (maxDiff < 0.08f, "Lagrange 3rd-order interpolation must produce precise fractional phase delay for 10.5 ms sine");
+            }
+
+            // 2. Click-free parameter transition & 50 ms ramp time
+            {
+                delay.reset();
+                dsp::PingPongDelayParams initParams{ 50.0f, 0.5f, 0.3f, 12000.0f };
+                for (int b = 0; b < 20; ++b)
+                {
+                    juce::AudioBuffer<float> s (2, blockSize);
+                    s.clear();
+                    delay.process (s, initParams);
+                }
+
+                ContinuousStereoOscillator osc (440.0f, sampleRate);
+                float maxSampleDelta = 0.0f;
+                float prevSampleL = 0.0f;
+
+                // Jump delay time abruptly from 50 ms to 250 ms during active playback
+                dsp::PingPongDelayParams jumpedParams{ 250.0f, 0.5f, 0.3f, 12000.0f };
+
+                for (int b = 0; b < 30; ++b)
+                {
+                    juce::AudioBuffer<float> audio (2, blockSize);
+                    osc.generate (audio);
+                    delay.process (audio, jumpedParams);
+
+                    for (int s = 0; s < blockSize; ++s)
+                    {
+                        const float currentSampleL = audio.getSample (0, s);
+                        if (b > 0 || s > 0)
+                        {
+                            const float delta = std::abs (currentSampleL - prevSampleL);
+                            maxSampleDelta = std::max (maxSampleDelta, delta);
+                        }
+                        prevSampleL = currentSampleL;
+                    }
+                }
+                expect (maxSampleDelta < 0.15f, "Abrupt delay time jump must remain click-free with 50 ms Lagrange smoothing");
+            }
+
+            // 3. Dynamic FREE mode vs SYNC mode switching
+            {
+                delay.reset();
+                // FREE mode 100 ms
+                float freeTimeMs = dsp::PingPongDelay::calculateDelayTimeMs (100.0f, false, 120.0);
+                expectWithinAbsoluteError (freeTimeMs, 100.0f, 1e-4f, "FREE mode calculates 100 ms");
+
+                // SYNC mode 1/8 note (index 5) at 120 BPM -> 250 ms
+                float syncTimeMs = dsp::PingPongDelay::calculateDelayTimeMs (5.0f, true, 120.0);
+                expectWithinAbsoluteError (syncTimeMs, 250.0f, 1e-4f, "SYNC mode index 5 at 120 BPM calculates 250 ms");
+
+                // SYNC mode 1/4 note (index 8) at 120 BPM -> 500 ms
+                syncTimeMs = dsp::PingPongDelay::calculateDelayTimeMs (8.0f, true, 120.0);
+                expectWithinAbsoluteError (syncTimeMs, 500.0f, 1e-4f, "SYNC mode index 8 at 120 BPM calculates 500 ms");
+            }
+        }
+        void testPingPongDelayAudioPlayHeadBpmTrackingAndProcessorIntegration()
+        {
+            beginTest ("PingPongDelay: Real-Time AudioPlayHead DAW Transport BPM Tracking & Processor Integration");
+
+            struct MockPlayHead : public juce::AudioPlayHead
+            {
+                MockPlayHead (double bpmToReport) : currentBpm (bpmToReport) {}
+
+                juce::Optional<PositionInfo> getPosition() const override
+                {
+                    PositionInfo info;
+                    if (hasBpm)
+                        info.setBpm (currentBpm);
+                    return info;
+                }
+
+                void setBpm (double newBpm) { currentBpm = newBpm; hasBpm = true; }
+                void clearBpm() { hasBpm = false; }
+
+                double currentBpm = 120.0;
+                bool hasBpm = true;
+            };
+
+            AudioPluginAudioProcessor processor;
+            const double sampleRate = 48000.0;
+            const int blockSize = 512;
+            processor.prepareToPlay (sampleRate, blockSize);
+
+            // 1. Standalone fallback (no playhead attached)
+            expectWithinAbsoluteError (processor.getCurrentBpm(), 120.0, 1e-4, "Standalone processor without playhead falls back to 120.0 BPM");
+
+            // 2. Attach mock playhead with valid host BPMs
+            MockPlayHead mockPlayHead (140.0);
+            processor.setPlayHead (&mockPlayHead);
+            expectWithinAbsoluteError (processor.getCurrentBpm(), 140.0, 1e-4, "Processor tracks 140.0 BPM from playhead");
+
+            mockPlayHead.setBpm (96.5);
+            expectWithinAbsoluteError (processor.getCurrentBpm(), 96.5, 1e-4, "Processor tracks 96.5 BPM from playhead");
+
+            // 3. Fallback on invalid BPM values from host
+            mockPlayHead.setBpm (0.0);
+            expectWithinAbsoluteError (processor.getCurrentBpm(), 120.0, 1e-4, "BPM 0.0 falls back to 120.0");
+
+            mockPlayHead.setBpm (-20.0);
+            expectWithinAbsoluteError (processor.getCurrentBpm(), 120.0, 1e-4, "Negative BPM falls back to 120.0");
+
+            mockPlayHead.setBpm (std::numeric_limits<double>::quiet_NaN());
+            expectWithinAbsoluteError (processor.getCurrentBpm(), 120.0, 1e-4, "NaN BPM falls back to 120.0");
+
+            mockPlayHead.clearBpm();
+            expectWithinAbsoluteError (processor.getCurrentBpm(), 120.0, 1e-4, "Empty BPM position falls back to 120.0");
+
+            // 4. Real-time DAW tempo-synced delay processing in processBlock
+            auto& apvts = processor.getAPVTS();
+            // Turn off other effects, enable delay with 100% mix
+            apvts.getParameter ("DRIVE_ON")->setValueNotifyingHost (0.0f);
+            apvts.getParameter ("BITCRUSH_ON")->setValueNotifyingHost (0.0f);
+            apvts.getParameter ("CHORUS_ON")->setValueNotifyingHost (0.0f);
+            apvts.getParameter ("DELAY_ON")->setValueNotifyingHost (1.0f);
+            apvts.getParameter ("DELAY_SYNC")->setValueNotifyingHost (1.0f); // SYNC mode
+            apvts.getParameter ("DELAY_MIX")->setValueNotifyingHost (1.0f);  // 100% wet
+            apvts.getParameter ("DELAY_FEEDBACK")->setValueNotifyingHost (0.0f); // 0 feedback (single tap)
+
+            // Set 1/16 note delay (index 2 in 14-subdivision grid)
+            // Normalized value for index 2: 2.0 / 13.0
+            apvts.getParameter ("DELAY_TIME")->setValueNotifyingHost (2.0f / 13.0f);
+
+            // Host tempo 120.0 BPM: 1/16 note = 125.0 ms = 6000 samples @ 48 kHz
+            mockPlayHead.setBpm (120.0);
+
+            juce::MidiBuffer midi;
+            // Settle smoothers
+            for (int b = 0; b < 25; ++b)
+            {
+                juce::AudioBuffer<float> silence (2, blockSize);
+                silence.clear();
+                processor.processBlock (silence, midi);
+            }
+
+            // Inject impulse
+            juce::AudioBuffer<float> impulse (2, blockSize);
+            impulse.clear();
+            impulse.setSample (0, 0, 1.0f);
+            processor.processBlock (impulse, midi);
+            std::vector<float> recordedL;
+            recordedL.reserve (static_cast<size_t>(sampleRate * 2));
+            for (int s = 0; s < blockSize; ++s)
+                recordedL.push_back (impulse.getSample (0, s));
+
+            // Record subsequent blocks
+            for (int b = 1; b < 30; ++b)
+            {
+                juce::AudioBuffer<float> sil (2, blockSize);
+                sil.clear();
+                processor.processBlock (sil, midi);
+                for (int s = 0; s < blockSize; ++s)
+                    recordedL.push_back (sil.getSample (0, s));
+            }
+
+            // 1/16 note at 120 BPM = 125 ms = 6000 samples
+            const int expectedTapSamples = static_cast<int>(sampleRate * 0.125);
+            float maxNearTap = 0.0f;
+            for (int s = expectedTapSamples - 20; s <= expectedTapSamples + 20; ++s)
+            {
+                if (s >= 0 && s < static_cast<int>(recordedL.size()))
+                    maxNearTap = std::max (maxNearTap, std::abs (recordedL[static_cast<size_t>(s)]));
+            }
+            expect (maxNearTap > 0.8f, "Host-synced 1/16 delay at 120 BPM must produce peak at 125 ms (6000 samples)");
+
+            // 5. Clean up playhead
+            processor.setPlayHead (nullptr);
         }
     };
 
