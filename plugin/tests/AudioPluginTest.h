@@ -92,6 +92,11 @@ namespace synthortion
             testPingPongDelayStereoCrossFeedbackAndDamping();
             testPingPongDelayDualModeTimebaseAndLagrangeSmoothing();
             testPingPongDelayAudioPlayHeadBpmTrackingAndProcessorIntegration();
+            testHeadlessDspModulesComprehensiveEdgeCases();
+            testEndToEndAudioPipelineAndRoutingTopologies();
+            testHostParameterAutomationAndDynamicRamps();
+            testBridgeHandshakeAndTelemetrySyncComprehensive();
+            testSampleRateAndBufferSizeDynamicReconfiguration();
         }
         void testEditorSizeIs960x600()
         {
@@ -2106,6 +2111,508 @@ namespace synthortion
 
             // 5. Clean up playhead
             processor.setPlayHead (nullptr);
+        }
+        void testHeadlessDspModulesComprehensiveEdgeCases()
+        {
+            beginTest ("Headless DSP Modules: Comprehensive edge cases across sample rates, block sizes, channel counts, and extreme inputs");
+
+            const double sampleRates[] = { 44100.0, 48000.0, 88200.0, 96000.0, 176400.0, 192000.0 };
+            const int blockSizes[] = { 1, 7, 33, 64, 127, 256, 512, 1024, 2048, 4096 };
+            const int channelCounts[] = { 1, 2 };
+
+            for (double sr : sampleRates)
+            {
+                for (int numCh : channelCounts)
+                {
+                    dsp::WarmDistortion dist;
+                    dsp::BitCrusher bitCrusher;
+                    dsp::PingPongDelay delay;
+                    dsp::SynthortionChorus chorus;
+
+                    juce::dsp::ProcessSpec spec{ sr, 4096, static_cast<juce::uint32>(numCh) };
+                    dist.prepare(spec);
+                    bitCrusher.prepare(spec);
+                    delay.prepare(spec);
+                    chorus.prepare(spec);
+
+                    for (int blockSize : blockSizes)
+                    {
+                        // Test A: Silence input after reset across all 4 modules
+                        dist.reset();
+                        juce::AudioBuffer<float> silenceBuf(numCh, blockSize);
+                        silenceBuf.clear();
+                        dist.process(silenceBuf, dsp::WarmDistortionParams{ 0.7f, true });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expectWithinAbsoluteError(silenceBuf.getSample(ch, s), 0.0f, 1e-4f, "Distortion silence output");
+
+                        bitCrusher.reset();
+                        silenceBuf.clear();
+                        bitCrusher.process(silenceBuf, dsp::BitCrusherParams{ 0.0f });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expectWithinAbsoluteError(silenceBuf.getSample(ch, s), 0.0f, 1e-4f, "Bitcrusher silence output");
+
+                        delay.reset();
+                        silenceBuf.clear();
+                        delay.process(silenceBuf, dsp::PingPongDelayParams{ 100.0f, 0.5f, 0.5f, 12000.0f });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expectWithinAbsoluteError(silenceBuf.getSample(ch, s), 0.0f, 1e-4f, "Delay silence output");
+
+                        chorus.reset();
+                        silenceBuf.clear();
+                        chorus.process(silenceBuf, dsp::ChorusParams{ 0.5f, 0.5f });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expectWithinAbsoluteError(silenceBuf.getSample(ch, s), 0.0f, 1e-4f, "Chorus silence output");
+
+                        // Test B: Over-range input (+16.0 / +24 dBFS) across all 4 modules
+                        dist.reset();
+                        juce::AudioBuffer<float> overRangeBuf(numCh, blockSize);
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                overRangeBuf.setSample(ch, s, 16.0f);
+                        dist.process(overRangeBuf, dsp::WarmDistortionParams{ 1.0f, true });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expect(std::isfinite(overRangeBuf.getSample(ch, s)), "Distortion over-range output must be finite");
+
+                        bitCrusher.reset();
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                overRangeBuf.setSample(ch, s, 16.0f);
+                        bitCrusher.process(overRangeBuf, dsp::BitCrusherParams{ 0.8f });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expect(std::isfinite(overRangeBuf.getSample(ch, s)), "Bitcrusher over-range output must be finite");
+
+                        delay.reset();
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                overRangeBuf.setSample(ch, s, 16.0f);
+                        delay.process(overRangeBuf, dsp::PingPongDelayParams{ 200.0f, 0.5f, 0.4f, 12000.0f });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expect(std::isfinite(overRangeBuf.getSample(ch, s)), "Delay over-range output must be finite");
+
+                        chorus.reset();
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                overRangeBuf.setSample(ch, s, 16.0f);
+                        chorus.process(overRangeBuf, dsp::ChorusParams{ 0.7f, 1.0f });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expect(std::isfinite(overRangeBuf.getSample(ch, s)), "Chorus over-range output must be finite");
+
+                        // Test C: Nyquist alternation (+1, -1, +1, -1) across all 4 modules
+                        juce::AudioBuffer<float> nyquistBuf(numCh, blockSize);
+                        auto fillNyquist = [&]() {
+                            for (int ch = 0; ch < numCh; ++ch)
+                                for (int s = 0; s < blockSize; ++s)
+                                    nyquistBuf.setSample(ch, s, (s % 2 == 0) ? 1.0f : -1.0f);
+                        };
+
+                        dist.reset();
+                        fillNyquist();
+                        dist.process(nyquistBuf, dsp::WarmDistortionParams{ 0.5f, true });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expect(std::isfinite(nyquistBuf.getSample(ch, s)), "Distortion Nyquist output must be finite");
+
+                        bitCrusher.reset();
+                        fillNyquist();
+                        bitCrusher.process(nyquistBuf, dsp::BitCrusherParams{ 0.5f });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expect(std::isfinite(nyquistBuf.getSample(ch, s)), "Bitcrusher Nyquist output must be finite");
+
+                        delay.reset();
+                        fillNyquist();
+                        delay.process(nyquistBuf, dsp::PingPongDelayParams{ 50.0f, 0.5f, 0.3f, 12000.0f });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expect(std::isfinite(nyquistBuf.getSample(ch, s)), "Delay Nyquist output must be finite");
+
+                        chorus.reset();
+                        fillNyquist();
+                        chorus.process(nyquistBuf, dsp::ChorusParams{ 0.5f, 0.5f });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expect(std::isfinite(nyquistBuf.getSample(ch, s)), "Chorus Nyquist output must be finite");
+
+                        // Test D: Subnormal/denormal input across all 4 modules
+                        juce::AudioBuffer<float> denormalBuf(numCh, blockSize);
+                        auto fillDenorm = [&]() {
+                            for (int ch = 0; ch < numCh; ++ch)
+                                for (int s = 0; s < blockSize; ++s)
+                                    denormalBuf.setSample(ch, s, 1e-25f);
+                        };
+
+                        dist.reset();
+                        fillDenorm();
+                        dist.process(denormalBuf, dsp::WarmDistortionParams{ 0.5f, false });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expect(std::isfinite(denormalBuf.getSample(ch, s)), "Distortion output must be finite under denormals");
+
+                        bitCrusher.reset();
+                        fillDenorm();
+                        bitCrusher.process(denormalBuf, dsp::BitCrusherParams{ 0.5f });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expect(std::isfinite(denormalBuf.getSample(ch, s)), "Bitcrusher output must be finite under denormals");
+
+                        delay.reset();
+                        fillDenorm();
+                        delay.process(denormalBuf, dsp::PingPongDelayParams{ 50.0f, 0.5f, 0.3f, 12000.0f });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expect(std::isfinite(denormalBuf.getSample(ch, s)), "Delay output must be finite under denormals");
+
+                        chorus.reset();
+                        fillDenorm();
+                        chorus.process(denormalBuf, dsp::ChorusParams{ 0.5f, 0.5f });
+                        for (int ch = 0; ch < numCh; ++ch)
+                            for (int s = 0; s < blockSize; ++s)
+                                expect(std::isfinite(denormalBuf.getSample(ch, s)), "Chorus output must be finite under denormals");
+                    }
+                }
+            }
+        }
+        void testEndToEndAudioPipelineAndRoutingTopologies()
+        {
+            beginTest ("End-to-End Audio Pipeline: All 4 modules active, Pre-Drive vs Post-Drive routing, and individual power bypass");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 512;
+            AudioPluginAudioProcessor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            auto& apvts = processor.getAPVTS();
+
+            // Set non-trivial parameters for all effects
+            apvts.getParameter ("INPUT_GAIN")->setValueNotifyingHost (0.5f); // 0 dB
+            apvts.getParameter ("OUTPUT_GAIN")->setValueNotifyingHost (0.5f); // 0 dB
+            apvts.getParameter ("COLOR")->setValueNotifyingHost (0.75f);
+            apvts.getParameter ("BITCRUSH")->setValueNotifyingHost (0.4f);
+            apvts.getParameter ("DELAY_TIME")->setValueNotifyingHost (0.2f);
+            apvts.getParameter ("DELAY_MIX")->setValueNotifyingHost (0.5f);
+            apvts.getParameter ("DELAY_FEEDBACK")->setValueNotifyingHost (0.4f);
+            apvts.getParameter ("CHORUS_MIX")->setValueNotifyingHost (0.6f);
+            apvts.getParameter ("PLUGIN_BYPASS")->setValueNotifyingHost (0.0f);
+            apvts.getParameter ("DRIVE_ON")->setValueNotifyingHost (1.0f);
+            apvts.getParameter ("BITCRUSH_ON")->setValueNotifyingHost (1.0f);
+            apvts.getParameter ("DELAY_ON")->setValueNotifyingHost (1.0f);
+            apvts.getParameter ("CHORUS_ON")->setValueNotifyingHost (1.0f);
+            apvts.getParameter ("CHORUS_WIDE")->setValueNotifyingHost (1.0f);
+            apvts.getParameter ("DELAY_SYNC")->setValueNotifyingHost (0.0f); // FREE mode
+
+            // 1. Process under Pre-Drive Route (DRIVE_ROUTE = 0)
+            apvts.getParameter ("DRIVE_ROUTE")->setValueNotifyingHost (0.0f);
+            juce::MidiBuffer midi;
+
+            ContinuousStereoOscillator osc(300.0f, sampleRate);
+            juce::AudioBuffer<float> preDriveOut(2, blockSize * 10);
+            for (int b = 0; b < 10; ++b)
+            {
+                juce::AudioBuffer<float> blk(2, blockSize);
+                osc.generate(blk);
+                processor.processBlock(blk, midi);
+                for (int ch = 0; ch < 2; ++ch)
+                    preDriveOut.copyFrom(ch, b * blockSize, blk, ch, 0, blockSize);
+            }
+
+            // 2. Process under Post-Drive Route (DRIVE_ROUTE = 1)
+            processor.prepareToPlay (sampleRate, blockSize);
+            apvts.getParameter ("DRIVE_ROUTE")->setValueNotifyingHost (1.0f);
+
+            ContinuousStereoOscillator oscPost(300.0f, sampleRate);
+            juce::AudioBuffer<float> postDriveOut(2, blockSize * 10);
+            for (int b = 0; b < 10; ++b)
+            {
+                juce::AudioBuffer<float> blk(2, blockSize);
+                oscPost.generate(blk);
+                processor.processBlock(blk, midi);
+                for (int ch = 0; ch < 2; ++ch)
+                    postDriveOut.copyFrom(ch, b * blockSize, blk, ch, 0, blockSize);
+            }
+
+            // Verify both routes produce valid, finite, non-zero audio
+            float rmsPre = preDriveOut.getRMSLevel(0, blockSize * 2, blockSize * 8);
+            float rmsPost = postDriveOut.getRMSLevel(0, blockSize * 2, blockSize * 8);
+            expect(rmsPre > 0.05f, "Pre-drive pipeline must produce non-silent output");
+            expect(rmsPost > 0.05f, "Post-drive pipeline must produce non-silent output");
+
+            // Compare Pre-drive vs Post-drive: because saturation is non-linear,
+            // Saturation before vs after Chorus/Delay yields measurably different sample streams
+            float routeDifference = 0.0f;
+            for (int s = blockSize * 2; s < blockSize * 10; ++s)
+            {
+                routeDifference += std::abs(preDriveOut.getSample(0, s) - postDriveOut.getSample(0, s));
+            }
+            expect(routeDifference > 1.0f, "Pre-Drive vs Post-Drive routing must produce distinct signal transformations");
+
+            // 3. Power Bypass: All 4 modules powered OFF
+            apvts.getParameter ("DRIVE_ON")->setValueNotifyingHost (0.0f);
+            apvts.getParameter ("BITCRUSH_ON")->setValueNotifyingHost (0.0f);
+            apvts.getParameter ("DELAY_ON")->setValueNotifyingHost (0.0f);
+            apvts.getParameter ("CHORUS_ON")->setValueNotifyingHost (0.0f);
+            apvts.getParameter ("INPUT_GAIN")->setValueNotifyingHost (0.5f); // 0 dB
+            apvts.getParameter ("OUTPUT_GAIN")->setValueNotifyingHost (0.5f); // 0 dB
+
+            // Settle gain smoothers
+            for (int b = 0; b < 10; ++b)
+            {
+                juce::AudioBuffer<float> sil(2, blockSize);
+                sil.clear();
+                processor.processBlock(sil, midi);
+            }
+
+            ContinuousStereoOscillator cleanOsc(300.0f, sampleRate);
+            juce::AudioBuffer<float> dryInput(2, blockSize);
+            cleanOsc.generate(dryInput);
+            juce::AudioBuffer<float> processedBuf(2, blockSize);
+            processedBuf.makeCopyOf(dryInput);
+
+            processor.processBlock(processedBuf, midi);
+
+            // Output should match dry input transparently when all 4 modules are powered off
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                for (int s = 0; s < blockSize; ++s)
+                {
+                    expectWithinAbsoluteError(processedBuf.getSample(ch, s), dryInput.getSample(ch, s), 0.001f,
+                        "When all 4 modules are powered OFF, output must equal dry input at 0dB unity gain");
+                }
+            }
+        }
+
+        void testHostParameterAutomationAndDynamicRamps()
+        {
+            beginTest ("Host Parameter Automation: Continuous multi-parameter sweeps across 200 consecutive processBlock frames");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 256;
+            AudioPluginAudioProcessor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            auto& apvts = processor.getAPVTS();
+
+            ContinuousStereoOscillator osc(440.0f, sampleRate);
+            juce::MidiBuffer midi;
+
+            bool anyNaNOrInf = false;
+            float maxSampleAbs = 0.0f;
+
+            for (int frame = 0; frame < 200; ++frame)
+            {
+                const float norm = static_cast<float>(frame) / 200.0f;
+
+                // Dynamic automation sweeps across all APVTS parameters
+                apvts.getParameter("INPUT_GAIN")->setValueNotifyingHost(0.3f + 0.4f * std::sin(norm * juce::MathConstants<float>::twoPi));
+                apvts.getParameter("OUTPUT_GAIN")->setValueNotifyingHost(0.5f + 0.2f * std::cos(norm * juce::MathConstants<float>::twoPi));
+                apvts.getParameter("COLOR")->setValueNotifyingHost(norm);
+                apvts.getParameter("BITCRUSH")->setValueNotifyingHost(1.0f - norm);
+                apvts.getParameter("DELAY_TIME")->setValueNotifyingHost(norm);
+                apvts.getParameter("DELAY_MIX")->setValueNotifyingHost(0.5f + 0.5f * std::sin(norm * 4.0f));
+                apvts.getParameter("DELAY_FEEDBACK")->setValueNotifyingHost(0.2f + 0.5f * norm);
+                apvts.getParameter("CHORUS_MIX")->setValueNotifyingHost(norm);
+                apvts.getParameter("CHORUS_WIDE")->setValueNotifyingHost(frame % 20 < 10 ? 1.0f : 0.0f);
+                apvts.getParameter("DRIVE_ROUTE")->setValueNotifyingHost(frame % 40 < 20 ? 1.0f : 0.0f);
+                apvts.getParameter("DELAY_SYNC")->setValueNotifyingHost(frame % 50 < 25 ? 1.0f : 0.0f);
+
+                juce::AudioBuffer<float> buffer(2, blockSize);
+                osc.generate(buffer);
+                processor.processBlock(buffer, midi);
+
+                for (int ch = 0; ch < 2; ++ch)
+                {
+                    for (int s = 0; s < blockSize; ++s)
+                    {
+                        float sample = buffer.getSample(ch, s);
+                        if (!std::isfinite(sample))
+                            anyNaNOrInf = true;
+
+                        maxSampleAbs = std::max(maxSampleAbs, std::abs(sample));
+                    }
+                }
+
+                auto peaks = processor.getMeterPeaks();
+                expect(std::isfinite(peaks.input), "Input meter peak must be finite");
+                expect(std::isfinite(peaks.output), "Output meter peak must be finite");
+            }
+
+            expect(!anyNaNOrInf, "Parameter automation sweeps must produce 100% finite samples (no NaNs or Infs)");
+            expect(maxSampleAbs > 0.01f && maxSampleAbs < 10.0f, "Audio output during automation must be stable and non-exploding");
+            expect(processor.getAudioFifo().getNumReady() > 0, "AudioCaptureFifo must capture audio continuously throughout automation");
+        }
+        void testBridgeHandshakeAndTelemetrySyncComprehensive()
+        {
+            beginTest ("Bridge Handshake & Telemetry: Complete handshake payload, parameter mutation, error resilience, and telemetry streams");
+
+            AudioPluginAudioProcessor processor;
+            processor.prepareToPlay (48000.0, 512);
+            AudioPluginAudioProcessorEditor editor (processor);
+            auto& apvts = processor.getAPVTS();
+            const juce::String expectedIds[] = {
+                "INPUT_GAIN", "OUTPUT_GAIN", "COLOR", "BITCRUSH",
+                "DELAY_TIME", "DELAY_MIX", "DELAY_FEEDBACK", "CHORUS_MIX",
+                "PLUGIN_BYPASS", "DRIVE_ON", "BITCRUSH_ON", "DELAY_ON",
+                "CHORUS_ON", "DRIVE_ROUTE", "DELAY_SYNC", "CHORUS_WIDE"
+            };
+
+            // 1. Handshake init payload structure & schema validation
+            auto initPayload = editor.buildInitPayload();
+            expect (initPayload.isObject(), "Init payload must be an object");
+            if (auto* obj = initPayload.getDynamicObject())
+            {
+                expectEquals (static_cast<int>(obj->getProperty ("schemaVersion")), 1, "schemaVersion must be 1");
+                auto paramsVar = obj->getProperty ("parameters");
+                expect (paramsVar.isArray(), "parameters must be an array");
+                if (auto* arr = paramsVar.getArray())
+                {
+                    expectEquals (arr->size(), static_cast<int>(processor.getParameters().size()), "parameters size must equal processor parameter count");
+                    for (const auto& expectedId : expectedIds)
+                    {
+                        bool found = false;
+                        for (int i = 0; i < arr->size(); ++i)
+                        {
+                            if (auto* pObj = arr->getReference(i).getDynamicObject())
+                            {
+                                if (pObj->getProperty("id").toString() == expectedId)
+                                {
+                                    found = true;
+                                    expect (pObj->hasProperty("name"), expectedId + " must have name");
+                                    expect (pObj->hasProperty("value"), expectedId + " must have value");
+                                    expect (pObj->hasProperty("min"), expectedId + " must have min");
+                                    expect (pObj->hasProperty("max"), expectedId + " must have max");
+                                    expect (pObj->hasProperty("defaultValue"), expectedId + " must have defaultValue");
+                                    break;
+                                }
+                            }
+                        }
+                        expect (found, "Init payload must contain parameter: " + expectedId);
+                    }
+                }
+
+                auto uiPrefsVar = obj->getProperty ("uiPreferences");
+                expect (uiPrefsVar.isObject(), "uiPreferences must be an object");
+                if (auto* prefsObj = uiPrefsVar.getDynamicObject())
+                {
+                    expect (prefsObj->hasProperty(UIPreferences::kUiScale), "uiPreferences must have uiScale");
+                    expect (prefsObj->hasProperty(UIPreferences::kSpectrumDecay), "uiPreferences must have spectrumDecay");
+                    expect (prefsObj->hasProperty(UIPreferences::kSkipBootSequence), "uiPreferences must have skipBootSequence");
+                }
+            }
+
+            // 2. handleSetParameter error resilience and boundary clamping across all 16 parameters
+            for (const auto& pid : expectedIds)
+            {
+                juce::DynamicObject::Ptr msgMin = new juce::DynamicObject();
+                msgMin->setProperty ("id", pid);
+                msgMin->setProperty ("value", -0.5f);
+                editor.handleSetParameter(juce::var(msgMin.get()));
+                expectWithinAbsoluteError (apvts.getParameter(pid)->getValue(), 0.0f, 1e-4f, pid + " clamped to 0.0");
+
+                // Max boundary clamping
+                juce::DynamicObject::Ptr msgMax = new juce::DynamicObject();
+                msgMax->setProperty ("id", pid);
+                msgMax->setProperty ("value", 1.5f);
+                editor.handleSetParameter(juce::var(msgMax.get()));
+                expectWithinAbsoluteError (apvts.getParameter(pid)->getValue(), 1.0f, 1e-4f, pid + " clamped to 1.0");
+
+                // Valid mid value
+                juce::DynamicObject::Ptr msgMid = new juce::DynamicObject();
+                msgMid->setProperty ("id", pid);
+                msgMid->setProperty ("value", 0.42f);
+                editor.handleSetParameter(juce::var(msgMid.get()));
+                expectWithinAbsoluteError (apvts.getParameter(pid)->getValue(), 0.42f, 0.01f, pid + " set to ~0.42");
+            }
+
+            // Non-finite values (NaN and Inf) must be safely rejected without mutating the parameter
+            juce::DynamicObject::Ptr msgNaN = new juce::DynamicObject();
+            msgNaN->setProperty ("id", "COLOR");
+            msgNaN->setProperty ("value", std::numeric_limits<float>::quiet_NaN());
+            editor.handleSetParameter(juce::var(msgNaN.get()));
+            expectWithinAbsoluteError (apvts.getParameter("COLOR")->getValue(), 0.42f, 1e-4f, "COLOR parameter must ignore NaN");
+
+            juce::DynamicObject::Ptr msgInf = new juce::DynamicObject();
+            msgInf->setProperty ("id", "COLOR");
+            msgInf->setProperty ("value", std::numeric_limits<float>::infinity());
+            editor.handleSetParameter(juce::var(msgInf.get()));
+            expectWithinAbsoluteError (apvts.getParameter("COLOR")->getValue(), 0.42f, 1e-4f, "COLOR parameter must ignore Infinity");
+
+            // Malformed and non-existent IDs
+            editor.handleSetParameter(juce::var(new juce::DynamicObject())); // Empty object
+            editor.handleSetParameter(juce::var("non-object string")); // Primitive string
+            editor.handleSetParameter(juce::var(42)); // Int
+            juce::DynamicObject::Ptr msgBogus = new juce::DynamicObject();
+            msgBogus->setProperty ("id", "BOGUS_NON_EXISTENT_ID");
+            msgBogus->setProperty ("value", 0.5f);
+            editor.handleSetParameter(juce::var(msgBogus.get())); // Should safely no-op
+
+            // 3. Telemetry payload generation
+            std::array<float, SpectrumAnalyzer::kNumBands> dummyBands;
+            for (size_t i = 0; i < dummyBands.size(); ++i)
+                dummyBands[i] = static_cast<float>(i) / static_cast<float>(dummyBands.size());
+
+            auto spectrumPayload = editor.buildSpectrumPayload(dummyBands);
+            expect(spectrumPayload.isArray(), "Spectrum payload must be array");
+            if (auto* arr = spectrumPayload.getArray())
+            {
+                expectEquals(arr->size(), 80, "Spectrum array must have exactly 80 bands");
+                expectWithinAbsoluteError(static_cast<float>(arr->getReference(0)), 0.0f, 1e-4f);
+                expectWithinAbsoluteError(static_cast<float>(arr->getReference(79)), 79.0f / 80.0f, 1e-4f);
+            }
+
+            AudioPluginAudioProcessor::MeterPeaks testPeaks{ 0.72f, 0.88f };
+            auto meterPayload = editor.buildMeterPayload(testPeaks);
+            expect(meterPayload.isObject(), "Meter payload must be object");
+            if (auto* mObj = meterPayload.getDynamicObject())
+            {
+                expectWithinAbsoluteError(static_cast<float>(mObj->getProperty("input")), 0.72f, 1e-4f);
+                expectWithinAbsoluteError(static_cast<float>(mObj->getProperty("output")), 0.88f, 1e-4f);
+            }
+        }
+
+        void testSampleRateAndBufferSizeDynamicReconfiguration()
+        {
+            beginTest ("Dynamic Reconfiguration: Processor runtime sample rate and buffer size switching");
+
+            AudioPluginAudioProcessor processor;
+            ContinuousStereoOscillator osc(440.0f, 48000.0);
+            juce::MidiBuffer midi;
+
+            struct Config { double sr; int bs; };
+            const Config configs[] = {
+                { 44100.0, 128 },
+                { 96000.0, 1024 },
+                { 48000.0, 64 },
+                { 192000.0, 2048 },
+                { 44100.0, 512 }
+            };
+
+            for (const auto& cfg : configs)
+            {
+                processor.prepareToPlay(cfg.sr, cfg.bs);
+                expect(processor.getLatencySamples() > 0, "Latency samples must be non-zero after prepareToPlay");
+
+                for (int b = 0; b < 10; ++b)
+                {
+                    juce::AudioBuffer<float> buf(2, cfg.bs);
+                    osc.generate(buf);
+                    processor.processBlock(buf, midi);
+
+                    for (int ch = 0; ch < 2; ++ch)
+                    {
+                        for (int s = 0; s < cfg.bs; ++s)
+                        {
+                            expect(std::isfinite(buf.getSample(ch, s)), "Sample must be finite across dynamic reconfiguration");
+                        }
+                    }
+                }
+
+                expect(processor.getAudioFifo().getNumReady() > 0, "Audio FIFO must remain operational across dynamic reconfiguration");
+            }
         }
     };
 
