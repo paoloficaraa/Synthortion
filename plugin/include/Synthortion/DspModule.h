@@ -13,9 +13,7 @@ struct WarmDistortionParams {
 };
 
 struct BitCrusherParams {
-    float mix = 0.0f;                 // 0.0 .. 1.0 (BITCRUSH)
-    float bitDepth = 8.0f;            // 1.0 .. 16.0 bits
-    float sampleRateReduction = 6000.0f; // target downsample rate in Hz
+    float crush = 0.0f;               // 0.0 .. 1.0 (BITCRUSH continuous control c)
 };
 
 struct PingPongDelayParams {

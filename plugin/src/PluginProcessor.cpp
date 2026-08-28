@@ -296,7 +296,7 @@ namespace synthortion {
         const bool chorusWide = chorusWideParam->load(std::memory_order_relaxed) > kBooleanThreshold;
 
         const dsp::WarmDistortionParams driveParams{ color, volumeComp };
-        const dsp::BitCrusherParams bitcrushParams{ bitCrush, 8.0f, 6000.0f };
+        const dsp::BitCrusherParams bitcrushParams{ bitCrush };
         const dsp::ChorusParams chorusParams{ chorusMix, chorusWide };
         const dsp::PingPongDelayParams delayParams{ delayTime, delayMix, delayFeedback, 12000.0f };
         inputGainSmoother.setTargetValue(inputGain);

@@ -53,6 +53,10 @@ namespace synthortion
             testWarmDistortionOversamplingAndLatency();
             testWarmDistortionExciterGatingAndDynamicDamping();
             testWarmDistortionAutoGainCompensation();
+            testBitCrusherMathematicalTrajectories();
+            testBitCrusherIdentityAtZero();
+            testBitCrusherFractionalPhaseAccumulatorAndLinearInterpolation();
+            testBitCrusherTPDFDitherAndQuantization();
         }
         void testEditorSizeIs960x600()
         {
@@ -633,7 +637,7 @@ namespace synthortion
                 generateSine(dryBuf, 440.0f, sampleRate);
                 wetBuf.makeCopyOf(dryBuf);
 
-                dsp::BitCrusherParams params{ 1.0f, 8.0f, 6000.0f };
+                dsp::BitCrusherParams params{ 1.0f };
                 bc.process(wetBuf, params);
 
                 float diffSum = 0.0f;
@@ -648,7 +652,7 @@ namespace synthortion
                 {
                     float mix = (b % 2 == 0) ? 0.0f : 1.0f;
                     generateSine(wetBuf, 440.0f, sampleRate);
-                    bc.process(wetBuf, dsp::BitCrusherParams{ mix, 8.0f, 6000.0f });
+                    bc.process(wetBuf, dsp::BitCrusherParams{ mix });
                     for (int s = 0; s < blockSize; ++s)
                     {
                         float cur = wetBuf.getSample(0, s);
@@ -744,7 +748,7 @@ namespace synthortion
 
             // Warm-up one block each to ensure static/lazy structures (if any) are initialized
             dist.process(buffer, dsp::WarmDistortionParams{ 0.5f, false });
-            bitCrusher.process(buffer, dsp::BitCrusherParams{ 0.5f, 8.0f, 6000.0f });
+            bitCrusher.process(buffer, dsp::BitCrusherParams{ 0.5f });
             delay.process(buffer, dsp::PingPongDelayParams{ 250.0f, 0.5f, 0.4f, 12000.0f });
             chorus.process(buffer, dsp::ChorusParams{ 0.5f, false });
 
@@ -757,7 +761,7 @@ namespace synthortion
                 const float mod = static_cast<float>(block % 10) / 10.0f;
 
                 dist.process(buffer, dsp::WarmDistortionParams{ mod, false });
-                bitCrusher.process(buffer, dsp::BitCrusherParams{ mod, 8.0f, 6000.0f });
+                bitCrusher.process(buffer, dsp::BitCrusherParams{ mod });
                 delay.process(buffer, dsp::PingPongDelayParams{ 200.0f + mod * 100.0f, mod, 0.4f, 12000.0f });
                 chorus.process(buffer, dsp::ChorusParams{ mod, (block % 2 == 0) });
             }
@@ -1142,6 +1146,194 @@ namespace synthortion
             float measuredRatio = rmsWithComp / rmsNoComp;
             float expectedComp = dsp::WarmDistortion::calculateVolumeCompensation (0.9f);
             expectWithinAbsoluteError (measuredRatio, expectedComp, 0.05f, "Measured RMS reduction must match analytical G_comp factor");
+        }
+
+        void testBitCrusherMathematicalTrajectories()
+        {
+            beginTest ("BitCrusher: Mathematical Trajectories (B(c) Bit Depth, F_target(c) Downsample Rate, Delta Q)");
+
+            // 1. Bit depth trajectory B(c) = 16.0 - 12.0 * c^1.5
+            expectWithinAbsoluteError (dsp::BitCrusher::calculateBitDepth (0.0f), 16.0f, 0.001f, "B(0.0) must be 16.0 bits");
+            expectWithinAbsoluteError (dsp::BitCrusher::calculateBitDepth (1.0f), 4.0f, 0.001f, "B(1.0) must be 4.0 bits");
+            const float expectedB05 = 16.0f - 12.0f * std::pow (0.5f, 1.5f);
+            expectWithinAbsoluteError (dsp::BitCrusher::calculateBitDepth (0.5f), expectedB05, 0.001f, "B(0.5) must match 16 - 12*(0.5)^1.5");
+
+            // Clamping
+            expectWithinAbsoluteError (dsp::BitCrusher::calculateBitDepth (-0.5f), 16.0f, 0.001f, "B(c < 0) clamped to 16 bits");
+            expectWithinAbsoluteError (dsp::BitCrusher::calculateBitDepth (1.5f), 4.0f, 0.001f, "B(c > 1) clamped to 4 bits");
+
+            // 2. Sample rate trajectory F_target(c) = fs * (1500 / fs)^(c^1.8)
+            const double fs48k = 48000.0;
+            expectWithinAbsoluteError (dsp::BitCrusher::calculateTargetSampleRate (0.0f, fs48k), 48000.0f, 0.1f, "F_target(0) at 48k is 48000 Hz");
+            expectWithinAbsoluteError (dsp::BitCrusher::calculateTargetSampleRate (1.0f, fs48k), 1500.0f, 0.1f, "F_target(1) at 48k is 1500 Hz");
+            const float expectedF05_48k = static_cast<float> (fs48k * std::pow (1500.0 / fs48k, std::pow (0.5, 1.8)));
+            expectWithinAbsoluteError (dsp::BitCrusher::calculateTargetSampleRate (0.5f, fs48k), expectedF05_48k, 0.5f, "F_target(0.5) at 48k matches formula");
+
+            const double fs96k = 96000.0;
+            expectWithinAbsoluteError (dsp::BitCrusher::calculateTargetSampleRate (0.0f, fs96k), 96000.0f, 0.1f, "F_target(0) at 96k is 96000 Hz");
+            expectWithinAbsoluteError (dsp::BitCrusher::calculateTargetSampleRate (1.0f, fs96k), 1500.0f, 0.1f, "F_target(1) at 96k is 1500 Hz");
+
+            // 3. Quantization step Delta q = 2.0 / 2^(B(c))
+            expectWithinAbsoluteError (dsp::BitCrusher::calculateQuantizationStep (16.0f), 2.0f / 65536.0f, 1e-7f, "Delta q at 16 bits is 2/65536");
+            expectWithinAbsoluteError (dsp::BitCrusher::calculateQuantizationStep (4.0f), 2.0f / 16.0f, 1e-7f, "Delta q at 4 bits is 0.125");
+        }
+
+        void testBitCrusherIdentityAtZero()
+        {
+            beginTest ("BitCrusher: Identity transparent output at c = 0");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 512;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32> (blockSize), 2 };
+
+            dsp::BitCrusher bitCrusher;
+            bitCrusher.prepare (spec);
+
+            // 1. Silence test
+            juce::AudioBuffer<float> silence (2, blockSize);
+            silence.clear();
+            bitCrusher.process (silence, dsp::BitCrusherParams{ 0.0f });
+            for (int ch = 0; ch < 2; ++ch)
+                for (int s = 0; s < blockSize; ++s)
+                    expect (silence.getSample (ch, s) == 0.0f, "Silence remains exact zero at c = 0");
+
+            // 2. Sine tone test
+            juce::AudioBuffer<float> drySine (2, blockSize);
+            juce::AudioBuffer<float> wetSine (2, blockSize);
+            for (int s = 0; s < blockSize; ++s)
+            {
+                float v = 0.5f * std::sin (2.0f * juce::MathConstants<float>::pi * 440.0f * static_cast<float> (s) / static_cast<float> (sampleRate));
+                drySine.setSample (0, s, v);
+                drySine.setSample (1, s, -v);
+            }
+            wetSine.makeCopyOf (drySine);
+
+            bitCrusher.process (wetSine, dsp::BitCrusherParams{ 0.0f });
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                for (int s = 0; s < blockSize; ++s)
+                {
+                    expect (wetSine.getSample (ch, s) == drySine.getSample (ch, s),
+                            "Audio at c = 0 must be 100% bit-exact transparent");
+                }
+            }
+
+            // 3. Pseudo-random noise test
+            juce::AudioBuffer<float> dryNoise (2, blockSize);
+            juce::AudioBuffer<float> wetNoise (2, blockSize);
+            juce::Random rng (12345);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int s = 0; s < blockSize; ++s)
+                    dryNoise.setSample (ch, s, rng.nextFloat() * 1.8f - 0.9f);
+            wetNoise.makeCopyOf (dryNoise);
+
+            bitCrusher.process (wetNoise, dsp::BitCrusherParams{ 0.0f });
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                for (int s = 0; s < blockSize; ++s)
+                {
+                    expect (wetNoise.getSample (ch, s) == dryNoise.getSample (ch, s),
+                            "Noise audio at c = 0 must match dry audio exactly");
+                }
+            }
+        }
+
+        void testBitCrusherFractionalPhaseAccumulatorAndLinearInterpolation()
+        {
+            beginTest ("BitCrusher: Fractional phase accumulator and linear interpolation");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 1024;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32> (blockSize), 2 };
+
+            dsp::BitCrusher bitCrusher;
+            bitCrusher.prepare (spec);
+
+            // Create a linear ramp: x[s] = -0.8 + 1.6 * (s / blockSize)
+            juce::AudioBuffer<float> ramp (2, blockSize);
+            for (int s = 0; s < blockSize; ++s)
+            {
+                float val = -0.8f + 1.6f * (static_cast<float> (s) / static_cast<float> (blockSize));
+                ramp.setSample (0, s, val);
+                ramp.setSample (1, s, val);
+            }
+
+            // Process with c = 1.0 (downsample to 1500 Hz -> ratio = 32 samples per downsampled period)
+            bitCrusher.reset();
+            bitCrusher.process (ramp, dsp::BitCrusherParams{ 1.0f });
+
+            // Verify that signal has been modified
+            float peak = ramp.getMagnitude (0, blockSize);
+            expect (peak > 0.5f, "Bitcrushed signal has significant magnitude");
+
+            // Verify linear interpolation: between hold events, consecutive differences y[s+1] - y[s]
+            // are smooth and continuous rather than having flat zero differences followed by sharp jumps (ZOH)
+            int nonZeroSteps = 0;
+            for (int s = 32; s < 64; ++s)
+            {
+                float delta = std::abs (ramp.getSample (0, s) - ramp.getSample (0, s - 1));
+                if (delta > 1e-5f)
+                    nonZeroSteps++;
+            }
+            // In linear interpolation with downsample ratio 32, every sample in the ramp segment transitions continuously
+            expect (nonZeroSteps > 20, "Linear interpolation must produce continuous intra-period sample changes");
+        }
+
+        void testBitCrusherTPDFDitherAndQuantization()
+        {
+            beginTest ("BitCrusher: Triangular PDF dynamic dithering and bounded quantization");
+
+            const double sampleRate = 48000.0;
+            const int blockSize = 2048;
+            juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32> (blockSize), 2 };
+
+            dsp::BitCrusher bitCrusher;
+            bitCrusher.prepare (spec);
+
+            // Constant DC signal between quantization steps at 4-bit (c = 1.0 -> Delta q = 0.125)
+            // DC level = 0.05f
+            juce::AudioBuffer<float> dcBuffer (2, blockSize);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int s = 0; s < blockSize; ++s)
+                    dcBuffer.setSample (ch, s, 0.05f);
+
+            bitCrusher.reset();
+            bitCrusher.process (dcBuffer, dsp::BitCrusherParams{ 1.0f });
+
+            // 1. All output samples must be clamped to [-1.0, 1.0]
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                for (int s = 0; s < blockSize; ++s)
+                {
+                    float sample = dcBuffer.getSample (ch, s);
+                    expect (sample >= -1.0f && sample <= 1.0f, "Quantized samples must be within [-1, 1]");
+                }
+            }
+
+            // 2. Under TPDF dither, the mean of the quantized signal matches the input DC level (unbiased quantization)
+            float sumCh0 = 0.0f;
+            float sumCh1 = 0.0f;
+            for (int s = 0; s < blockSize; ++s)
+            {
+                sumCh0 += dcBuffer.getSample (0, s);
+                sumCh1 += dcBuffer.getSample (1, s);
+            }
+            float meanCh0 = sumCh0 / static_cast<float> (blockSize);
+            float meanCh1 = sumCh1 / static_cast<float> (blockSize);
+            expectWithinAbsoluteError (meanCh0, 0.05f, 0.02f, "TPDF dither mean must converge to DC input on Ch0");
+            expectWithinAbsoluteError (meanCh1, 0.05f, 0.02f, "TPDF dither mean must converge to DC input on Ch1");
+
+            // 3. Stereo channels must have decorrelated dither noise (not bit-identical)
+            bool decorrelated = false;
+            for (int s = 0; s < blockSize; ++s)
+            {
+                if (dcBuffer.getSample (0, s) != dcBuffer.getSample (1, s))
+                {
+                    decorrelated = true;
+                    break;
+                }
+            }
+            expect (decorrelated, "Left and Right channels must have independent decorrelated dither noise");
         }
     };
 
