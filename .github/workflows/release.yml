@@ -31,12 +31,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'npm'
+          cache-dependency-path: 'ui/package-lock.json'
 
       - name: Build Web UI
         working-directory: ui
         run: |
           npm ci
           npm run build
+
+      - name: Set up NuGet
+        uses: nuget/setup-nuget@v2
+
+      - name: Install WebView2 NuGet package
+        shell: pwsh
+        run: |
+          nuget install Microsoft.Web.WebView2 -Version 1.0.1901.177 -OutputDirectory ${{ github.workspace }}/packages
+
       - name: Set up MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -47,7 +58,7 @@ jobs:
 
       - name: Configure CMake
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUCE_WEBVIEW2_PACKAGE_LOCATION="${{ github.workspace }}/packages"
 
       - name: Build Plugin
         run: |
@@ -56,10 +67,18 @@ jobs:
       - name: Package Windows VST3
         shell: pwsh
         run: |
-          $vst3Path = if (Test-Path "build/plugin/Synthortion_artefacts/Release/VST3/Synthortion.vst3") { "build/plugin/Synthortion_artefacts/Release/VST3/Synthortion.vst3" } else { "build/plugin/Synthortion_artefacts/VST3/Synthortion.vst3" }
+          $vst3Path = if (Test-Path "build/plugin/Synthortion_artefacts/Release/VST3/Synthortion.vst3") {
+              "build/plugin/Synthortion_artefacts/Release/VST3/Synthortion.vst3"
+          } elseif (Test-Path "build/plugin/Synthortion_artefacts/VST3/Synthortion.vst3") {
+              "build/plugin/Synthortion_artefacts/VST3/Synthortion.vst3"
+          } else {
+              throw "VST3 build artifact not found in build/plugin/Synthortion_artefacts"
+          }
           $zipPath = "Synthortion-Windows-x64-VST3.zip"
+          Write-Host "Compressing $vst3Path into $zipPath"
           Compress-Archive -Path $vst3Path -DestinationPath $zipPath -Force
           Get-Item $zipPath | Select-Object Name, Length, LastWriteTime
+
       - name: Upload Windows VST3 Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -83,6 +102,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'npm'
+          cache-dependency-path: 'ui/package-lock.json'
 
       - name: Build Web UI
         working-directory: ui
@@ -90,12 +111,12 @@ jobs:
           npm ci
           npm run build
 
-      - name: Set up CMake
+      - name: Set up CMake & Ninja
         uses: lukka/get-cmake@v4.3.3
 
       - name: Configure CMake (Universal arm64 + x86_64)
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
 
       - name: Build Plugin
         run: |
@@ -103,11 +124,30 @@ jobs:
 
       - name: Package macOS VST3 & AU
         run: |
-          cd build/plugin/Synthortion_artefacts/Release/VST3
-          ditto -c -k --keepParent Synthortion.vst3 ../../../../Synthortion-macOS-Universal-VST3.zip
-          cd ../AU
-          ditto -c -k --keepParent Synthortion.component ../../../../Synthortion-macOS-Universal-AU.zip
-          cd ../../../../
+          VST3_PATH=""
+          if [ -d "build/plugin/Synthortion_artefacts/Release/VST3/Synthortion.vst3" ]; then
+            VST3_PATH="build/plugin/Synthortion_artefacts/Release/VST3/Synthortion.vst3"
+          elif [ -d "build/plugin/Synthortion_artefacts/VST3/Synthortion.vst3" ]; then
+            VST3_PATH="build/plugin/Synthortion_artefacts/VST3/Synthortion.vst3"
+          else
+            echo "Error: VST3 artifact not found in build/plugin/Synthortion_artefacts" && exit 1
+          fi
+
+          AU_PATH=""
+          if [ -d "build/plugin/Synthortion_artefacts/Release/AU/Synthortion.component" ]; then
+            AU_PATH="build/plugin/Synthortion_artefacts/Release/AU/Synthortion.component"
+          elif [ -d "build/plugin/Synthortion_artefacts/AU/Synthortion.component" ]; then
+            AU_PATH="build/plugin/Synthortion_artefacts/AU/Synthortion.component"
+          else
+            echo "Error: AU artifact not found in build/plugin/Synthortion_artefacts" && exit 1
+          fi
+
+          echo "Packaging VST3 from $VST3_PATH..."
+          ditto -c -k --keepParent "$VST3_PATH" Synthortion-macOS-Universal-VST3.zip
+
+          echo "Packaging AU from $AU_PATH..."
+          ditto -c -k --keepParent "$AU_PATH" Synthortion-macOS-Universal-AU.zip
+
           ls -lh Synthortion-macOS-Universal-*.zip
 
       - name: Upload macOS VST3 Artifact
@@ -132,23 +172,15 @@ jobs:
     needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
-      - name: Download Windows VST3
+      - name: Download all release artifacts
         uses: actions/download-artifact@v4
         with:
-          name: Synthortion-Windows-x64-VST3
+          pattern: Synthortion-*
           path: release-assets
+          merge-multiple: true
 
-      - name: Download macOS VST3
-        uses: actions/download-artifact@v4
-        with:
-          name: Synthortion-macOS-Universal-VST3
-          path: release-assets
-
-      - name: Download macOS AU
-        uses: actions/download-artifact@v4
-        with:
-          name: Synthortion-macOS-Universal-AU
-          path: release-assets
+      - name: List downloaded release assets
+        run: ls -la release-assets
 
       - name: Determine Tag Name
         id: tag_info
