@@ -35,14 +35,20 @@ describe('parameterStore dynamic normalization & hydration', () => {
     expect(fromAPVTS('BITCRUSH', 0.5)).toEqual({ uiKey: 'bitcrush', value: 50 })
   })
 
-  it('converts chorus width percentage correctly', () => {
+  it('converts chorus mix and chorus width percentages correctly', () => {
+    expect(toAPVTS('chorus', 0)).toBe(0.0)
+    expect(toAPVTS('chorus', 75)).toBe(0.75)
+    expect(toAPVTS('chorus', 100)).toBe(1.0)
+    expect(fromAPVTS('CHORUS_MIX', 0.75)).toEqual({ uiKey: 'chorus', value: 75 })
+
     expect(toAPVTS('chorusWidth', 0)).toBe(0.0)
     expect(toAPVTS('chorusWidth', 50)).toBe(0.5)
     expect(toAPVTS('chorusWidth', 100)).toBe(1.0)
     expect(fromAPVTS('CHORUS_WIDTH', 0.5)).toEqual({ uiKey: 'chorusWidth', value: 50 })
+    expect(fromAPVTS('CHORUS_WIDE', 0.5)).toEqual({ uiKey: 'chorusWidth', value: 50 })
   })
 
-  it('converts delay time correctly in SYNC and FREE modes', () => {
+  it('converts delay time correctly in SYNC and FREE modes including low millisecond values', () => {
     // Default mode is SYNC (0..13 steps)
     expect(toAPVTS('delayTime', 0)).toBe(0.0)
     expect(toAPVTS('delayTime', 6)).toBeCloseTo(6 / 13)
@@ -55,9 +61,16 @@ describe('parameterStore dynamic normalization & hydration', () => {
     // Switch to FREE mode (1..2000 ms) via DELAY_SYNC = 0.0 (false)
     parameterStore.updateParameter('DELAY_SYNC', 0.0)
     expect(toAPVTS('delayTime', 1)).toBe(0.0)
+    expect(toAPVTS('delayTime', 10)).toBeCloseTo((10 - 1) / (2000 - 1))
+    expect(toAPVTS('delayTime', 250)).toBeCloseTo((250 - 1) / (2000 - 1))
     expect(toAPVTS('delayTime', 2000)).toBe(1.0)
     expect(fromAPVTS('DELAY_TIME', 0.0)).toEqual({ uiKey: 'delayTime', value: 1 })
+    expect(fromAPVTS('DELAY_TIME', (10 - 1) / (2000 - 1))).toEqual({ uiKey: 'delayTime', value: 10 })
     expect(fromAPVTS('DELAY_TIME', 1.0)).toEqual({ uiKey: 'delayTime', value: 2000 })
+
+    // Explicit isSynced parameter override
+    expect(toAPVTS('delayTime', 6, true)).toBeCloseTo(6 / 13)
+    expect(toAPVTS('delayTime', 10, false)).toBeCloseTo((10 - 1) / (2000 - 1))
   })
 
   it('handles inverted engineActive / PLUGIN_BYPASS bool', () => {

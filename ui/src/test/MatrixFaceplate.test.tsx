@@ -264,6 +264,21 @@ describe('MatrixFaceplate', () => {
     )
     const timeSlider = screen.getByRole('slider', { name: 'Time' })
     expect(timeSlider).toHaveAttribute('aria-valuetext', '1/8D')
+    expect(timeSlider).toHaveAttribute('aria-valuenow', '6')
+    expect(timeSlider).toHaveAttribute('aria-valuemin', '0')
+    expect(timeSlider).toHaveAttribute('aria-valuemax', '13')
+
+    // Boundary subdivision step 0 (1/32)
+    rerender(
+      <MatrixFaceplate
+        state={{ ...initialState, delaySync: 'SYNC', delayTime: 0 }}
+        onChange={() => {}}
+      />
+    )
+    expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
+      'aria-valuetext',
+      '1/32'
+    )
 
     // Different subdivision step (index 8 -> 1/4)
     rerender(
@@ -277,6 +292,18 @@ describe('MatrixFaceplate', () => {
       '1/4'
     )
 
+    // Boundary subdivision step 13 (1/1)
+    rerender(
+      <MatrixFaceplate
+        state={{ ...initialState, delaySync: 'SYNC', delayTime: 13 }}
+        onChange={() => {}}
+      />
+    )
+    expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
+      'aria-valuetext',
+      '1/1'
+    )
+
     // FREE mode (250ms)
     rerender(
       <MatrixFaceplate
@@ -284,15 +311,43 @@ describe('MatrixFaceplate', () => {
         onChange={() => {}}
       />
     )
+    const freeSlider = screen.getByRole('slider', { name: 'Time' })
+    expect(freeSlider).toHaveAttribute('aria-valuetext', '250ms')
+    expect(freeSlider).toHaveAttribute('aria-valuenow', '250')
+    expect(freeSlider).toHaveAttribute('aria-valuemin', '1')
+    expect(freeSlider).toHaveAttribute('aria-valuemax', '2000')
+
+    // FREE mode with low millisecond values (10ms, 1ms)
+    rerender(
+      <MatrixFaceplate
+        state={{ ...initialState, delaySync: 'FREE', delayTime: 10 }}
+        onChange={() => {}}
+      />
+    )
     expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
       'aria-valuetext',
-      '250ms'
+      '10ms'
+    )
+    expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
+      'aria-valuenow',
+      '10'
+    )
+
+    rerender(
+      <MatrixFaceplate
+        state={{ ...initialState, delaySync: 'FREE', delayTime: 1 }}
+        onChange={() => {}}
+      />
+    )
+    expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute(
+      'aria-valuetext',
+      '1ms'
     )
   })
 
   it('renders secondary Width knob in CHR module and forwards interaction through onChange', () => {
     const onChange = vi.fn()
-    render(<MatrixFaceplate state={initialState} onChange={onChange} />)
+    const { rerender } = render(<MatrixFaceplate state={initialState} onChange={onChange} />)
 
     const widthSlider = screen.getByRole('slider', { name: 'Width' })
     expect(widthSlider).toBeInTheDocument()
@@ -305,5 +360,16 @@ describe('MatrixFaceplate', () => {
     fireEvent.pointerUp(widthSlider, { pointerId: 1 })
 
     expect(onChange).toHaveBeenCalledWith({ chorusWidth: 60 })
+
+    // When chorus module is powered off, Width knob is disabled with -- readout
+    rerender(
+      <MatrixFaceplate
+        state={{ ...initialState, chorusOn: false }}
+        onChange={onChange}
+      />
+    )
+    const disabledWidth = screen.getByRole('slider', { name: 'Width' })
+    expect(disabledWidth).toHaveAttribute('aria-disabled', 'true')
+    expect(disabledWidth).toHaveAttribute('aria-valuetext', '--')
   })
 })

@@ -52,7 +52,7 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
     for (const diff of diffPluginState(prev, state)) {
       const apvtsId = PARAMETER_IDS[diff.key]
       if (apvtsId) {
-        const normalized = toAPVTS(diff.key, diff.value)
+        const normalized = toAPVTS(diff.key, diff.value, state.delaySync === 'SYNC')
         dspBridge.setParameter(apvtsId, normalized)
       }
 

@@ -157,6 +157,13 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
     delayOn,
     chorusOn,
   } = state
+  const isDelaySync = delaySync === 'SYNC'
+  const effectiveDelayTime = isDelaySync
+    ? Math.max(0, Math.min(13, delayTime > 13 ? 6 : Math.round(delayTime)))
+    : Math.max(1, Math.min(2000, delayTime <= 0 ? 250 : Math.round(delayTime)))
+  const delayTimeDisplay = isDelaySync
+    ? (DELAY_SUBDIVISIONS[effectiveDelayTime] ?? '1/8D')
+    : `${Math.round(effectiveDelayTime)}ms`
   return (
     <div
       data-testid="matrix-faceplate"
@@ -224,26 +231,13 @@ export function MatrixFaceplate({ state, onChange }: MatrixFaceplateProps) {
           <div className="flex gap-4 sm:gap-8 items-center justify-center">
             <Knob
               label="Time"
-              value={
-                delaySync === 'SYNC'
-                  ? delayTime <= 13
-                    ? delayTime
-                    : 6
-                  : delayTime > 13
-                    ? delayTime
-                    : 250
-              }
-              min={delaySync === 'SYNC' ? 0 : 1}
-              max={delaySync === 'SYNC' ? 13 : 2000}
-              displayValue={
-                delaySync === 'SYNC'
-                  ? (DELAY_SUBDIVISIONS[Math.round(Math.max(0, Math.min(13, delayTime)))] ??
-                    '1/8D')
-                  : `${Math.round(delayTime > 13 ? delayTime : 250)}ms`
-              }
+              value={effectiveDelayTime}
+              min={isDelaySync ? 0 : 1}
+              max={isDelaySync ? 13 : 2000}
+              displayValue={delayTimeDisplay}
               size="small"
               enabled={delayOn}
-              defaultValue={delaySync === 'SYNC' ? 6 : 250}
+              defaultValue={isDelaySync ? 6 : 250}
               onChange={(value) => onChange({ delayTime: Math.round(value) })}
             />
             <Knob

@@ -301,11 +301,27 @@ export const APVTS_ID_TO_UI_KEY: Record<string, keyof PluginState> = {
   DRIVE_ROUTE: 'driveRoute',
   DELAY_SYNC: 'delaySync',
   CHORUS_WIDTH: 'chorusWidth',
+  CHORUS_WIDE: 'chorusWidth',
 }
 
-export const UI_KEY_TO_APVTS_ID: Record<keyof PluginState, string> = Object.fromEntries(
-  Object.entries(APVTS_ID_TO_UI_KEY).map(([apvtsId, uiKey]) => [uiKey, apvtsId])
-) as Record<keyof PluginState, string>
+export const UI_KEY_TO_APVTS_ID: Record<keyof PluginState, string> = {
+  inputGain: 'INPUT_GAIN',
+  outputGain: 'OUTPUT_GAIN',
+  drive: 'COLOR',
+  bitcrush: 'BITCRUSH',
+  delayTime: 'DELAY_TIME',
+  delayMix: 'DELAY_MIX',
+  delayFbk: 'DELAY_FEEDBACK',
+  chorus: 'CHORUS_MIX',
+  engineActive: 'PLUGIN_BYPASS',
+  driveOn: 'DRIVE_ON',
+  bitcrushOn: 'BITCRUSH_ON',
+  delayOn: 'DELAY_ON',
+  chorusOn: 'CHORUS_ON',
+  driveRoute: 'DRIVE_ROUTE',
+  delaySync: 'DELAY_SYNC',
+  chorusWidth: 'CHORUS_WIDTH',
+}
 
 export function normalizeValue(descriptor: ParameterDescriptor, uiValue: unknown): number {
   if (descriptor.type === 'bool') {
@@ -422,42 +438,35 @@ export class ParameterStore {
       return fallback
     }
 
+    const processDesc = (desc: ParameterDescriptor) => {
+      if (desc && desc.id) {
+        const existing = this.descriptors.get(desc.id)
+        const normVal = extractNormVal(desc, existing?.normalizedValue ?? 0)
+
+        if (existing) {
+          this.descriptors.set(desc.id, {
+            ...existing,
+            ...desc,
+            normalizedValue: normVal,
+          })
+        } else {
+          this.descriptors.set(desc.id, {
+            ...desc,
+            normalizedValue: normVal,
+          })
+        }
+        this.updateParameter(desc.id, normVal)
+      }
+    }
+
     if (Array.isArray(payload)) {
       for (const desc of payload) {
-        if (desc && desc.id) {
-          const existing = this.descriptors.get(desc.id)
-          const normVal = extractNormVal(desc, existing?.normalizedValue ?? 0)
-
-          if (existing) {
-            this.descriptors.set(desc.id, {
-              ...existing,
-              ...desc,
-              normalizedValue: normVal,
-            })
-            this.updateParameter(desc.id, normVal)
-          } else {
-            this.descriptors.set(desc.id, desc)
-          }
-        }
+        processDesc(desc)
       }
     } else if (payload && typeof payload === 'object') {
       if (Array.isArray(payload.parameters)) {
         for (const desc of payload.parameters) {
-          if (desc && desc.id) {
-            const existing = this.descriptors.get(desc.id)
-            const normVal = extractNormVal(desc, existing?.normalizedValue ?? 0)
-
-            if (existing) {
-              this.descriptors.set(desc.id, {
-                ...existing,
-                ...desc,
-                normalizedValue: normVal,
-              })
-              this.updateParameter(desc.id, normVal)
-            } else {
-              this.descriptors.set(desc.id, desc)
-            }
-          }
+          processDesc(desc)
         }
       }
       if (payload.uiPreferences) {
@@ -468,7 +477,10 @@ export class ParameterStore {
   }
 
   getDescriptor(id: string): ParameterDescriptor | undefined {
-    return this.descriptors.get(id)
+    return (
+      this.descriptors.get(id) ??
+      (id === 'CHORUS_WIDE' ? this.descriptors.get('CHORUS_WIDTH') : undefined)
+    )
   }
 
   getAllDescriptors(): ParameterDescriptor[] {
@@ -528,14 +540,15 @@ export class ParameterStore {
     return true
   }
 
-  toNormalized(uiKeyOrApvtsId: string, uiValue: unknown): number {
+  toNormalized(uiKeyOrApvtsId: string, uiValue: unknown, isSynced?: boolean): number {
     const apvtsId = UI_KEY_TO_APVTS_ID[uiKeyOrApvtsId as keyof PluginState] ?? uiKeyOrApvtsId
     const descriptor = this.getDescriptor(apvtsId)
     if (descriptor) {
       if (apvtsId === 'DELAY_TIME') {
+        const synced = isSynced !== undefined ? isSynced : this.isDelaySynced()
         if (
           typeof uiValue === 'number' &&
-          this.isDelaySynced() &&
+          synced &&
           uiValue <= DELAY_SUBDIVISIONS.length - 1
         ) {
           return Math.max(0, Math.min(1, uiValue / (DELAY_SUBDIVISIONS.length - 1)))
@@ -573,8 +586,12 @@ export class ParameterStore {
 
 export const parameterStore = new ParameterStore()
 
-export function toAPVTS(uiKey: keyof PluginState, uiValue: unknown): number {
-  return parameterStore.toNormalized(uiKey, uiValue)
+export function toAPVTS(
+  uiKey: keyof PluginState,
+  uiValue: unknown,
+  isSynced?: boolean
+): number {
+  return parameterStore.toNormalized(uiKey, uiValue, isSynced)
 }
 
 export function fromAPVTS(
