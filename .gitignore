@@ -1,140 +1,163 @@
 # ==========================================
-# SYNTHORTION - CMAKE/JUCE AUDIO PLUGIN
+# SYNTHORTION - CMAKE / JUCE / VITE
 # ==========================================
 
 # ==========================================
-# C++ / BUILD ARTIFACTS
-# ==========================================
-
-*.o
-*.obj
-*.a
-*.lib
-*.dll
-*.so
-*.dylib
-*.exe
-*.pdb
-*.ilk
-*.exp
-*.slo
-*.lo
-*.dwo
-
-# ==========================================
-# BUILD DIRECTORIES
-# ==========================================
-
-build/
-build_wsl/
-Build/
-Builds/
-cmake-build-*/
-
-# CMake
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-Makefile
-*.cmake
-!CMakeLists.txt
-Testing/
-
-# ==========================================
-# VISUAL STUDIO (Windows Build)
-# ==========================================
-
-*.vcxproj
-*.vcxproj.filters
-*.vcxproj.user
-*.sln
-*.suo
-*.tlog
-*.user
-*.userosscache
-.vs/
-x64/
-x86/
-Debug/
-Release/
-
-# ==========================================
-# XCODE
-# ==========================================
-
-*.xcodeproj/
-*.xcworkspace/
-DerivedData/
-*.hmap
-*.ipa
-*.dSYM
-
-# ==========================================
-# CLION / VS CODE / IDEA
-# ==========================================
-
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-CMakeSettings.json
-
-# ==========================================
-# GIT
-# ==========================================
-
-.worktrees/
-plan.json
-
-# ==========================================
-# NODE.JS / OPENCODE
-# ==========================================
-
-.opencode/
-.opencode/node_modules/
-.opencode/package-lock.json
-
-# ==========================================
-# GRAPHIFY / KNOWLEDGE GRAPH
-# ==========================================
-
-graphify-out/
-
-# ==========================================
-# LOCAL SCRIPTS / HELPERS
-# ==========================================
-
-format-context.js
-
-# ==========================================
-
-# ==========================================
-# AUDIO PLUGIN SPECIFIC
-# ==========================================
-
-*.filtergraph
-
-# ==========================================
-# OPERATING SYSTEM
+# OS / editor / temp files
 # ==========================================
 
 .DS_Store
 Thumbs.db
 ehthumbs.db
+Desktop.ini
 *.tmp
 *.temp
 *.log
+*.pid
 *.lnk
+*~
+*.swp
+*.swo
+
+.idea/
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.history/
 
 # ==========================================
-# SUBMODULES (JUCE is a submodule, keep it)
+# C / C++ / JUCE build artifacts
 # ==========================================
 
-# libs/juce is a tracked submodule
-# Comment out if you want to ignore it
-# libs/
+*.o
+*.obj
+*.lo
+*.slo
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.exp
+*.ilk
+*.pdb
+*.dwo
+*.dSYM/
+*.tlog
+*.idb
+*.lastbuildstate
+*.manifest
+*.recipe
+*.aps
+*.ncb
+*.sdf
+*.cache
+
+build/
+**/build/
+build_wsl/
+Build/
+**/Build/
+Builds/
+**/Builds/
+cmake-build-*/
+**/cmake-build-*/
+out/
+**/out/
+bin/
+**/bin/
+obj/
+**/obj/
+Debug/
+**/Debug/
+Release/
+**/Release/
+MinSizeRel/
+**/MinSizeRel/
+RelWithDebInfo/
+**/RelWithDebInfo/
+x64/
+**/x64/
+x86/
+**/x86/
+.vs/
+
+# CMake generated files
+CMakeFiles/
+**/CMakeFiles/
+CMakeCache.txt
+**/CMakeCache.txt
+cmake_install.cmake
+**/cmake_install.cmake
+Makefile
+**/Makefile
+CTestTestfile.cmake
+**/CTestTestfile.cmake
+install_manifest.txt
+**/install_manifest.txt
+compile_commands.json
+**/compile_commands.json
+Testing/
+**/Testing/
+*.cmake
+!CMakeLists.txt
+!**/CMakeLists.txt
+
+# Visual Studio / Xcode generated project files
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.slnx
+*.suo
+*.user
+*.userosscache
+*.xcworkspace/
+*.xcodeproj/
+DerivedData/
+*.hmap
+*.ipa
+*.xcuserstate
+*.xcuserdata/
+
+# ==========================================
+# Node / Vite / frontend tooling
+# ==========================================
 
 node_modules/
+**/node_modules/
+ui/dist/
+ui/.vite/
+ui/coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.vite/
+.cache/
+.parcel-cache/
+coverage/
 
-.sandcastle/*
+# ==========================================
+# Project-local tooling and generated metadata
+# ==========================================
+
+.opencode/
+.opencode/node_modules/
+.opencode/package-lock.json
+.sandcastle/
+graphify-out/
+.worktrees/
+plan.json
+format-context.js
+
+# ==========================================
+# Keep JUCE submodule tracked
+# ==========================================
+
+# libs/juce should remain versioned; do not ignore it.
+
+# End of .gitignore
