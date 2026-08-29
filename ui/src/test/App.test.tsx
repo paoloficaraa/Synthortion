@@ -370,13 +370,15 @@ describe('App', () => {
     expect(drive).toHaveAttribute('aria-valuetext', '40%')
   })
 
-  it('renders the T07 status bar chrome: brand, VGA preset readout and SAVE/LOAD', () => {
+  it('renders the T07 status bar chrome: brand, VGA preset readout, steppers and PRESETS/SAVE', () => {
     const { container } = render(<App />)
 
     expect(screen.getByRole('heading', { name: 'SYNTHORTION' })).toBeInTheDocument()
-    expect(screen.getByText('INIT_STATE_01')).toBeInTheDocument()
+    expect(screen.getByText(/INIT: INIT STATE/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'SAVE' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'LOAD' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'PRESETS' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous preset' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next preset' })).toBeInTheDocument()
 
     // The preset readout is a VGA ASCII surface with a blinking block cursor.
     const lcd = container.querySelector('header .bg-elev-0') as HTMLElement
