@@ -5,12 +5,13 @@ import { SystemBoot } from './components/SystemBoot'
 import { GainMeter } from './components/GainMeter'
 import { MatrixFaceplate } from './components/MatrixFaceplate'
 import { SpectrumVisualizer } from './components/SpectrumVisualizer'
+import { PresetBrowserModal } from './components/PresetBrowserModal'
+import { SavePresetModal } from './components/SavePresetModal'
 import { initialState, diffPluginState, type PluginState } from './lib/pluginState'
 import { noopDspBridge, type DspBridge, PARAMETER_IDS } from './lib/dspBridge'
 import { toAPVTS, parameterStore, type UIPreferences } from './lib/parameterStore'
 import { subscribeToDspChanges, subscribeToUIPreferences } from './lib/webViewDspBridge'
 import { createGlitchPulser } from './lib/glitchPulser'
-
 /** Module power flags pulse a fixed 0.8 burst (spec: short glitch). */
 const MODULE_POWER_KEYS: ReadonlySet<string> = new Set([
   'driveOn',
@@ -41,6 +42,8 @@ interface AppProps {
 function App({ dspBridge = noopDspBridge }: AppProps) {
   const [state, setState] = useState<PluginState>(initialState)
   const [uiPrefs, setUiPrefs] = useState<UIPreferences>(() => parameterStore.getUIPreferences())
+  const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false)
+  const [isSavePresetOpen, setIsSavePresetOpen] = useState(false)
   const prevStateRef = useRef<PluginState>(initialState)
   // Stable for the component's lifetime — created once, mutated by pulse()
   // from the effect below, read by the visualizer as a prop.
@@ -81,9 +84,22 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
     const unsubPrefs = subscribeToUIPreferences((prefs) => {
       setUiPrefs(prefs)
     })
+
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        setIsSavePresetOpen(true)
+      } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'p' || e.key.toLowerCase() === 'o')) {
+        e.preventDefault()
+        setIsPresetBrowserOpen(true)
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalShortcuts)
     return () => {
       unsubParams()
       unsubPrefs()
+      window.removeEventListener('keydown', handleGlobalShortcuts)
     }
   }, [])
   const scaleStyle = uiPrefs.uiScale && uiPrefs.uiScale !== 1.0 ? { transform: `scale(${uiPrefs.uiScale})`, transformOrigin: 'top left' } : undefined
@@ -98,6 +114,8 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
           <Header
             engineActive={state.engineActive}
             onToggleBypass={(active) => update({ engineActive: active })}
+            onOpenPresets={() => setIsPresetBrowserOpen(true)}
+            onOpenSave={() => setIsSavePresetOpen(true)}
           />
           {/* Real-time spectrum visualizer band allocated ~35% of center hub height */}
           <SpectrumVisualizer active={state.engineActive} glitch={pulser} decayRate={uiPrefs.spectrumDecay} />
@@ -108,6 +126,14 @@ function App({ dspBridge = noopDspBridge }: AppProps) {
         </main>
       </VstLayout>
       <SystemBoot skip={uiPrefs.skipBootSequence} />
+      <PresetBrowserModal
+        isOpen={isPresetBrowserOpen}
+        onClose={() => setIsPresetBrowserOpen(false)}
+      />
+      <SavePresetModal
+        isOpen={isSavePresetOpen}
+        onClose={() => setIsSavePresetOpen(false)}
+      />
     </div>
   )
 }

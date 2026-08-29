@@ -443,4 +443,50 @@ describe('App', () => {
 
     fireEvent.pointerUp(drive, { pointerId: 1 })
   })
+
+  it('opens and closes the Preset Browser modal via Header and keyboard shortcuts', () => {
+    render(<App />)
+
+    // Initially closed
+    expect(screen.queryByRole('dialog', { name: 'Preset Browser' })).not.toBeInTheDocument()
+
+    // Click PRESETS button in Header
+    fireEvent.click(screen.getByRole('button', { name: 'PRESETS' }))
+    expect(screen.getByRole('dialog', { name: 'Preset Browser' })).toBeInTheDocument()
+
+    // Close via Escape key
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Preset Browser' })).not.toBeInTheDocument()
+
+    // Open via Ctrl+P shortcut
+    fireEvent.keyDown(window, { key: 'p', ctrlKey: true })
+    expect(screen.getByRole('dialog', { name: 'Preset Browser' })).toBeInTheDocument()
+
+    // Close via close button
+    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+    expect(screen.queryByRole('dialog', { name: 'Preset Browser' })).not.toBeInTheDocument()
+  })
+
+  it('opens and closes the Save Preset modal via Header and keyboard shortcuts', () => {
+    render(<App />)
+
+    // Initially closed
+    expect(screen.queryByRole('dialog', { name: 'Save Preset' })).not.toBeInTheDocument()
+
+    // Click SAVE button in Header
+    fireEvent.click(screen.getByRole('button', { name: 'SAVE' }))
+    expect(screen.getByRole('dialog', { name: 'Save Preset' })).toBeInTheDocument()
+
+    // Close via Escape key
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Save Preset' })).not.toBeInTheDocument()
+
+    // Open via Ctrl+S shortcut
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true })
+    expect(screen.getByRole('dialog', { name: 'Save Preset' })).toBeInTheDocument()
+
+    // Close via close button
+    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+    expect(screen.queryByRole('dialog', { name: 'Save Preset' })).not.toBeInTheDocument()
+  })
 })

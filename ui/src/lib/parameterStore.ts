@@ -146,6 +146,19 @@ export const DELAY_SUBDIVISIONS = [
 
 export type DelaySubdivision = (typeof DELAY_SUBDIVISIONS)[number]
 
+export const CANONICAL_CATEGORIES = [
+  'Init',
+  'Bass',
+  'Lead',
+  'Lo-Fi',
+  'Pad',
+  'FX',
+  'Experimental',
+  'User',
+] as const
+
+export type CanonicalCategory = (typeof CANONICAL_CATEGORIES)[number]
+
 export const DEFAULT_PARAMETER_DESCRIPTORS: Record<string, ParameterDescriptor> = {
   INPUT_GAIN: {
     id: 'INPUT_GAIN',
