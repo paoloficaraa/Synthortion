@@ -4,9 +4,19 @@ import {
   subscribeToDspChanges,
   subscribeToDspMeters,
   subscribeToUIPreferences,
+  subscribeToPresetCatalog,
+  subscribeToPresetLoaded,
+  subscribeToPresetOperationResult,
   webViewDspBridge,
 } from '../lib/webViewDspBridge'
-import { parameterStore, type InitPayload } from '../lib/parameterStore'
+import {
+  parameterStore,
+  type InitPayload,
+  type PresetHeader,
+  type PresetListUpdatedPayload,
+  type PresetLoadedPayload,
+  type PresetOperationResultPayload,
+} from '../lib/parameterStore'
 import { createMockJuceBackend, type MockJuceBackend } from './setup'
 
 describe('webViewDspBridge & Native JUCE 8 Event Protocol', () => {
@@ -156,6 +166,177 @@ describe('webViewDspBridge & Native JUCE 8 Event Protocol', () => {
       id: 'INPUT_GAIN',
       value: 0.5,
     })
+  })
+
+  it('emits requestPresetList to JUCE backend', () => {
+    webViewDspBridge.requestPresetList()
+    expect(mockBackend.emitEvent).toHaveBeenCalledWith('requestPresetList', {})
+  })
+
+  it('emits loadPreset with preset id to JUCE backend', () => {
+    webViewDspBridge.loadPreset('factory://Bass/01_Sub_Destroyer')
+    expect(mockBackend.emitEvent).toHaveBeenCalledWith('loadPreset', {
+      id: 'factory://Bass/01_Sub_Destroyer',
+    })
+  })
+
+  it('emits savePreset with preset data payload to JUCE backend', () => {
+    webViewDspBridge.savePreset({
+      name: 'Custom Lead',
+      category: 'Lead',
+      author: 'Tester',
+      description: 'Test preset',
+      tags: ['Lead', 'Custom'],
+      allowOverwrite: true,
+    })
+    expect(mockBackend.emitEvent).toHaveBeenCalledWith('savePreset', {
+      name: 'Custom Lead',
+      category: 'Lead',
+      author: 'Tester',
+      description: 'Test preset',
+      tags: ['Lead', 'Custom'],
+      allowOverwrite: true,
+    })
+  })
+
+  it('emits deletePreset with preset id to JUCE backend', () => {
+    webViewDspBridge.deletePreset('user://Lead/Custom_Lead')
+    expect(mockBackend.emitEvent).toHaveBeenCalledWith('deletePreset', {
+      id: 'user://Lead/Custom_Lead',
+    })
+  })
+
+  it('subscribes to preset catalog updates and updates parameter store', () => {
+    const onCatalog = vi.fn()
+    const unsubscribe = subscribeToPresetCatalog(onCatalog)
+
+    expect(mockBackend.addEventListener).toHaveBeenCalledWith(
+      'presetListUpdated',
+      expect.any(Function)
+    )
+
+    const mockCatalog: PresetHeader[] = [
+      {
+        id: 'factory://Init/00_Default_Init',
+        name: 'Default Init',
+        category: 'Init',
+        author: 'Synthortion Core',
+        description: 'Clean default template.',
+        tags: ['Init', 'Default'],
+        isFactory: true,
+        filePath: '',
+        favorite: false,
+        createdAt: '2026-08-28T12:00:00Z',
+        modifiedAt: '2026-08-28T12:00:00Z',
+      },
+      {
+        id: 'user://Lead/My_Lead',
+        name: 'My Lead',
+        category: 'Lead',
+        author: 'User',
+        description: 'User lead patch.',
+        tags: ['Lead'],
+        isFactory: false,
+        filePath: '/path/to/My_Lead.synthortionpreset',
+        favorite: true,
+        createdAt: '2026-08-28T12:00:00Z',
+        modifiedAt: '2026-08-28T12:00:00Z',
+      },
+    ]
+
+    const payload: PresetListUpdatedPayload = {
+      presets: mockCatalog,
+      activePresetId: 'factory://Init/00_Default_Init',
+    }
+
+    mockBackend.trigger('presetListUpdated', payload)
+
+    expect(onCatalog).toHaveBeenCalledWith(payload)
+    expect(parameterStore.getPresetCatalog()).toHaveLength(2)
+    expect(parameterStore.getActivePresetId()).toBe('factory://Init/00_Default_Init')
+
+    unsubscribe()
+  })
+
+  it('subscribes to presetLoaded events and updates active preset state in store', () => {
+    const onLoaded = vi.fn()
+    const unsubscribe = subscribeToPresetLoaded(onLoaded)
+
+    expect(mockBackend.addEventListener).toHaveBeenCalledWith(
+      'presetLoaded',
+      expect.any(Function)
+    )
+
+    const payload: PresetLoadedPayload = {
+      id: 'factory://Bass/01_Sub_Destroyer',
+      name: 'Sub Destroyer',
+      category: 'Bass',
+      isFactory: true,
+      isDirty: false,
+    }
+
+    mockBackend.trigger('presetLoaded', payload)
+
+    expect(onLoaded).toHaveBeenCalledWith(payload)
+    expect(parameterStore.getActivePresetId()).toBe('factory://Bass/01_Sub_Destroyer')
+    expect(parameterStore.getActivePresetName()).toBe('Sub Destroyer')
+    expect(parameterStore.getActivePresetCategory()).toBe('Bass')
+    expect(parameterStore.getIsFactoryPreset()).toBe(true)
+    expect(parameterStore.getIsPresetDirty()).toBe(false)
+
+    unsubscribe()
+  })
+
+  it('maintains clean isPresetDirty state when parameterChange events precede presetLoaded', () => {
+    const onUpdate = vi.fn()
+    const onLoaded = vi.fn()
+    const unsubDsp = subscribeToDspChanges(onUpdate)
+    const unsubLoaded = subscribeToPresetLoaded(onLoaded)
+
+    // Incoming parameter changes from C++ preset loading
+    mockBackend.trigger('parameterChange', { id: 'COLOR', value: 0.85 })
+    mockBackend.trigger('parameterChange', { id: 'CHORUS_WIDE', value: 0.0 })
+
+    // Subsequent presetLoaded event
+    mockBackend.trigger('presetLoaded', {
+      id: 'factory://Bass/01_Sub_Destroyer',
+      name: 'Sub Destroyer',
+      category: 'Bass',
+      isFactory: true,
+      isDirty: false,
+    })
+
+    expect(parameterStore.getIsPresetDirty()).toBe(false)
+
+    // Editing parameter now flags dirty
+    parameterStore.setNormalizedValue('COLOR', 0.5)
+    expect(parameterStore.getIsPresetDirty()).toBe(true)
+
+    unsubDsp()
+    unsubLoaded()
+  })
+
+  it('subscribes to presetOperationResult events and updates store toast', () => {
+    const onResult = vi.fn()
+    const unsubscribe = subscribeToPresetOperationResult(onResult)
+
+    expect(mockBackend.addEventListener).toHaveBeenCalledWith(
+      'presetOperationResult',
+      expect.any(Function)
+    )
+
+    const payload: PresetOperationResultPayload = {
+      success: true,
+      operation: 'save',
+      message: 'Preset saved successfully.',
+    }
+
+    mockBackend.trigger('presetOperationResult', payload)
+
+    expect(onResult).toHaveBeenCalledWith(payload)
+    expect(parameterStore.getPresetOperationToast()).toBe('Preset saved successfully.')
+
+    unsubscribe()
   })
 
   it('does not throw when window.__JUCE__ is undefined', () => {

@@ -1,5 +1,19 @@
+import type { PresetHeader } from './parameterStore'
 
+export type { PresetHeader } from './parameterStore'
 
+/**
+ * Top-level preset management state.
+ */
+export interface PresetState {
+  presetCatalog: PresetHeader[]
+  activePresetId: string | null
+  activePresetName: string
+  activePresetCategory: string
+  isFactoryPreset: boolean
+  isPresetDirty: boolean
+  presetOperationToast: string | null
+}
 
 /**
  * Full plugin state hoisted to the App root as controlled props.

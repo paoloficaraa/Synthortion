@@ -7,6 +7,7 @@
 #include "Synthortion/SpectrumAnalyzer.h"
 #include "Synthortion/PresetManager.h"
 #include "Synthortion/PluginProcessor.h"
+#include "Synthortion/PluginEditor.h"
 #include <iostream>
 #include <BinaryData.h>
 
@@ -706,6 +707,126 @@ public:
         }
     }
 };
+
+class PresetBridgeEventTests final : public juce::UnitTest
+{
+public:
+    PresetBridgeEventTests() : juce::UnitTest("Preset Native Event Bridge IPC", "Synthortion") {}
+
+    void runTest() override
+    {
+        beginTest("buildInitPayload contains presets and activePresetId");
+        {
+            synthortion::AudioPluginAudioProcessor processor;
+            synthortion::AudioPluginAudioProcessorEditor editor(processor);
+
+            auto initPayload = editor.buildInitPayload();
+            expect(initPayload.isObject(), "Init payload must be an object");
+            auto* obj = initPayload.getDynamicObject();
+            expect(obj != nullptr);
+            expect(obj->hasProperty("schemaVersion"));
+            expect(obj->hasProperty("parameters"));
+            expect(obj->hasProperty("uiPreferences"));
+            expect(obj->hasProperty("presets"));
+            expect(obj->hasProperty("presetCatalog"));
+
+            auto* presetsArr = obj->getProperty("presets").getArray();
+            expect(presetsArr != nullptr);
+            expectEquals(presetsArr->size(), 12, "Init payload presets array must contain all 12 factory presets");
+        }
+
+        beginTest("buildPresetListPayload reflects catalog and activePresetId");
+        {
+            synthortion::AudioPluginAudioProcessor processor;
+            synthortion::AudioPluginAudioProcessorEditor editor(processor);
+
+            auto listPayload = editor.buildPresetListPayload();
+            expect(listPayload.isObject());
+            auto* obj = listPayload.getDynamicObject();
+            expect(obj != nullptr);
+            expect(obj->hasProperty("presets"));
+
+            auto* presetsArr = obj->getProperty("presets").getArray();
+            expect(presetsArr != nullptr);
+            expectEquals(presetsArr->size(), 12);
+        }
+
+        beginTest("handleLoadPreset updates APVTS parameters and activePresetId");
+        {
+            synthortion::AudioPluginAudioProcessor processor;
+            synthortion::AudioPluginAudioProcessorEditor editor(processor);
+
+            juce::DynamicObject::Ptr loadReq = new juce::DynamicObject();
+            loadReq->setProperty("id", "factory://Bass/Sub Destroyer");
+
+            editor.handleLoadPreset(juce::var(loadReq.get()));
+
+            expectEquals(processor.getPresetManager().getActivePresetId(), juce::String("factory://Bass/Sub Destroyer"));
+            if (auto* colorParam = processor.getAPVTS().getParameter("COLOR"))
+            {
+                expectWithinAbsoluteError(colorParam->getValue(), 0.85f, 0.001f);
+            }
+        }
+
+        beginTest("handleSavePreset and handleDeletePreset IPC handlers");
+        {
+            juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                                    .getChildFile("Synthortion_Bridge_Preset_Tests_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt64()));
+            tempDir.createDirectory();
+
+            synthortion::AudioPluginAudioProcessor processor;
+            processor.getPresetManager().setUserPresetsDirectory(tempDir);
+            synthortion::AudioPluginAudioProcessorEditor editor(processor);
+
+            // Save preset
+            juce::DynamicObject::Ptr saveReq = new juce::DynamicObject();
+            saveReq->setProperty("name", "IPC Test Preset");
+            saveReq->setProperty("category", "Lead");
+            saveReq->setProperty("author", "Bridge Tester");
+            saveReq->setProperty("description", "Testing IPC save");
+            saveReq->setProperty("allowOverwrite", true);
+
+            juce::Array<juce::var> tags;
+            tags.add("Test");
+            tags.add("IPC");
+            saveReq->setProperty("tags", tags);
+
+            editor.handleSavePreset(juce::var(saveReq.get()));
+
+            juce::String expectedId = "user://Lead/IPC Test Preset";
+            expectEquals(processor.getPresetManager().getActivePresetId(), expectedId);
+
+            auto userPresetHeader = processor.getPresetManager().getPresetHeaderById(expectedId);
+            expect(userPresetHeader.has_value());
+            if (userPresetHeader.has_value())
+            {
+                expectEquals(userPresetHeader->name, juce::String("IPC Test Preset"));
+                expectEquals(userPresetHeader->category, juce::String("Lead"));
+                expectEquals(userPresetHeader->author, juce::String("Bridge Tester"));
+            }
+
+            // Catalog in buildPresetListPayload should now have 13 presets
+            auto listPayload = editor.buildPresetListPayload();
+            auto* listObj = listPayload.getDynamicObject();
+            expect(listObj != nullptr);
+            auto* presetsArr = listObj->getProperty("presets").getArray();
+            expect(presetsArr != nullptr);
+            expectEquals(presetsArr->size(), 13);
+
+            // Delete preset
+            juce::DynamicObject::Ptr deleteReq = new juce::DynamicObject();
+            deleteReq->setProperty("id", expectedId);
+            editor.handleDeletePreset(juce::var(deleteReq.get()));
+
+            expect(processor.getPresetManager().getActivePresetId().isEmpty());
+            expect(!processor.getPresetManager().getPresetHeaderById(expectedId).has_value());
+
+            tempDir.deleteRecursively();
+        }
+    }
+};
+
+static PresetBridgeEventTests presetBridgeEventTests;
 
 static FactoryPresetAndHostProgramTests factoryPresetAndHostProgramTests;
 

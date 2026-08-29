@@ -47,11 +47,67 @@ export interface UIPreferences {
   spectrumDecay?: number
   skipBootSequence?: boolean
 }
+export interface PresetHeader {
+  id: string
+  name: string
+  category: string
+  author: string
+  description: string
+  tags: string[]
+  isFactory: boolean
+  filePath: string
+  favorite: boolean
+  createdAt: string
+  modifiedAt: string
+}
+
+export interface PresetMetadata {
+  name: string
+  category: string
+  author?: string
+  description?: string
+  tags?: string[]
+  favorite?: boolean
+  createdAt?: string
+  modifiedAt?: string
+}
+
+export interface SavePresetData {
+  name: string
+  category: string
+  author?: string
+  description?: string
+  tags?: string[]
+  allowOverwrite?: boolean
+}
+
+export interface PresetListUpdatedPayload {
+  presets: PresetHeader[]
+  activePresetId: string | null
+}
+
+export interface PresetLoadedPayload {
+  id: string
+  name: string
+  category: string
+  isFactory: boolean
+  isDirty: boolean
+}
+
+export interface PresetOperationResultPayload {
+  success: boolean
+  operation: 'save' | 'delete' | 'load'
+  errorCode?: string
+  message?: string
+}
 
 export interface InitPayload {
   schemaVersion: 1
   parameters: ParameterDescriptor[]
   uiPreferences?: UIPreferences
+  presets?: PresetHeader[]
+  presetCatalog?: PresetHeader[]
+  activePresetId?: string | null
 }
 
 export interface SetParameterPayload {
@@ -417,11 +473,48 @@ export class ParameterStore {
     spectrumDecay: 0.25,
     skipBootSequence: false,
   }
+  private presetCatalog: PresetHeader[] = []
+  private activePresetId: string | null = null
+  private activePresetName: string = 'Init State'
+  private activePresetCategory: string = 'Init'
+  private isFactoryPreset: boolean = true
+  private isPresetDirty: boolean = false
+  private presetOperationToast: string | null = null
+  private loadedSnapshot: Map<string, number> = new Map()
   private listeners: Set<() => void> = new Set()
   private prefListeners: Set<(prefs: UIPreferences) => void> = new Set()
+  private presetListeners: Set<() => void> = new Set()
+  private bridge?: {
+    setParameter: (id: string, value: number) => void
+    requestPresetList?: () => void
+    loadPreset?: (id: string) => void
+    savePreset?: (data: SavePresetData) => void
+    deletePreset?: (id: string) => void
+  }
 
   private notify(): void {
     this.listeners?.forEach((cb) => cb())
+  }
+
+  private notifyPresets(): void {
+    this.presetListeners?.forEach((cb) => cb())
+  }
+
+  private checkDirty(): void {
+    let dirty = false
+    for (const [id, desc] of this.descriptors.entries()) {
+      const snapVal = this.loadedSnapshot.get(id)
+      if (snapVal !== undefined) {
+        if (Math.abs(desc.normalizedValue - snapVal) > 1e-5) {
+          dirty = true
+          break
+        }
+      }
+    }
+    if (this.isPresetDirty !== dirty) {
+      this.isPresetDirty = dirty
+      this.notifyPresets()
+    }
   }
   constructor() {
     this.reset()
@@ -437,7 +530,17 @@ export class ParameterStore {
       spectrumDecay: 0.25,
       skipBootSequence: false,
     }
+    this.presetCatalog = []
+    this.activePresetId = null
+    this.activePresetName = 'Init State'
+    this.activePresetCategory = 'Init'
+    this.isFactoryPreset = true
+    this.isPresetDirty = false
+    this.presetOperationToast = null
+    this.loadedSnapshot.clear()
+    this.snapshotCurrentState()
     this.notify()
+    this.notifyPresets()
   }
 
   hydrate(payload: InitPayload | ParameterDescriptor[]): void {
@@ -480,7 +583,12 @@ export class ParameterStore {
       if (payload.uiPreferences) {
         this.setUIPreferences(payload.uiPreferences)
       }
+      const presets = payload.presets ?? payload.presetCatalog
+      if (presets) {
+        this.setPresetCatalog(presets, payload.activePresetId)
+      }
     }
+    this.snapshotCurrentState()
     this.notify()
   }
 
@@ -513,7 +621,22 @@ export class ParameterStore {
           Math.round(normalizedValue * (desc.choices.length - 1))
         )
       }
+      this.checkDirty()
       this.notify()
+    }
+  }
+
+  setNormalizedValue(id: string, normalizedValue: number): void {
+    this.updateParameter(id, normalizedValue)
+  }
+
+  patchState(patch: Partial<PluginState>): void {
+    for (const [key, value] of Object.entries(patch)) {
+      const apvtsId = UI_KEY_TO_APVTS_ID[key as keyof PluginState]
+      if (apvtsId) {
+        const normVal = this.toNormalized(apvtsId, value)
+        this.updateParameter(apvtsId, normVal)
+      }
     }
   }
 
@@ -537,6 +660,158 @@ export class ParameterStore {
     this.prefListeners.add(listener)
     return () => {
       this.prefListeners.delete(listener)
+    }
+  }
+
+  setBridge(bridge: {
+    setParameter: (id: string, value: number) => void
+    requestPresetList?: () => void
+    loadPreset?: (id: string) => void
+    savePreset?: (data: SavePresetData) => void
+    deletePreset?: (id: string) => void
+  }): void {
+    this.bridge = bridge
+  }
+
+  getPresetCatalog(): PresetHeader[] {
+    return [...this.presetCatalog]
+  }
+
+  setPresetCatalog(presets: PresetHeader[], activePresetId?: string | null): void {
+    this.presetCatalog = [...presets]
+    if (activePresetId !== undefined) {
+      this.activePresetId = activePresetId
+      const activeHeader = this.presetCatalog.find((p) => p.id === activePresetId)
+      if (activeHeader) {
+        this.activePresetName = activeHeader.name
+        this.activePresetCategory = activeHeader.category
+        this.isFactoryPreset = activeHeader.isFactory
+      }
+    }
+    this.notifyPresets()
+  }
+
+  getActivePresetId(): string | null {
+    return this.activePresetId
+  }
+
+  getActivePresetName(): string {
+    return this.activePresetName
+  }
+
+  getActivePresetCategory(): string {
+    return this.activePresetCategory
+  }
+
+  getIsFactoryPreset(): boolean {
+    return this.isFactoryPreset
+  }
+
+  getIsPresetDirty(): boolean {
+    return this.isPresetDirty
+  }
+
+  setPresetDirty(dirty: boolean): void {
+    this.isPresetDirty = dirty
+    this.notifyPresets()
+  }
+
+  getPresetOperationToast(): string | null {
+    return this.presetOperationToast
+  }
+
+  setPresetOperationToast(toast: string | null): void {
+    this.presetOperationToast = toast
+    this.notifyPresets()
+  }
+
+  setActivePreset(info: {
+    id: string | null
+    name: string
+    category: string
+    isFactory?: boolean
+    isDirty?: boolean
+  }): void {
+    this.activePresetId = info.id
+    this.activePresetName = info.name
+    this.activePresetCategory = info.category
+    this.isFactoryPreset = info.isFactory ?? (info.id ? info.id.startsWith('factory://') : false)
+    this.isPresetDirty = info.isDirty ?? false
+    this.snapshotCurrentState()
+    this.notifyPresets()
+  }
+
+  snapshotCurrentState(): void {
+    this.loadedSnapshot.clear()
+    for (const [id, desc] of this.descriptors.entries()) {
+      this.loadedSnapshot.set(id, desc.normalizedValue)
+    }
+    this.isPresetDirty = false
+  }
+
+  subscribePresets(listener: () => void): () => void {
+    this.presetListeners.add(listener)
+    return () => {
+      this.presetListeners.delete(listener)
+    }
+  }
+
+  loadPreset(
+    id: string,
+    bridge?: { loadPreset?: (id: string) => void }
+  ): void {
+    const targetBridge = bridge ?? this.bridge
+    if (targetBridge?.loadPreset) {
+      targetBridge.loadPreset(id)
+    }
+  }
+
+  stepPreset(
+    direction: 'next' | 'prev',
+    bridge?: { loadPreset?: (id: string) => void }
+  ): string | null {
+    if (this.presetCatalog.length === 0) return null
+
+    const categoryPresets = this.presetCatalog.filter(
+      (p) => p.category.toLowerCase() === this.activePresetCategory.toLowerCase()
+    )
+    const list = categoryPresets.length > 0 ? categoryPresets : this.presetCatalog
+
+    const currentIndex = list.findIndex((p) => p.id === this.activePresetId)
+    const nextIndex =
+      currentIndex === -1
+        ? direction === 'next'
+          ? 0
+          : list.length - 1
+        : direction === 'next'
+          ? (currentIndex + 1) % list.length
+          : (currentIndex - 1 + list.length) % list.length
+
+    const targetPreset = list[nextIndex]
+    if (targetPreset) {
+      this.loadPreset(targetPreset.id, bridge)
+      return targetPreset.id
+    }
+    return null
+  }
+
+  savePreset(
+    data: SavePresetData,
+    bridge?: { savePreset?: (data: SavePresetData) => void }
+  ): void {
+    const targetBridge = bridge ?? this.bridge
+    if (targetBridge?.savePreset) {
+      targetBridge.savePreset(data)
+    }
+  }
+
+  deletePreset(
+    id: string,
+    bridge?: { deletePreset?: (id: string) => void }
+  ): void {
+    const targetBridge = bridge ?? this.bridge
+    if (targetBridge?.deletePreset) {
+      targetBridge.deletePreset(id)
     }
   }
 

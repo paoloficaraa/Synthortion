@@ -111,6 +111,22 @@ namespace synthortion
             {
                 editor.handleConnect();
             })
+            .withEventListener ("requestPresetList", [&editor] (const juce::var&)
+            {
+                editor.handleRequestPresetList();
+            })
+            .withEventListener ("loadPreset", [&editor] (const juce::var& data)
+            {
+                editor.handleLoadPreset(data);
+            })
+            .withEventListener ("savePreset", [&editor] (const juce::var& data)
+            {
+                editor.handleSavePreset(data);
+            })
+            .withEventListener ("deletePreset", [&editor] (const juce::var& data)
+            {
+                editor.handleDeletePreset(data);
+            })
             .withResourceProvider ([&editor] (const juce::String& url)
             {
                 return editor.getResource (url);
@@ -241,6 +257,14 @@ namespace synthortion
         // Add uiPreferences with default fallbacks if tree is missing/uninitialized
         payload->setProperty ("uiPreferences", buildUIPreferencesPayload());
 
+        auto presetListPayload = buildPresetListPayload();
+        if (auto* presetListObj = presetListPayload.getDynamicObject())
+        {
+            payload->setProperty ("presets", presetListObj->getProperty ("presets"));
+            payload->setProperty ("presetCatalog", presetListObj->getProperty ("presets"));
+            payload->setProperty ("activePresetId", presetListObj->getProperty ("activePresetId"));
+        }
+
         return juce::var (payload.get());
     }
 
@@ -324,6 +348,185 @@ namespace synthortion
                 }
             }
         }
+    }
+
+    static juce::String presetErrorCodeToString (PresetErrorCode code)
+    {
+        switch (code)
+        {
+            case PresetErrorCode::Ok: return "Ok";
+            case PresetErrorCode::FileNotFound: return "FileNotFound";
+            case PresetErrorCode::InvalidJson: return "InvalidJson";
+            case PresetErrorCode::SchemaMismatch: return "SchemaMismatch";
+            case PresetErrorCode::WriteFailed: return "WriteFailed";
+            case PresetErrorCode::PermissionDenied: return "PermissionDenied";
+            case PresetErrorCode::CannotDeleteFactoryPreset: return "CannotDeleteFactoryPreset";
+            case PresetErrorCode::DuplicateName: return "DuplicateName";
+        }
+        return "Unknown";
+    }
+
+    void AudioPluginAudioProcessorEditor::sendPresetOperationResult (bool success,
+                                                                    const juce::String& op,
+                                                                    const juce::String& errorCode,
+                                                                    const juce::String& message)
+    {
+        if (webView == nullptr) return;
+        juce::DynamicObject::Ptr resObj = new juce::DynamicObject();
+        resObj->setProperty ("success", success);
+        resObj->setProperty ("operation", op);
+        if (errorCode.isNotEmpty())
+            resObj->setProperty ("errorCode", errorCode);
+        if (message.isNotEmpty())
+            resObj->setProperty ("message", message);
+        webView->emitEventIfBrowserIsVisible ("presetOperationResult", juce::var (resObj.get()));
+    }
+
+    juce::var AudioPluginAudioProcessorEditor::buildPresetListPayload()
+    {
+        juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+        juce::Array<juce::var> presets;
+        for (const auto& header : processorRef.getPresetManager().getCatalog())
+        {
+            presets.add (header.toVar());
+        }
+        obj->setProperty ("presets", presets);
+        auto activeId = processorRef.getPresetManager().getActivePresetId();
+        if (activeId.isNotEmpty())
+            obj->setProperty ("activePresetId", activeId);
+        else
+            obj->setProperty ("activePresetId", juce::var());
+
+        return juce::var (obj.get());
+    }
+
+    void AudioPluginAudioProcessorEditor::sendPresetListUpdate()
+    {
+        if (webView == nullptr) return;
+        webView->emitEventIfBrowserIsVisible ("presetListUpdated", buildPresetListPayload());
+    }
+
+    void AudioPluginAudioProcessorEditor::handleRequestPresetList()
+    {
+        sendPresetListUpdate();
+    }
+
+    void AudioPluginAudioProcessorEditor::handleLoadPreset (const juce::var& data)
+    {
+        if (auto* obj = data.getDynamicObject())
+        {
+            if (obj->hasProperty ("id"))
+            {
+                juce::String id = obj->getProperty ("id").toString();
+                auto& presetManager = processorRef.getPresetManager();
+                auto result = presetManager.loadPreset (id, processorRef.getAPVTS());
+                if (result.success)
+                {
+                    // Broadcast parameterChange events first so frontend parameter descriptors update
+                    for (auto* param : processorRef.getParameters())
+                    {
+                        if (auto* pWithId = dynamic_cast<juce::AudioProcessorParameterWithID*> (param))
+                        {
+                            sendParameterChange (pWithId->paramID);
+                        }
+                    }
+
+                    // Emit presetLoaded after parameter changes are applied
+                    auto headerOpt = presetManager.getPresetHeaderById (id);
+                    juce::DynamicObject::Ptr loadedObj = new juce::DynamicObject();
+                    loadedObj->setProperty ("id", id);
+                    loadedObj->setProperty ("name", headerOpt ? headerOpt->name : juce::String());
+                    loadedObj->setProperty ("category", headerOpt ? headerOpt->category : juce::String());
+                    loadedObj->setProperty ("isFactory", headerOpt ? headerOpt->isFactory : id.startsWith ("factory://"));
+                    loadedObj->setProperty ("isDirty", false);
+
+                    if (webView != nullptr)
+                    {
+                        webView->emitEventIfBrowserIsVisible ("presetLoaded", juce::var (loadedObj.get()));
+                    }
+                }
+                else
+                {
+                    sendPresetOperationResult (false, "load", presetErrorCodeToString (result.code), result.message);
+                }
+                return;
+            }
+        }
+        sendPresetOperationResult (false, "load", "InvalidJson", "Missing 'id' in loadPreset payload.");
+    }
+
+    void AudioPluginAudioProcessorEditor::handleSavePreset (const juce::var& data)
+    {
+        if (auto* obj = data.getDynamicObject())
+        {
+            juce::String name = obj->getProperty ("name").toString();
+            juce::String category = obj->getProperty ("category").toString();
+            juce::String author = obj->hasProperty ("author") ? obj->getProperty ("author").toString() : "User";
+            juce::String description = obj->hasProperty ("description") ? obj->getProperty ("description").toString() : "";
+            bool allowOverwrite = obj->hasProperty ("allowOverwrite") ? static_cast<bool> (obj->getProperty ("allowOverwrite")) : false;
+
+            juce::StringArray tags;
+            if (obj->hasProperty ("tags"))
+            {
+                if (auto* arr = obj->getProperty ("tags").getArray())
+                {
+                    for (const auto& tagVar : *arr)
+                        tags.add (tagVar.toString());
+                }
+            }
+
+            auto& presetManager = processorRef.getPresetManager();
+            auto result = presetManager.saveUserPreset (category, name, author, description, tags, processorRef.getAPVTS(), allowOverwrite);
+
+            if (result.success)
+            {
+                sendPresetOperationResult (true, "save", {}, "Preset saved successfully.");
+                sendPresetListUpdate();
+                juce::String savedId = presetManager.getActivePresetId();
+                auto headerOpt = presetManager.getPresetHeaderById (savedId);
+                juce::DynamicObject::Ptr loadedObj = new juce::DynamicObject();
+                loadedObj->setProperty ("id", savedId);
+                loadedObj->setProperty ("name", headerOpt ? headerOpt->name : name);
+                loadedObj->setProperty ("category", headerOpt ? headerOpt->category : category);
+                loadedObj->setProperty ("isFactory", false);
+                loadedObj->setProperty ("isDirty", false);
+                if (webView != nullptr)
+                {
+                    webView->emitEventIfBrowserIsVisible ("presetLoaded", juce::var (loadedObj.get()));
+                }
+            }
+            else
+            {
+                sendPresetOperationResult (false, "save", presetErrorCodeToString (result.code), result.message);
+            }
+            return;
+        }
+        sendPresetOperationResult (false, "save", "InvalidJson", "Missing dynamic object in savePreset payload.");
+    }
+
+    void AudioPluginAudioProcessorEditor::handleDeletePreset (const juce::var& data)
+    {
+        if (auto* obj = data.getDynamicObject())
+        {
+            if (obj->hasProperty ("id"))
+            {
+                juce::String id = obj->getProperty ("id").toString();
+                auto& presetManager = processorRef.getPresetManager();
+                auto result = presetManager.deleteUserPreset (id);
+
+                if (result.success)
+                {
+                    sendPresetOperationResult (true, "delete", {}, "Preset deleted.");
+                    sendPresetListUpdate();
+                }
+                else
+                {
+                    sendPresetOperationResult (false, "delete", presetErrorCodeToString (result.code), result.message);
+                }
+                return;
+            }
+        }
+        sendPresetOperationResult (false, "delete", "InvalidJson", "Missing 'id' in deletePreset payload.");
     }
     void AudioPluginAudioProcessorEditor::timerCallback()
     {

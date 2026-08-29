@@ -25,6 +25,13 @@ namespace synthortion
         juce::var buildInitPayload();
         void handleConnect();
         void handleSetParameter (const juce::var& data);
+        void handleRequestPresetList();
+        void handleLoadPreset (const juce::var& data);
+        void handleSavePreset (const juce::var& data);
+        void handleDeletePreset (const juce::var& data);
+        void sendPresetListUpdate();
+        juce::var buildPresetListPayload();
+        void sendPresetOperationResult (bool success, const juce::String& op, const juce::String& errorCode, const juce::String& message);
         void sendUIPreferencesChange();
         juce::var buildUIPreferencesPayload();
         void timerCallback() override;

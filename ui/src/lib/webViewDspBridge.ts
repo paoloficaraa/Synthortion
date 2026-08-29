@@ -4,9 +4,12 @@ import {
   parameterStore,
   type InitPayload,
   type UIPreferences,
+  type PresetListUpdatedPayload,
+  type PresetLoadedPayload,
+  type PresetOperationResultPayload,
+  type SavePresetData,
 } from './parameterStore'
 import type { PluginState } from './pluginState'
-
 /** Global JUCE WebView interface injected by WebBrowserComponent in JUCE 8. */
 declare global {
   interface Window {
@@ -23,7 +26,12 @@ declare global {
 }
 
 /** Real WebView bridge using JUCE 8 native WebBrowserComponent events. */
-export const webViewDspBridge: DspBridge = {
+export const webViewDspBridge: DspBridge & {
+  requestPresetList: () => void
+  loadPreset: (id: string) => void
+  savePreset: (data: SavePresetData) => void
+  deletePreset: (id: string) => void
+} = {
   setParameter(id: string, value: number) {
     if (window.__JUCE__?.backend?.emitEvent) {
       window.__JUCE__.backend.emitEvent('setParameter', { id, value })
@@ -31,7 +39,37 @@ export const webViewDspBridge: DspBridge = {
       console.warn('[Synthortion] JUCE backend not available')
     }
   },
+  requestPresetList() {
+    if (window.__JUCE__?.backend?.emitEvent) {
+      window.__JUCE__.backend.emitEvent('requestPresetList', {})
+    } else {
+      console.warn('[Synthortion] JUCE backend not available')
+    }
+  },
+  loadPreset(id: string) {
+    if (window.__JUCE__?.backend?.emitEvent) {
+      window.__JUCE__.backend.emitEvent('loadPreset', { id })
+    } else {
+      console.warn('[Synthortion] JUCE backend not available')
+    }
+  },
+  savePreset(data: SavePresetData) {
+    if (window.__JUCE__?.backend?.emitEvent) {
+      window.__JUCE__.backend.emitEvent('savePreset', data)
+    } else {
+      console.warn('[Synthortion] JUCE backend not available')
+    }
+  },
+  deletePreset(id: string) {
+    if (window.__JUCE__?.backend?.emitEvent) {
+      window.__JUCE__.backend.emitEvent('deletePreset', { id })
+    } else {
+      console.warn('[Synthortion] JUCE backend not available')
+    }
+  },
 }
+
+parameterStore.setBridge(webViewDspBridge)
 
 /** Helper to subscribe to JUCE native events with safe cleanup. */
 function addNativeEventListener(
@@ -169,4 +207,69 @@ export function subscribeToUIPreferences(
     unsubNative()
     unsubStore()
   }
+}
+
+/**
+ * Register listener for incoming preset catalog updates (`presetListUpdated` event).
+ */
+export function subscribeToPresetCatalog(
+  onCatalog: (payload: PresetListUpdatedPayload) => void
+): () => void {
+  return addNativeEventListener('presetListUpdated', (data) => {
+    if (data && typeof data === 'object' && 'presets' in data && Array.isArray(data.presets)) {
+      const payload = data as PresetListUpdatedPayload
+      parameterStore.setPresetCatalog(payload.presets, payload.activePresetId)
+      onCatalog(payload)
+    }
+  })
+}
+
+/**
+ * Register listener for preset loaded notification (`presetLoaded` event).
+ */
+export function subscribeToPresetLoaded(
+  onLoaded: (payload: PresetLoadedPayload) => void
+): () => void {
+  return addNativeEventListener('presetLoaded', (data) => {
+    if (
+      data &&
+      typeof data === 'object' &&
+      'id' in data &&
+      typeof data.id === 'string' &&
+      'name' in data &&
+      typeof data.name === 'string'
+    ) {
+      const payload = data as PresetLoadedPayload
+      parameterStore.setActivePreset({
+        id: payload.id,
+        name: payload.name,
+        category: payload.category ?? 'User',
+        isFactory: payload.isFactory ?? payload.id.startsWith('factory://'),
+        isDirty: payload.isDirty ?? false,
+      })
+      onLoaded(payload)
+    }
+  })
+}
+
+/**
+ * Register listener for preset operation results (`presetOperationResult` event).
+ */
+export function subscribeToPresetOperationResult(
+  onResult: (payload: PresetOperationResultPayload) => void
+): () => void {
+  return addNativeEventListener('presetOperationResult', (data) => {
+    if (
+      data &&
+      typeof data === 'object' &&
+      'success' in data &&
+      'operation' in data
+    ) {
+      const payload = data as PresetOperationResultPayload
+      if (payload.message) {
+        parameterStore.setPresetOperationToast(payload.message)
+      }
+      onResult(payload)
+    }
+  })
 }

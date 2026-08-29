@@ -7,6 +7,7 @@ import {
   type InitPayload,
   type FloatParameterDescriptor,
   type ChoiceParameterDescriptor,
+  type PresetHeader,
 } from '../lib/parameterStore'
 
 describe('parameterStore dynamic normalization & hydration', () => {
@@ -219,5 +220,251 @@ describe('parameterStore dynamic normalization & hydration', () => {
     expect(prefUpdates[0].uiScale).toBe(1.5)
 
     unsub()
+  })
+
+  it('initializes with default preset state properties', () => {
+    expect(parameterStore.getPresetCatalog()).toEqual([])
+    expect(parameterStore.getActivePresetId()).toBeNull()
+    expect(parameterStore.getActivePresetName()).toBe('Init State')
+    expect(parameterStore.getActivePresetCategory()).toBe('Init')
+    expect(parameterStore.getIsFactoryPreset()).toBe(true)
+    expect(parameterStore.getIsPresetDirty()).toBe(false)
+    expect(parameterStore.getPresetOperationToast()).toBeNull()
+  })
+
+  it('sets preset catalog and active preset ID, notifying listeners', () => {
+    const presetUpdates: number[] = []
+    const unsub = parameterStore.subscribePresets(() => {
+      presetUpdates.push(parameterStore.getPresetCatalog().length)
+    })
+
+    const mockCatalog: PresetHeader[] = [
+      {
+        id: 'factory://Init/00_Default_Init',
+        name: 'Default Init',
+        category: 'Init',
+        author: 'Synthortion Core',
+        description: 'Clean default template.',
+        tags: ['Init', 'Default'],
+        isFactory: true,
+        filePath: '',
+        favorite: false,
+        createdAt: '2026-08-28T12:00:00Z',
+        modifiedAt: '2026-08-28T12:00:00Z',
+      },
+      {
+        id: 'factory://Bass/01_Sub_Destroyer',
+        name: 'Sub Destroyer',
+        category: 'Bass',
+        author: 'Synthortion Core',
+        description: 'Sub heavy bass.',
+        tags: ['Bass'],
+        isFactory: true,
+        filePath: '',
+        favorite: false,
+        createdAt: '2026-08-28T12:00:00Z',
+        modifiedAt: '2026-08-28T12:00:00Z',
+      },
+    ]
+
+    parameterStore.setPresetCatalog(mockCatalog, 'factory://Init/00_Default_Init')
+
+    expect(parameterStore.getPresetCatalog()).toEqual(mockCatalog)
+    expect(parameterStore.getActivePresetId()).toBe('factory://Init/00_Default_Init')
+    expect(presetUpdates).toHaveLength(1)
+    expect(presetUpdates[0]).toBe(2)
+
+    unsub()
+  })
+
+  it('updates active preset information and resets dirty state with snapshot', () => {
+    parameterStore.setActivePreset({
+      id: 'factory://Bass/01_Sub_Destroyer',
+      name: 'Sub Destroyer',
+      category: 'Bass',
+      isFactory: true,
+      isDirty: false,
+    })
+
+    expect(parameterStore.getActivePresetId()).toBe('factory://Bass/01_Sub_Destroyer')
+    expect(parameterStore.getActivePresetName()).toBe('Sub Destroyer')
+    expect(parameterStore.getActivePresetCategory()).toBe('Bass')
+    expect(parameterStore.getIsFactoryPreset()).toBe(true)
+    expect(parameterStore.getIsPresetDirty()).toBe(false)
+  })
+
+  it('tracks dirty flag when parameters are edited and clears when restored or preset loaded', () => {
+    // Snapshot at initial default state
+    parameterStore.setActivePreset({
+      id: 'factory://Init/00_Default_Init',
+      name: 'Default Init',
+      category: 'Init',
+      isFactory: true,
+    })
+    expect(parameterStore.getIsPresetDirty()).toBe(false)
+
+    // Edit parameter via setNormalizedValue
+    parameterStore.setNormalizedValue('COLOR', 0.9)
+    expect(parameterStore.getIsPresetDirty()).toBe(true)
+
+    // Restore parameter to original snapshot value (0.4)
+    parameterStore.setNormalizedValue('COLOR', 0.4)
+    expect(parameterStore.getIsPresetDirty()).toBe(false)
+
+    // Edit via patchState
+    parameterStore.patchState({ drive: 80 })
+    expect(parameterStore.getIsPresetDirty()).toBe(true)
+
+    // Loading a new preset cleans dirty state
+    parameterStore.setActivePreset({
+      id: 'factory://Lead/03_Cyber_Neon',
+      name: 'Cyber Neon',
+      category: 'Lead',
+      isFactory: true,
+    })
+    expect(parameterStore.getIsPresetDirty()).toBe(false)
+  })
+
+  it('steps cyclically through presets within the active category', () => {
+    const mockCatalog: PresetHeader[] = [
+      {
+        id: 'factory://Init/00_Default_Init',
+        name: 'Default Init',
+        category: 'Init',
+        author: 'Synthortion Core',
+        description: 'Clean default template.',
+        tags: ['Init'],
+        isFactory: true,
+        filePath: '',
+        favorite: false,
+        createdAt: '2026-08-28T12:00:00Z',
+        modifiedAt: '2026-08-28T12:00:00Z',
+      },
+      {
+        id: 'factory://Bass/01_Sub_Destroyer',
+        name: 'Sub Destroyer',
+        category: 'Bass',
+        author: 'Synthortion Core',
+        description: 'Sub heavy bass.',
+        tags: ['Bass'],
+        isFactory: true,
+        filePath: '',
+        favorite: false,
+        createdAt: '2026-08-28T12:00:00Z',
+        modifiedAt: '2026-08-28T12:00:00Z',
+      },
+      {
+        id: 'factory://Bass/02_Acid_Crush',
+        name: 'Acid Crush',
+        category: 'Bass',
+        author: 'Synthortion Core',
+        description: 'Resonant acid bass.',
+        tags: ['Bass'],
+        isFactory: true,
+        filePath: '',
+        favorite: false,
+        createdAt: '2026-08-28T12:00:00Z',
+        modifiedAt: '2026-08-28T12:00:00Z',
+      },
+      {
+        id: 'factory://Lead/03_Cyber_Neon',
+        name: 'Cyber Neon',
+        category: 'Lead',
+        author: 'Synthortion Core',
+        description: 'Bright lead.',
+        tags: ['Lead'],
+        isFactory: true,
+        filePath: '',
+        favorite: false,
+        createdAt: '2026-08-28T12:00:00Z',
+        modifiedAt: '2026-08-28T12:00:00Z',
+      },
+    ]
+
+    const loadCalls: string[] = []
+    const mockBridge = {
+      setParameter() {},
+      loadPreset(id: string) {
+        loadCalls.push(id)
+      },
+    }
+    parameterStore.setBridge(mockBridge)
+    parameterStore.setPresetCatalog(mockCatalog, 'factory://Bass/01_Sub_Destroyer')
+    parameterStore.setActivePreset({
+      id: 'factory://Bass/01_Sub_Destroyer',
+      name: 'Sub Destroyer',
+      category: 'Bass',
+      isFactory: true,
+    })
+
+    // Step next within Bass -> Acid Crush
+    const nextId = parameterStore.stepPreset('next')
+    expect(nextId).toBe('factory://Bass/02_Acid_Crush')
+    expect(loadCalls).toContain('factory://Bass/02_Acid_Crush')
+
+    // Active preset moves to Acid Crush
+    parameterStore.setActivePreset({
+      id: 'factory://Bass/02_Acid_Crush',
+      name: 'Acid Crush',
+      category: 'Bass',
+      isFactory: true,
+    })
+
+    // Step next again -> wraps around to Sub Destroyer
+    const wrapId = parameterStore.stepPreset('next')
+    expect(wrapId).toBe('factory://Bass/01_Sub_Destroyer')
+
+    // Step prev -> wraps around to Acid Crush
+    parameterStore.setActivePreset({
+      id: 'factory://Bass/01_Sub_Destroyer',
+      name: 'Sub Destroyer',
+      category: 'Bass',
+      isFactory: true,
+    })
+    const prevId = parameterStore.stepPreset('prev')
+    expect(prevId).toBe('factory://Bass/02_Acid_Crush')
+  })
+
+  it('invokes bridge savePreset and deletePreset actions', () => {
+    const saved: unknown[] = []
+    const deleted: string[] = []
+
+    const mockBridge = {
+      setParameter() {},
+      savePreset(data: unknown) {
+        saved.push(data)
+      },
+      deletePreset(id: string) {
+        deleted.push(id)
+      },
+    }
+    parameterStore.setBridge(mockBridge)
+
+    parameterStore.savePreset({
+      name: 'My Custom Bass',
+      category: 'Bass',
+      author: 'Author',
+      description: 'Test desc',
+      tags: ['Bass'],
+    })
+    expect(saved).toHaveLength(1)
+    expect(saved[0]).toEqual({
+      name: 'My Custom Bass',
+      category: 'Bass',
+      author: 'Author',
+      description: 'Test desc',
+      tags: ['Bass'],
+    })
+
+    parameterStore.deletePreset('user://Bass/My_Custom_Bass')
+    expect(deleted).toEqual(['user://Bass/My_Custom_Bass'])
+  })
+
+  it('manages presetOperationToast messages', () => {
+    expect(parameterStore.getPresetOperationToast()).toBeNull()
+    parameterStore.setPresetOperationToast('Preset deleted.')
+    expect(parameterStore.getPresetOperationToast()).toBe('Preset deleted.')
+    parameterStore.setPresetOperationToast(null)
+    expect(parameterStore.getPresetOperationToast()).toBeNull()
   })
 })
