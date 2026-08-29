@@ -31,6 +31,7 @@ PRIVATE
     src/BitCrusher.cpp
     src/SynthortionChorus.cpp
     src/SpectrumAnalyzer.cpp
+    src/PresetManager.cpp
 )
 
 target_include_directories(Synthortion
@@ -114,6 +115,7 @@ PRIVATE
     src/BitCrusher.cpp
     src/SynthortionChorus.cpp
     src/SpectrumAnalyzer.cpp
+    src/PresetManager.cpp
 )
 
 target_include_directories(SynthortionTests

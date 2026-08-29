@@ -11,6 +11,7 @@
 #include "Synthortion/PingPongDelay.h"
 #include "Synthortion/BitCrusher.h"
 #include "Synthortion/AudioCaptureFifo.h"
+#include "Synthortion/PresetManager.h"
 namespace synthortion
 {
     struct UIPreferences
@@ -91,6 +92,8 @@ namespace synthortion
         struct MeterPeaks { float input = 0.0f; float output = 0.0f; };
         MeterPeaks getMeterPeaks() const noexcept { return { inputPeak.load(), outputPeak.load() }; }
         double getCurrentBpm() const noexcept;
+        PresetManager& getPresetManager() noexcept { return presetManager; }
+        const PresetManager& getPresetManager() const noexcept { return presetManager; }
 
     private:
         static constexpr float kSmootherRampTime = 0.05f;
@@ -107,6 +110,7 @@ namespace synthortion
 
         AudioCaptureFifo audioFifo;
         juce::AudioProcessorValueTreeState apvts;
+        PresetManager presetManager;
 
         std::atomic<float>* inputGainParam = nullptr;
         std::atomic<float>* outputGainParam = nullptr;
