@@ -115,6 +115,13 @@ namespace synthortion
         PresetResult loadPreset(const juce::String& id, juce::AudioProcessorValueTreeState& apvts);
         PresetResult deleteUserPreset(const juce::String& id);
 
+        void initializeFactoryPresets();
+        int getNumFactoryPresets() const noexcept { return static_cast<int>(factoryPresetsOrdered.size()); }
+        const PresetData* getFactoryPreset(int index) const noexcept;
+        juce::String getFactoryPresetName(int index) const;
+        int getFactoryPresetIndex(const juce::String& id) const;
+        PresetResult loadFactoryPreset(int index, juce::AudioProcessorValueTreeState& apvts);
+
         void registerFactoryPreset(const juce::String& id, const juce::String& jsonContent);
         void registerFactoryPreset(const PresetData& data);
         void clearFactoryPresets();
@@ -134,7 +141,8 @@ namespace synthortion
 
         juce::File userPresetsDirectory;
         std::vector<PresetHeader> catalog;
-        std::unordered_map<juce::String, PresetData> factoryPresets;
+        std::vector<PresetData> factoryPresetsOrdered;
+        std::unordered_map<juce::String, size_t> factoryPresetIndexMap;
         std::unordered_map<juce::String, juce::File> userPresetFiles;
         juce::String activePresetId;
     };

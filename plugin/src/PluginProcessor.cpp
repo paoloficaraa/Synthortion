@@ -206,23 +206,26 @@ namespace synthortion {
 
     int AudioPluginAudioProcessor::getNumPrograms()
     {
-        return 1;
+        return presetManager.getNumFactoryPresets();
     }
 
     int AudioPluginAudioProcessor::getCurrentProgram()
     {
-        return 0;
+        return presetManager.getFactoryPresetIndex(presetManager.getActivePresetId());
     }
 
     void AudioPluginAudioProcessor::setCurrentProgram(int index)
     {
-        juce::ignoreUnused(index);
+        if (index >= 0 && index < presetManager.getNumFactoryPresets())
+        {
+            presetManager.loadFactoryPreset(index, apvts);
+            updateHostDisplay(juce::AudioProcessor::ChangeDetails().withProgramChanged(true));
+        }
     }
 
     const juce::String AudioPluginAudioProcessor::getProgramName(int index)
     {
-        juce::ignoreUnused(index);
-        return {};
+        return presetManager.getFactoryPresetName(index);
     }
 
     void AudioPluginAudioProcessor::changeProgramName(int index, const juce::String &newName)

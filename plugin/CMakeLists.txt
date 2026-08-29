@@ -9,6 +9,25 @@ if(APPLE)
 else()
     set(SYNTHORTION_FORMATS VST3)
 endif()
+set(SYNTHORTION_FACTORY_PRESETS
+    presets/factory/Init/00_Default_Init.synthortionpreset
+    presets/factory/Bass/01_Sub_Destroyer.synthortionpreset
+    presets/factory/Bass/02_Acid_Crush.synthortionpreset
+    presets/factory/Lead/03_Cyber_Neon.synthortionpreset
+    presets/factory/Lead/04_Vintage_Lead.synthortionpreset
+    presets/factory/Lo-Fi/05_Cassette_1984.synthortionpreset
+    presets/factory/Lo-Fi/06_Arcade_Cabinet.synthortionpreset
+    presets/factory/Pad/07_BBD_Dimension.synthortionpreset
+    presets/factory/Pad/08_Ambient_Mist.synthortionpreset
+    presets/factory/FX/09_Bit_Storm.synthortionpreset
+    presets/factory/FX/10_Dub_Chamber.synthortionpreset
+    presets/factory/Experimental/11_Modular_Chaos.synthortionpreset
+)
+
+juce_add_binary_data(SynthortionFactoryPresets
+    SOURCES
+        ${SYNTHORTION_FACTORY_PRESETS}
+)
 
 juce_add_plugin(Synthortion
     COMPANY_NAME "WavesCrate"
@@ -45,6 +64,7 @@ PRIVATE
     juce::juce_audio_processors
     juce::juce_gui_extra
     juce::juce_dsp
+    SynthortionFactoryPresets
 PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags
@@ -141,7 +161,7 @@ PRIVATE
     juce::juce_events
     juce::juce_graphics
     juce::juce_gui_basics
-PUBLIC
+    SynthortionFactoryPresets
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
 )

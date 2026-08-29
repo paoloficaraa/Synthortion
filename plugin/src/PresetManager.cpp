@@ -1,6 +1,7 @@
 #include "Synthortion/PresetManager.h"
 #include "Synthortion/PluginProcessor.h"
 #include <juce_core/juce_core.h>
+#include <BinaryData.h>
 
 namespace synthortion
 {
@@ -284,12 +285,22 @@ namespace synthortion
     PresetManager::PresetManager()
         : userPresetsDirectory(getDefaultUserPresetsDirectory())
     {
+        initializeFactoryPresets();
+        if (!factoryPresetsOrdered.empty())
+        {
+            activePresetId = makePresetId(true, factoryPresetsOrdered[0].metadata.category, factoryPresetsOrdered[0].metadata.name);
+        }
         scanPresets();
     }
 
     PresetManager::PresetManager(const juce::File& userPresetsDir)
         : userPresetsDirectory(userPresetsDir)
     {
+        initializeFactoryPresets();
+        if (!factoryPresetsOrdered.empty())
+        {
+            activePresetId = makePresetId(true, factoryPresetsOrdered[0].metadata.category, factoryPresetsOrdered[0].metadata.name);
+        }
         scanPresets();
     }
 
@@ -357,9 +368,10 @@ namespace synthortion
         userPresetFiles.clear();
         catalog.clear();
 
-        // 1. Factory Presets in catalog
-        for (const auto& [id, data] : factoryPresets)
+        // 1. Factory Presets in catalog in exact index order
+        for (const auto& data : factoryPresetsOrdered)
         {
+            juce::String id = makePresetId(true, data.metadata.category, data.metadata.name);
             catalog.push_back(PresetHeader::fromMetadata(data.metadata, id, true, {}));
         }
 
@@ -490,10 +502,10 @@ namespace synthortion
     {
         if (id.startsWith("factory://"))
         {
-            auto it = factoryPresets.find(id);
-            if (it != factoryPresets.end())
+            auto it = factoryPresetIndexMap.find(id);
+            if (it != factoryPresetIndexMap.end() && it->second < factoryPresetsOrdered.size())
             {
-                outData = it->second;
+                outData = factoryPresetsOrdered[it->second];
                 return PresetResult::ok();
             }
             return PresetResult::fail(PresetErrorCode::FileNotFound, "Factory preset not found: " + id);
@@ -553,12 +565,79 @@ namespace synthortion
         return PresetResult::ok();
     }
 
+    void PresetManager::initializeFactoryPresets()
+    {
+        factoryPresetsOrdered.clear();
+        factoryPresetIndexMap.clear();
+
+        for (int i = 0; i < BinaryData::namedResourceListSize; ++i)
+        {
+            int dataSize = 0;
+            const char* dataPtr = BinaryData::getNamedResource(BinaryData::namedResourceList[i], dataSize);
+            if (dataPtr != nullptr && dataSize > 0)
+            {
+                juce::String jsonStr = juce::String::fromUTF8(dataPtr, dataSize);
+                PresetData data;
+                if (PresetData::parseJson(jsonStr, data).success)
+                {
+                    juce::String id = makePresetId(true, data.metadata.category, data.metadata.name);
+                    size_t index = factoryPresetsOrdered.size();
+                    factoryPresetsOrdered.push_back(data);
+                    factoryPresetIndexMap[id] = index;
+                }
+            }
+        }
+    }
+
+    const PresetData* PresetManager::getFactoryPreset(int index) const noexcept
+    {
+        if (index >= 0 && index < static_cast<int>(factoryPresetsOrdered.size()))
+            return &factoryPresetsOrdered[static_cast<size_t>(index)];
+        return nullptr;
+    }
+
+    juce::String PresetManager::getFactoryPresetName(int index) const
+    {
+        if (index >= 0 && index < static_cast<int>(factoryPresetsOrdered.size()))
+            return factoryPresetsOrdered[static_cast<size_t>(index)].metadata.name;
+        return {};
+    }
+
+    int PresetManager::getFactoryPresetIndex(const juce::String& id) const
+    {
+        auto it = factoryPresetIndexMap.find(id);
+        if (it != factoryPresetIndexMap.end())
+            return static_cast<int>(it->second);
+        return -1;
+    }
+
+    PresetResult PresetManager::loadFactoryPreset(int index, juce::AudioProcessorValueTreeState& apvts)
+    {
+        if (index < 0 || index >= static_cast<int>(factoryPresetsOrdered.size()))
+            return PresetResult::fail(PresetErrorCode::FileNotFound, "Factory preset index out of range: " + juce::String(index));
+
+        const auto& data = factoryPresetsOrdered[static_cast<size_t>(index)];
+        data.applyToAPVTS(apvts);
+        activePresetId = makePresetId(true, data.metadata.category, data.metadata.name);
+        return PresetResult::ok();
+    }
+
     void PresetManager::registerFactoryPreset(const juce::String& id, const juce::String& jsonContent)
     {
         PresetData data;
         if (PresetData::parseJson(jsonContent, data).success)
         {
-            factoryPresets[id] = data;
+            auto it = factoryPresetIndexMap.find(id);
+            if (it != factoryPresetIndexMap.end())
+            {
+                factoryPresetsOrdered[it->second] = data;
+            }
+            else
+            {
+                size_t index = factoryPresetsOrdered.size();
+                factoryPresetsOrdered.push_back(data);
+                factoryPresetIndexMap[id] = index;
+            }
             rebuildCatalog();
         }
     }
@@ -566,13 +645,24 @@ namespace synthortion
     void PresetManager::registerFactoryPreset(const PresetData& data)
     {
         juce::String id = makePresetId(true, data.metadata.category, data.metadata.name);
-        factoryPresets[id] = data;
+        auto it = factoryPresetIndexMap.find(id);
+        if (it != factoryPresetIndexMap.end())
+        {
+            factoryPresetsOrdered[it->second] = data;
+        }
+        else
+        {
+            size_t index = factoryPresetsOrdered.size();
+            factoryPresetsOrdered.push_back(data);
+            factoryPresetIndexMap[id] = index;
+        }
         rebuildCatalog();
     }
 
     void PresetManager::clearFactoryPresets()
     {
-        factoryPresets.clear();
+        factoryPresetsOrdered.clear();
+        factoryPresetIndexMap.clear();
         rebuildCatalog();
     }
 

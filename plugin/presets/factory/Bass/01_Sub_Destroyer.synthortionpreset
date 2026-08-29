@@ -1,0 +1,38 @@
+{
+  "$schema": "https://synthortion.audio/schemas/preset.v1.json",
+  "schemaVersion": 1,
+  "metadata": {
+    "name": "Sub Destroyer",
+    "category": "Bass",
+    "author": "Synthortion Core",
+    "description": "Heavy low-end saturation with asymmetric bias distortion for sub bass.",
+    "tags": ["Bass", "Sub", "Saturation", "Heavy"],
+    "favorite": false,
+    "createdAt": "2026-08-28T12:00:00Z",
+    "modifiedAt": "2026-08-28T12:00:00Z"
+  },
+  "parameters": {
+    "INPUT_GAIN": 0.875,
+    "OUTPUT_GAIN": 0.80,
+    "COLOR": 0.85,
+    "BITCRUSH": 0.0,
+    "DELAY_TIME_FREE": 0.124562,
+    "DELAY_TIME_SYNC": 0.307692,
+    "DELAY_MIX": 0.0,
+    "DELAY_FEEDBACK": 0.0,
+    "CHORUS_MIX": 0.0,
+    "CHORUS_WIDE": 0.0,
+    "PLUGIN_BYPASS": 0.0,
+    "DRIVE_ON": 1.0,
+    "BITCRUSH_ON": 0.0,
+    "DELAY_ON": 0.0,
+    "CHORUS_ON": 0.0,
+    "DRIVE_ROUTE": 0.0,
+    "DELAY_SYNC": 1.0
+  },
+  "uiPreferences": {
+    "uiScale": 1.0,
+    "spectrumDecay": 0.25,
+    "skipBootSequence": false
+  }
+}

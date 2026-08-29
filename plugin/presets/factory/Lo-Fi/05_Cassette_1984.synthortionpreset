@@ -1,0 +1,38 @@
+{
+  "$schema": "https://synthortion.audio/schemas/preset.v1.json",
+  "schemaVersion": 1,
+  "metadata": {
+    "name": "Cassette 1984",
+    "category": "Lo-Fi",
+    "author": "Synthortion Core",
+    "description": "Degraded magnetic tape texture with flutter and warm saturation.",
+    "tags": ["Lo-Fi", "Tape", "Cassette", "Vintage"],
+    "favorite": false,
+    "createdAt": "2026-08-28T12:00:00Z",
+    "modifiedAt": "2026-08-28T12:00:00Z"
+  },
+  "parameters": {
+    "INPUT_GAIN": 0.85,
+    "OUTPUT_GAIN": 0.82,
+    "COLOR": 0.68,
+    "BITCRUSH": 0.28,
+    "DELAY_TIME_FREE": 0.04,
+    "DELAY_TIME_SYNC": 0.307692,
+    "DELAY_MIX": 0.12,
+    "DELAY_FEEDBACK": 0.20,
+    "CHORUS_MIX": 0.35,
+    "CHORUS_WIDE": 0.40,
+    "PLUGIN_BYPASS": 0.0,
+    "DRIVE_ON": 1.0,
+    "BITCRUSH_ON": 1.0,
+    "DELAY_ON": 1.0,
+    "CHORUS_ON": 1.0,
+    "DRIVE_ROUTE": 0.0,
+    "DELAY_SYNC": 0.0
+  },
+  "uiPreferences": {
+    "uiScale": 1.0,
+    "spectrumDecay": 0.25,
+    "skipBootSequence": false
+  }
+}

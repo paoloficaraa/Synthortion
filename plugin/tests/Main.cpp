@@ -8,6 +8,7 @@
 #include "Synthortion/PresetManager.h"
 #include "Synthortion/PluginProcessor.h"
 #include <iostream>
+#include <BinaryData.h>
 
 class DspSanityTests final : public juce::UnitTest
 {
@@ -407,6 +408,7 @@ public:
             tempDir.createDirectory();
 
             synthortion::PresetManager pm(tempDir);
+            pm.clearFactoryPresets();
             pm.ensureDirectoryHierarchy();
 
             // Create valid preset in Lead/
@@ -454,8 +456,8 @@ public:
             tempDir.createDirectory();
 
             synthortion::PresetManager pm(tempDir);
+            pm.clearFactoryPresets();
             pm.ensureDirectoryHierarchy();
-
             // Register a factory preset
             synthortion::PresetData factoryP;
             factoryP.metadata.name = "Default Init";
@@ -559,6 +561,153 @@ public:
         }
     }
 };
+class FactoryPresetAndHostProgramTests final : public juce::UnitTest
+{
+public:
+    FactoryPresetAndHostProgramTests() : juce::UnitTest("Factory Presets & Host Program Sync", "Synthortion") {}
+
+    void runTest() override
+    {
+        beginTest("BinaryData embeds all 12 factory presets");
+        {
+            expectEquals(BinaryData::namedResourceListSize, 12, "BinaryData must contain exactly 12 embedded files");
+        }
+
+        beginTest("Factory Preset Registry in PresetManager contains 12 valid presets");
+        {
+            juce::File emptyTempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                                        .getChildFile("Synthortion_Factory_Tests_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt64()));
+            emptyTempDir.createDirectory();
+
+            synthortion::PresetManager pm(emptyTempDir);
+
+            expectEquals(pm.getNumFactoryPresets(), 12, "PresetManager must register exactly 12 factory presets");
+
+            const struct ExpectedPreset {
+                const char* name;
+                const char* category;
+                const char* id;
+            } expectedPresets[12] = {
+                { "Default Init", "Init", "factory://Init/Default Init" },
+                { "Sub Destroyer", "Bass", "factory://Bass/Sub Destroyer" },
+                { "Acid Crush", "Bass", "factory://Bass/Acid Crush" },
+                { "Cyber Neon", "Lead", "factory://Lead/Cyber Neon" },
+                { "Vintage Lead", "Lead", "factory://Lead/Vintage Lead" },
+                { "Cassette 1984", "Lo-Fi", "factory://Lo-Fi/Cassette 1984" },
+                { "Arcade Cabinet", "Lo-Fi", "factory://Lo-Fi/Arcade Cabinet" },
+                { "BBD Dimension", "Pad", "factory://Pad/BBD Dimension" },
+                { "Ambient Mist", "Pad", "factory://Pad/Ambient Mist" },
+                { "Bit Storm", "FX", "factory://FX/Bit Storm" },
+                { "Dub Chamber", "FX", "factory://FX/Dub Chamber" },
+                { "Modular Chaos", "Experimental", "factory://Experimental/Modular Chaos" }
+            };
+
+            for (int i = 0; i < 12; ++i)
+            {
+                const auto* preset = pm.getFactoryPreset(i);
+                expect(preset != nullptr, "Factory preset at index " + juce::String(i) + " must exist");
+                if (preset != nullptr)
+                {
+                    expectEquals(preset->metadata.name, juce::String(expectedPresets[i].name));
+                    expectEquals(preset->metadata.category, juce::String(expectedPresets[i].category));
+                    expectEquals(preset->schemaVersion, 1);
+
+                    // Verify all parameter values are normalized floats in [0.0, 1.0]
+                    expect(preset->parameters.size() > 0, "Preset must contain parameters");
+                    for (const auto& entry : preset->parameters)
+                    {
+                        const auto& paramId = entry.first;
+                        float val = entry.second;
+                        expect(val >= 0.0f && val <= 1.0f,
+                               "Parameter " + paramId + " in preset " + preset->metadata.name + " must be in [0.0, 1.0] but got " + juce::String(val));
+                    }
+                }
+
+                expectEquals(pm.getFactoryPresetName(i), juce::String(expectedPresets[i].name));
+                expectEquals(pm.getFactoryPresetIndex(expectedPresets[i].id), i);
+            }
+
+            expectEquals(pm.getFactoryPresetIndex("user://Bass/Custom"), -1);
+            expectEquals(pm.getFactoryPresetIndex("factory://Invalid/Unknown"), -1);
+            expectEquals(pm.getFactoryPresetName(-1), juce::String());
+            expectEquals(pm.getFactoryPresetName(12), juce::String());
+
+            // Verify unified in-memory catalog contains all 12 factory presets in order
+            const auto& catalog = pm.getCatalog();
+            expectEquals(catalog.size(), static_cast<size_t>(12));
+            for (int k = 0; k < 12; ++k)
+            {
+                expectEquals(catalog[static_cast<size_t>(k)].id, juce::String(expectedPresets[k].id));
+                expect(catalog[static_cast<size_t>(k)].isFactory);
+            }
+
+            emptyTempDir.deleteRecursively();
+        }
+
+        beginTest("DAW Host Program Synchronization in AudioPluginAudioProcessor");
+        {
+            synthortion::AudioPluginAudioProcessor processor;
+            auto& apvts = processor.getAPVTS();
+
+            expectEquals(processor.getNumPrograms(), 12, "getNumPrograms() must return 12");
+
+            // Initial program should be 0 (Default Init)
+            expectEquals(processor.getCurrentProgram(), 0, "Default active program should be 0");
+            expectEquals(processor.getProgramName(0), juce::String("Default Init"));
+            expectEquals(processor.getProgramName(1), juce::String("Sub Destroyer"));
+            expectEquals(processor.getProgramName(11), juce::String("Modular Chaos"));
+            expectEquals(processor.getProgramName(12), juce::String());
+
+            // Change program name should be a no-op
+            processor.changeProgramName(0, "Attempted Rename");
+            expectEquals(processor.getProgramName(0), juce::String("Default Init"), "changeProgramName must be a no-op for factory presets");
+
+            // Switch program to 1 ("Sub Destroyer")
+            processor.setCurrentProgram(1);
+            expectEquals(processor.getCurrentProgram(), 1, "getCurrentProgram() should reflect program 1");
+            if (auto* colorParam = apvts.getParameter("COLOR"))
+            {
+                expectWithinAbsoluteError(colorParam->getValue(), 0.85f, 0.001f);
+            }
+            if (auto* chorusWideParam = apvts.getParameter("CHORUS_WIDE"))
+            {
+                expectWithinAbsoluteError(chorusWideParam->getValue(), 0.0f, 0.001f);
+            }
+
+            // Switch program to 3 ("Cyber Neon")
+            processor.setCurrentProgram(3);
+            expectEquals(processor.getCurrentProgram(), 3);
+            if (auto* colorParam = apvts.getParameter("COLOR"))
+            {
+                expectWithinAbsoluteError(colorParam->getValue(), 0.55f, 0.001f);
+            }
+            if (auto* chorusWideParam = apvts.getParameter("CHORUS_WIDE"))
+            {
+                expectWithinAbsoluteError(chorusWideParam->getValue(), 0.85f, 0.001f);
+            }
+
+            // Switch program to 11 ("Modular Chaos")
+            processor.setCurrentProgram(11);
+            expectEquals(processor.getCurrentProgram(), 11);
+            if (auto* colorParam = apvts.getParameter("COLOR"))
+            {
+                expectWithinAbsoluteError(colorParam->getValue(), 0.95f, 0.001f);
+            }
+
+            // Setting an out-of-bounds program should not crash or change program
+            processor.setCurrentProgram(-1);
+            expectEquals(processor.getCurrentProgram(), 11);
+            processor.setCurrentProgram(99);
+            expectEquals(processor.getCurrentProgram(), 11);
+
+            // When a user preset is loaded / active, getCurrentProgram() must return -1
+            processor.getPresetManager().setActivePresetId("user://Lead/MyCustomPreset");
+            expectEquals(processor.getCurrentProgram(), -1, "getCurrentProgram() must return -1 for user presets");
+        }
+    }
+};
+
+static FactoryPresetAndHostProgramTests factoryPresetAndHostProgramTests;
 
 static DspSanityTests dspSanityTests;
 static PresetJsonTests presetJsonTests;
