@@ -6,8 +6,8 @@ import { initialState } from '../lib/pluginState'
 
 describe('Layout Scaling & 16:10 DAW Window Calibration', () => {
   const DIMENSIONS = [
-    { name: 'Default 16:10', width: 960, height: 600 },
-    { name: 'Minimum 16:10', width: 768, height: 480 },
+    { name: 'Default & Minimum 16:10', width: 1056, height: 660 },
+    { name: 'Mid-scale 16:10', width: 1440, height: 900 },
     { name: 'Maximum 16:10', width: 1920, height: 1200 },
   ] as const
 

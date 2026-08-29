@@ -125,7 +125,7 @@ Synthortion couples a headless C++20 DSP engine to a modern web frontend via JUC
 - **Cartesian Frame System:** 1px coordinate rules (`#333333`), crosshairs (`+`) at panel junctions, and micro-scale calibration ticks.
 - **ASCII Surfaces:** Braille waveform curves (`U+2800–28FF`), Xerox density dithering (`░▒▓█`), bracketed sub-cell knob sliders (`[...]`), and terminal hex-decoding animations.
 - **Tweak-Driven Micro-Glitch:** Non-destructive CRT jitter and scanline pulse reactive to drag velocity and module toggles.
-- **Responsive Scaling:** Responsive layout supporting interface sizes from 768×480 up to 1920×1200 (default 960×600).
+- **Responsive Scaling:** Responsive layout supporting interface sizes from 1056×660 up to 1920×1200 (default 1056×660, 16:10 locked).
 
 ---
 

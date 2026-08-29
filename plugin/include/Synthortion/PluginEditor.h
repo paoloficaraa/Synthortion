@@ -53,10 +53,10 @@ namespace synthortion
         std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
 
     private:
-        static constexpr int kDefaultWidth = 960;
-        static constexpr int kDefaultHeight = 600;
-        static constexpr int kMinWidth = 768;
-        static constexpr int kMinHeight = 480;
+        static constexpr int kDefaultWidth = 1056;
+        static constexpr int kDefaultHeight = 660;
+        static constexpr int kMinWidth = 1056;
+        static constexpr int kMinHeight = 660;
         static constexpr int kMaxWidth = 1920;
         static constexpr int kMaxHeight = 1200;
         static constexpr double kAspectRatio = static_cast<double> (kDefaultWidth) / static_cast<double> (kDefaultHeight);
