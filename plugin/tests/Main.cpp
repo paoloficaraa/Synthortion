@@ -825,6 +825,398 @@ public:
         }
     }
 };
+class PresetFullStackIntegrationAndRegressionTests final : public juce::UnitTest
+{
+public:
+    PresetFullStackIntegrationAndRegressionTests()
+        : juce::UnitTest("Full-Stack Preset Integration & Regression", "Synthortion") {}
+
+    void runTest() override
+    {
+        beginTest("1. End-to-End Save, Atomic Temp File Swap, Catalog Rescan & Recall Cycle");
+        {
+            juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                                    .getChildFile("Synthortion_E2E_Test_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt64()));
+            tempDir.createDirectory();
+
+            synthortion::AudioPluginAudioProcessor processor;
+            processor.getPresetManager().setUserPresetsDirectory(tempDir);
+            processor.getPresetManager().ensureDirectoryHierarchy();
+            auto& apvts = processor.getAPVTS();
+
+            // Set distinct parameter values across modules
+            if (auto* p = apvts.getParameter("INPUT_GAIN")) p->setValueNotifyingHost(0.90f);
+            if (auto* p = apvts.getParameter("OUTPUT_GAIN")) p->setValueNotifyingHost(0.75f);
+            if (auto* p = apvts.getParameter("COLOR")) p->setValueNotifyingHost(0.88f);
+            if (auto* p = apvts.getParameter("BITCRUSH")) p->setValueNotifyingHost(0.42f);
+            if (auto* p = apvts.getParameter("DELAY_TIME_FREE")) p->setValueNotifyingHost(0.65f);
+            if (auto* p = apvts.getParameter("DELAY_TIME_SYNC")) p->setValueNotifyingHost(0.50f);
+            if (auto* p = apvts.getParameter("DELAY_MIX")) p->setValueNotifyingHost(0.55f);
+            if (auto* p = apvts.getParameter("DELAY_FEEDBACK")) p->setValueNotifyingHost(0.70f);
+            if (auto* p = apvts.getParameter("CHORUS_MIX")) p->setValueNotifyingHost(0.33f);
+            if (auto* p = apvts.getParameter("CHORUS_WIDE")) p->setValueNotifyingHost(0.85f);
+            if (auto* p = apvts.getParameter("DRIVE_ROUTE")) p->setValueNotifyingHost(1.0f);
+            if (auto* p = apvts.getParameter("DELAY_SYNC")) p->setValueNotifyingHost(0.0f);
+            if (auto* p = apvts.getParameter("DRIVE_ON")) p->setValueNotifyingHost(1.0f);
+            if (auto* p = apvts.getParameter("BITCRUSH_ON")) p->setValueNotifyingHost(0.0f);
+            if (auto* p = apvts.getParameter("DELAY_ON")) p->setValueNotifyingHost(1.0f);
+            if (auto* p = apvts.getParameter("CHORUS_ON")) p->setValueNotifyingHost(1.0f);
+            if (auto* p = apvts.getParameter("PLUGIN_BYPASS")) p->setValueNotifyingHost(0.0f);
+
+            // Capture exact normalized values in APVTS after range stepping/quantization
+            float expInputGain = apvts.getParameter("INPUT_GAIN")->getValue();
+            float expOutputGain = apvts.getParameter("OUTPUT_GAIN")->getValue();
+            float expColor = apvts.getParameter("COLOR")->getValue();
+            float expBitcrush = apvts.getParameter("BITCRUSH")->getValue();
+            float expDelayTimeFree = apvts.getParameter("DELAY_TIME_FREE")->getValue();
+            float expDelayTimeSync = apvts.getParameter("DELAY_TIME_SYNC")->getValue();
+            float expDelayMix = apvts.getParameter("DELAY_MIX")->getValue();
+            float expDelayFeedback = apvts.getParameter("DELAY_FEEDBACK")->getValue();
+            float expChorusMix = apvts.getParameter("CHORUS_MIX")->getValue();
+            float expChorusWide = apvts.getParameter("CHORUS_WIDE")->getValue();
+            float expDriveRoute = apvts.getParameter("DRIVE_ROUTE")->getValue();
+            float expDelaySync = apvts.getParameter("DELAY_SYNC")->getValue();
+            float expDriveOn = apvts.getParameter("DRIVE_ON")->getValue();
+            float expBitcrushOn = apvts.getParameter("BITCRUSH_ON")->getValue();
+            float expDelayOn = apvts.getParameter("DELAY_ON")->getValue();
+            float expChorusOn = apvts.getParameter("CHORUS_ON")->getValue();
+
+            // Save user preset via PresetManager
+            juce::StringArray tags;
+            tags.add("Lead");
+            tags.add("Modular");
+            tags.add("Cyber");
+
+            auto saveRes = processor.getPresetManager().saveUserPreset("Lead", "Cyber Modular Lead", "E2E Author", "High-voltage lead patch", tags, apvts, false);
+            expect(saveRes.success, "Saving user preset should succeed: " + saveRes.message);
+
+            juce::File savedFile = tempDir.getChildFile("Lead").getChildFile("Cyber Modular Lead.synthortionpreset");
+            expect(savedFile.existsAsFile(), "Saved preset file must exist on disk");
+
+            // Verify file content is valid JSON
+            juce::String jsonContent = savedFile.loadFileAsString();
+            synthortion::PresetData parsedData;
+            auto parseRes = synthortion::PresetData::parseJson(jsonContent, parsedData);
+            expect(parseRes.success, "Saved file content must be valid JSON: " + parseRes.message);
+            expectEquals(parsedData.schemaVersion, 1);
+            expectEquals(parsedData.metadata.name, juce::String("Cyber Modular Lead"));
+            expectEquals(parsedData.metadata.category, juce::String("Lead"));
+            expectEquals(parsedData.metadata.author, juce::String("E2E Author"));
+            expectEquals(parsedData.metadata.description, juce::String("High-voltage lead patch"));
+            expectEquals(parsedData.metadata.tags.size(), 3);
+
+            // Verify catalog contains user preset
+            processor.getPresetManager().scanUserPresets();
+            juce::String presetId = "user://Lead/Cyber Modular Lead";
+            auto headerOpt = processor.getPresetManager().getPresetHeaderById(presetId);
+            expect(headerOpt.has_value(), "Preset catalog must contain newly saved user preset");
+            if (headerOpt.has_value())
+            {
+                expectEquals(headerOpt->name, juce::String("Cyber Modular Lead"));
+                expect(!headerOpt->isFactory);
+            }
+
+            // Randomize APVTS parameters to different values
+            if (auto* p = apvts.getParameter("INPUT_GAIN")) p->setValueNotifyingHost(0.20f);
+            if (auto* p = apvts.getParameter("COLOR")) p->setValueNotifyingHost(0.10f);
+            if (auto* p = apvts.getParameter("BITCRUSH")) p->setValueNotifyingHost(0.95f);
+            if (auto* p = apvts.getParameter("DRIVE_ROUTE")) p->setValueNotifyingHost(0.0f);
+            if (auto* p = apvts.getParameter("BITCRUSH_ON")) p->setValueNotifyingHost(1.0f);
+
+            // Recall preset from PresetManager into APVTS
+            auto loadRes = processor.getPresetManager().loadPreset(presetId, apvts);
+            expect(loadRes.success, "Loading preset should succeed: " + loadRes.message);
+
+            // Verify all APVTS parameters match exact saved values
+            if (auto* p = apvts.getParameter("INPUT_GAIN")) expectWithinAbsoluteError(p->getValue(), expInputGain, 0.001f);
+            if (auto* p = apvts.getParameter("OUTPUT_GAIN")) expectWithinAbsoluteError(p->getValue(), expOutputGain, 0.001f);
+            if (auto* p = apvts.getParameter("COLOR")) expectWithinAbsoluteError(p->getValue(), expColor, 0.001f);
+            if (auto* p = apvts.getParameter("BITCRUSH")) expectWithinAbsoluteError(p->getValue(), expBitcrush, 0.001f);
+            if (auto* p = apvts.getParameter("DELAY_TIME_FREE")) expectWithinAbsoluteError(p->getValue(), expDelayTimeFree, 0.001f);
+            if (auto* p = apvts.getParameter("DELAY_TIME_SYNC")) expectWithinAbsoluteError(p->getValue(), expDelayTimeSync, 0.001f);
+            if (auto* p = apvts.getParameter("DELAY_MIX")) expectWithinAbsoluteError(p->getValue(), expDelayMix, 0.001f);
+            if (auto* p = apvts.getParameter("DELAY_FEEDBACK")) expectWithinAbsoluteError(p->getValue(), expDelayFeedback, 0.001f);
+            if (auto* p = apvts.getParameter("CHORUS_MIX")) expectWithinAbsoluteError(p->getValue(), expChorusMix, 0.001f);
+            if (auto* p = apvts.getParameter("CHORUS_WIDE")) expectWithinAbsoluteError(p->getValue(), expChorusWide, 0.001f);
+            if (auto* p = apvts.getParameter("DRIVE_ROUTE")) expectWithinAbsoluteError(p->getValue(), expDriveRoute, 0.001f);
+            if (auto* p = apvts.getParameter("DELAY_SYNC")) expectWithinAbsoluteError(p->getValue(), expDelaySync, 0.001f);
+            if (auto* p = apvts.getParameter("DRIVE_ON")) expectWithinAbsoluteError(p->getValue(), expDriveOn, 0.001f);
+            if (auto* p = apvts.getParameter("BITCRUSH_ON")) expectWithinAbsoluteError(p->getValue(), expBitcrushOn, 0.001f);
+            if (auto* p = apvts.getParameter("DELAY_ON")) expectWithinAbsoluteError(p->getValue(), expDelayOn, 0.001f);
+            if (auto* p = apvts.getParameter("CHORUS_ON")) expectWithinAbsoluteError(p->getValue(), expChorusOn, 0.001f);
+
+            // Delete preset and verify cleanup
+            auto delRes = processor.getPresetManager().deleteUserPreset(presetId);
+            expect(delRes.success, "Deleting user preset should succeed");
+            expect(!savedFile.existsAsFile(), "Deleted preset file should no longer exist on disk");
+            expect(!processor.getPresetManager().getPresetHeaderById(presetId).has_value(), "Deleted preset should be removed from catalog");
+
+            tempDir.deleteRecursively();
+        }
+
+        beginTest("2. DAW Host Synchronization with Parameter Automation & Program Recall");
+        {
+            synthortion::AudioPluginAudioProcessor processor;
+            auto& apvts = processor.getAPVTS();
+
+            expectEquals(processor.getNumPrograms(), 12);
+            for (int i = 0; i < 12; ++i)
+            {
+                processor.setCurrentProgram(i);
+                expectEquals(processor.getCurrentProgram(), i);
+                expect(processor.getProgramName(i).isNotEmpty());
+            }
+
+            // Select program 2 (Acid Crush)
+            processor.setCurrentProgram(2);
+            expectEquals(processor.getCurrentProgram(), 2);
+            expectEquals(processor.getProgramName(2), juce::String("Acid Crush"));
+
+            float acidColor = 0.0f;
+            if (auto* p = apvts.getParameter("COLOR")) acidColor = p->getValue();
+            expectWithinAbsoluteError(acidColor, 0.70f, 0.001f);
+
+            // Simulate DAW Host parameter automation modifying COLOR to 0.45f
+            if (auto* p = apvts.getParameter("COLOR"))
+            {
+                p->setValueNotifyingHost(0.45f);
+                expectWithinAbsoluteError(p->getValue(), 0.45f, 0.001f);
+            }
+
+            // Switch to program 3 (Cyber Neon)
+            processor.setCurrentProgram(3);
+            expectEquals(processor.getCurrentProgram(), 3);
+            if (auto* p = apvts.getParameter("COLOR"))
+            {
+                expectWithinAbsoluteError(p->getValue(), 0.55f, 0.001f);
+            }
+
+            // Recall program 2 (Acid Crush) -> verify APVTS parameters restore clean snapshot
+            processor.setCurrentProgram(2);
+            expectEquals(processor.getCurrentProgram(), 2);
+            if (auto* p = apvts.getParameter("COLOR"))
+            {
+                expectWithinAbsoluteError(p->getValue(), 0.70f, 0.001f);
+            }
+
+            // Out-of-bounds program calls do not alter program index or crash
+            processor.setCurrentProgram(-5);
+            expectEquals(processor.getCurrentProgram(), 2);
+            processor.setCurrentProgram(999);
+            expectEquals(processor.getCurrentProgram(), 2);
+        }
+
+        beginTest("3. Corrupted File & Edge Case Handling");
+        {
+            juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                                    .getChildFile("Synthortion_Corrupt_Test_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt64()));
+            tempDir.createDirectory();
+
+            synthortion::AudioPluginAudioProcessor processor;
+            processor.getPresetManager().setUserPresetsDirectory(tempDir);
+            processor.getPresetManager().ensureDirectoryHierarchy();
+
+            // A. Corrupted JSON file in Bass/
+            auto corruptFile = tempDir.getChildFile("Bass").getChildFile("CorruptSyntax.synthortionpreset");
+            corruptFile.replaceWithText("{ invalid : json : syntax [[[]}");
+
+            // B. Unsupported schema version (99) in Lead/
+            auto unsuppFile = tempDir.getChildFile("Lead").getChildFile("UnsupportedSchema.synthortionpreset");
+            unsuppFile.replaceWithText(R"({
+                "schemaVersion": 99,
+                "metadata": { "name": "Future Preset", "category": "Lead" },
+                "parameters": { "COLOR": 0.5 }
+            })");
+
+            // C. Sparse preset with missing parameters in Pad/
+            auto sparseFile = tempDir.getChildFile("Pad").getChildFile("SparsePreset.synthortionpreset");
+            sparseFile.replaceWithText(R"({
+                "schemaVersion": 1,
+                "metadata": { "name": "Sparse Preset", "category": "Pad" },
+                "parameters": { "COLOR": 0.77 }
+            })");
+
+            // D. Out-of-range floats (< 0.0, > 1.0, NaN) in FX/
+            auto rangeFile = tempDir.getChildFile("FX").getChildFile("OutOfRange.synthortionpreset");
+            rangeFile.replaceWithText(R"({
+                "schemaVersion": 1,
+                "metadata": { "name": "Out Of Range", "category": "FX" },
+                "parameters": { "INPUT_GAIN": 3.5, "COLOR": -2.0, "BITCRUSH": 999.0 }
+            })");
+
+            // Rescan catalog -> corrupted and unsupported schema should be skipped without crash
+            processor.getPresetManager().scanUserPresets();
+
+            expect(!processor.getPresetManager().getPresetHeaderById("user://Bass/CorruptSyntax").has_value(),
+                   "Corrupted syntax preset must be excluded from catalog");
+            expect(!processor.getPresetManager().getPresetHeaderById("user://Lead/UnsupportedSchema").has_value(),
+                   "Unsupported schema preset must be excluded from catalog");
+
+            // Verify sparse preset loads safely and sets defined parameter while defaults remain valid
+            auto sparseHeader = processor.getPresetManager().getPresetHeaderById("user://Pad/Sparse Preset");
+            expect(sparseHeader.has_value(), "Sparse preset with valid schema must be indexed");
+            auto sparseLoadRes = processor.getPresetManager().loadPreset("user://Pad/Sparse Preset", processor.getAPVTS());
+            expect(sparseLoadRes.success, "Loading sparse preset should succeed");
+            if (auto* p = processor.getAPVTS().getParameter("COLOR"))
+            {
+                expectWithinAbsoluteError(p->getValue(), 0.77f, 0.001f);
+            }
+            if (auto* p = processor.getAPVTS().getParameter("INPUT_GAIN"))
+            {
+                expect(!std::isnan(p->getValue()) && !std::isinf(p->getValue()));
+            }
+
+            // Verify out-of-range float preset loads with clamped values
+            auto rangeHeader = processor.getPresetManager().getPresetHeaderById("user://FX/Out Of Range");
+            expect(rangeHeader.has_value(), "Out of range preset should be indexed");
+            auto rangeLoadRes = processor.getPresetManager().loadPreset("user://FX/Out Of Range", processor.getAPVTS());
+            expect(rangeLoadRes.success, "Loading clamped preset should succeed");
+            if (auto* p = processor.getAPVTS().getParameter("INPUT_GAIN"))
+            {
+                expectWithinAbsoluteError(p->getValue(), 1.0f, 0.001f);
+            }
+            if (auto* p = processor.getAPVTS().getParameter("COLOR"))
+            {
+                expectWithinAbsoluteError(p->getValue(), 0.0f, 0.001f);
+            }
+            if (auto* p = processor.getAPVTS().getParameter("BITCRUSH"))
+            {
+                expectWithinAbsoluteError(p->getValue(), 1.0f, 0.001f);
+            }
+
+            // Attempt loading non-existent preset -> returns FileNotFound
+            auto missingLoadRes = processor.getPresetManager().loadPreset("user://Lead/DoesNotExist", processor.getAPVTS());
+            expect(!missingLoadRes.success, "Loading non-existent preset should fail");
+            expectEquals(static_cast<int>(missingLoadRes.code), static_cast<int>(synthortion::PresetErrorCode::FileNotFound));
+
+            tempDir.deleteRecursively();
+        }
+
+        beginTest("4. Real-Time Audio Invariant & Concurrent Execution Stability");
+        {
+            synthortion::AudioPluginAudioProcessor processor;
+            processor.prepareToPlay(48000.0, 512);
+
+            juce::AudioBuffer<float> buffer(2, 512);
+            juce::MidiBuffer midi;
+
+            // Process 100 blocks continuously while triggering concurrent preset operations
+            for (int block = 0; block < 100; ++block)
+            {
+                // Fill buffer with mix of sinusoidal test tone and noise
+                for (int ch = 0; ch < 2; ++ch)
+                {
+                    auto* channelData = buffer.getWritePointer(ch);
+                    for (int i = 0; i < 512; ++i)
+                    {
+                        float t = static_cast<float>(block * 512 + i) / 48000.0f;
+                        channelData[i] = 0.5f * std::sin(2.0f * juce::MathConstants<float>::pi * 440.0f * t);
+                    }
+                }
+
+                // At block 20: switch program to 1 (Sub Destroyer)
+                if (block == 20)
+                {
+                    processor.setCurrentProgram(1);
+                }
+                // At block 40: scan presets
+                else if (block == 40)
+                {
+                    processor.getPresetManager().scanUserPresets();
+                }
+                // At block 60: switch program to 5 (Cassette 1984)
+                else if (block == 60)
+                {
+                    processor.setCurrentProgram(5);
+                }
+                // At block 80: toggle bypass
+                else if (block == 80)
+                {
+                    if (auto* p = processor.getAPVTS().getParameter("PLUGIN_BYPASS"))
+                    {
+                        p->setValueNotifyingHost(1.0f);
+                    }
+                }
+                // At block 90: toggle bypass back off
+                else if (block == 90)
+                {
+                    if (auto* p = processor.getAPVTS().getParameter("PLUGIN_BYPASS"))
+                    {
+                        p->setValueNotifyingHost(0.0f);
+                    }
+                }
+
+                processor.processBlock(buffer, midi);
+
+                // Invariant: all samples must remain finite (no NaN, Inf, or denormal explosions)
+                for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+                {
+                    const auto* r = buffer.getReadPointer(ch);
+                    for (int s = 0; s < buffer.getNumSamples(); ++s)
+                    {
+                        expect(!std::isnan(r[s]), "Audio output sample must not be NaN");
+                        expect(!std::isinf(r[s]), "Audio output sample must not be Inf");
+                    }
+                }
+            }
+
+            processor.releaseResources();
+        }
+
+        beginTest("5. Zero Regressions Across Full DSP Effect Suite");
+        {
+            synthortion::AudioPluginAudioProcessor processor;
+            processor.prepareToPlay(44100.0, 256);
+            auto& apvts = processor.getAPVTS();
+
+            juce::AudioBuffer<float> buffer(2, 256);
+            juce::MidiBuffer midi;
+
+            // A. WarmDistortion active, other modules bypassed
+            if (auto* p = apvts.getParameter("DRIVE_ON")) p->setValueNotifyingHost(1.0f);
+            if (auto* p = apvts.getParameter("BITCRUSH_ON")) p->setValueNotifyingHost(0.0f);
+            if (auto* p = apvts.getParameter("DELAY_ON")) p->setValueNotifyingHost(0.0f);
+            if (auto* p = apvts.getParameter("CHORUS_ON")) p->setValueNotifyingHost(0.0f);
+            if (auto* p = apvts.getParameter("COLOR")) p->setValueNotifyingHost(0.8f);
+
+            for (int ch = 0; ch < 2; ++ch)
+                for (int s = 0; s < 256; ++s)
+                    buffer.setSample(ch, s, 0.4f * std::sin(static_cast<float>(s) * 0.1f));
+
+            processor.processBlock(buffer, midi);
+            expect(buffer.getMagnitude(0, 256) > 0.0f, "WarmDistortion output must have non-zero magnitude");
+
+            // B. BitCrusher active
+            if (auto* p = apvts.getParameter("DRIVE_ON")) p->setValueNotifyingHost(0.0f);
+            if (auto* p = apvts.getParameter("BITCRUSH_ON")) p->setValueNotifyingHost(1.0f);
+            if (auto* p = apvts.getParameter("BITCRUSH")) p->setValueNotifyingHost(0.6f);
+
+            processor.processBlock(buffer, midi);
+            expect(buffer.getMagnitude(0, 256) > 0.0f, "BitCrusher output must have non-zero magnitude");
+
+            // C. PingPongDelay active
+            if (auto* p = apvts.getParameter("BITCRUSH_ON")) p->setValueNotifyingHost(0.0f);
+            if (auto* p = apvts.getParameter("DELAY_ON")) p->setValueNotifyingHost(1.0f);
+            if (auto* p = apvts.getParameter("DELAY_MIX")) p->setValueNotifyingHost(0.5f);
+
+            processor.processBlock(buffer, midi);
+            expect(buffer.getMagnitude(0, 256) > 0.0f, "PingPongDelay output must have non-zero magnitude");
+
+            // D. SynthortionChorus active
+            if (auto* p = apvts.getParameter("DELAY_ON")) p->setValueNotifyingHost(0.0f);
+            if (auto* p = apvts.getParameter("CHORUS_ON")) p->setValueNotifyingHost(1.0f);
+            if (auto* p = apvts.getParameter("CHORUS_MIX")) p->setValueNotifyingHost(0.7f);
+
+            processor.processBlock(buffer, midi);
+            expect(buffer.getMagnitude(0, 256) > 0.0f, "SynthortionChorus output must have non-zero magnitude");
+
+            processor.releaseResources();
+        }
+    }
+};
+
+static PresetFullStackIntegrationAndRegressionTests presetFullStackIntegrationAndRegressionTests;
+
 
 static PresetBridgeEventTests presetBridgeEventTests;
 

@@ -85,6 +85,45 @@ function addNativeEventListener(
   return () => {}
 }
 
+function handlePresetListUpdated(data: unknown, onCatalog?: (payload: PresetListUpdatedPayload) => void): void {
+  if (data && typeof data === 'object' && 'presets' in data && Array.isArray(data.presets)) {
+    const payload = data as PresetListUpdatedPayload
+    parameterStore.setPresetCatalog(payload.presets, payload.activePresetId)
+    onCatalog?.(payload)
+  }
+}
+
+function handlePresetLoaded(data: unknown, onLoaded?: (payload: PresetLoadedPayload) => void): void {
+  if (
+    data &&
+    typeof data === 'object' &&
+    'id' in data &&
+    typeof data.id === 'string' &&
+    'name' in data &&
+    typeof data.name === 'string'
+  ) {
+    const payload = data as PresetLoadedPayload
+    parameterStore.setActivePreset({
+      id: payload.id,
+      name: payload.name,
+      category: payload.category ?? 'User',
+      isFactory: payload.isFactory ?? payload.id.startsWith('factory://'),
+      isDirty: payload.isDirty ?? false,
+    })
+    onLoaded?.(payload)
+  }
+}
+
+function handlePresetOperationResult(data: unknown, onResult?: (payload: PresetOperationResultPayload) => void): void {
+  if (data && typeof data === 'object' && 'success' in data && 'operation' in data) {
+    const payload = data as PresetOperationResultPayload
+    if (payload.message) {
+      parameterStore.setPresetOperationToast(payload.message)
+    }
+    onResult?.(payload)
+  }
+}
+
 /**
  * Register listener for incoming C++ DSP parameter changes (automation, presets, initial hydration).
  * Also performs the initial connection handshake by emitting `connect`.
@@ -141,9 +180,14 @@ export function subscribeToDspChanges(
         }
       }
     }),
+
+    // 3. Listen for preset events
+    addNativeEventListener('presetListUpdated', (data) => handlePresetListUpdated(data)),
+    addNativeEventListener('presetLoaded', (data) => handlePresetLoaded(data)),
+    addNativeEventListener('presetOperationResult', (data) => handlePresetOperationResult(data)),
   ]
 
-  // 3. Dispatch connection event to C++ backend
+  // 4. Dispatch connection event to C++ backend
   if (window.__JUCE__?.backend?.emitEvent) {
     window.__JUCE__.backend.emitEvent('connect', {})
   }
@@ -197,31 +241,25 @@ export function subscribeToDspSpectrum(onFrame: SpectrumFrameCallback): () => vo
 export function subscribeToUIPreferences(
   onPreferences: (prefs: UIPreferences) => void
 ): () => void {
+  const unsubStore = parameterStore.subscribePreferences(onPreferences)
   const unsubNative = addNativeEventListener('uiPreferencesChange', (data) => {
     if (data && typeof data === 'object') {
-      parameterStore.setUIPreferences(data as Partial<UIPreferences>)
+      const prefs = data as Partial<UIPreferences>
+      parameterStore.setUIPreferences(prefs)
     }
   })
-  const unsubStore = parameterStore.subscribePreferences(onPreferences)
   return () => {
-    unsubNative()
     unsubStore()
+    unsubNative()
   }
 }
-
 /**
  * Register listener for incoming preset catalog updates (`presetListUpdated` event).
  */
 export function subscribeToPresetCatalog(
   onCatalog: (payload: PresetListUpdatedPayload) => void
 ): () => void {
-  return addNativeEventListener('presetListUpdated', (data) => {
-    if (data && typeof data === 'object' && 'presets' in data && Array.isArray(data.presets)) {
-      const payload = data as PresetListUpdatedPayload
-      parameterStore.setPresetCatalog(payload.presets, payload.activePresetId)
-      onCatalog(payload)
-    }
-  })
+  return addNativeEventListener('presetListUpdated', (data) => handlePresetListUpdated(data, onCatalog))
 }
 
 /**
@@ -230,26 +268,7 @@ export function subscribeToPresetCatalog(
 export function subscribeToPresetLoaded(
   onLoaded: (payload: PresetLoadedPayload) => void
 ): () => void {
-  return addNativeEventListener('presetLoaded', (data) => {
-    if (
-      data &&
-      typeof data === 'object' &&
-      'id' in data &&
-      typeof data.id === 'string' &&
-      'name' in data &&
-      typeof data.name === 'string'
-    ) {
-      const payload = data as PresetLoadedPayload
-      parameterStore.setActivePreset({
-        id: payload.id,
-        name: payload.name,
-        category: payload.category ?? 'User',
-        isFactory: payload.isFactory ?? payload.id.startsWith('factory://'),
-        isDirty: payload.isDirty ?? false,
-      })
-      onLoaded(payload)
-    }
-  })
+  return addNativeEventListener('presetLoaded', (data) => handlePresetLoaded(data, onLoaded))
 }
 
 /**
@@ -258,18 +277,6 @@ export function subscribeToPresetLoaded(
 export function subscribeToPresetOperationResult(
   onResult: (payload: PresetOperationResultPayload) => void
 ): () => void {
-  return addNativeEventListener('presetOperationResult', (data) => {
-    if (
-      data &&
-      typeof data === 'object' &&
-      'success' in data &&
-      'operation' in data
-    ) {
-      const payload = data as PresetOperationResultPayload
-      if (payload.message) {
-        parameterStore.setPresetOperationToast(payload.message)
-      }
-      onResult(payload)
-    }
-  })
+  return addNativeEventListener('presetOperationResult', (data) => handlePresetOperationResult(data, onResult))
 }
+

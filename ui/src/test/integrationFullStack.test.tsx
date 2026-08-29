@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import App from '../App'
 import { MatrixFaceplate } from '../components/MatrixFaceplate'
@@ -29,6 +29,11 @@ describe('Full-Stack Integration: Bridge Handshake, Parameter Automation, Teleme
 
   beforeEach(() => {
     parameterStore.reset()
+    parameterStore.setUIPreferences({
+      uiScale: 1.0,
+      spectrumDecay: 0.25,
+      skipBootSequence: true,
+    })
     mockBackend = createMockJuceBackend()
     window.__JUCE__ = {
       backend: mockBackend,
@@ -324,5 +329,290 @@ describe('Full-Stack Integration: Bridge Handshake, Parameter Automation, Teleme
       />
     )
     expect(spectrumContainer.querySelector('canvas')).toBeInTheDocument()
+  })
+
+  it('executes full preset lifecycle flow: search -> load -> parameter change -> dirty flag -> save -> catalog update', () => {
+    const initialPresets = [
+      {
+        id: 'factory://Init/00_Default_Init',
+        name: 'Default Init',
+        category: 'Init',
+        author: 'Synthortion Core',
+        description: 'Clean initialization state.',
+        tags: ['Init', 'Default'],
+        isFactory: true,
+        filePath: 'factory://Init/00_Default_Init.synthortionpreset',
+        favorite: false,
+        createdAt: '2026-08-28T12:00:00Z',
+        modifiedAt: '2026-08-28T12:00:00Z',
+      },
+      {
+        id: 'factory://Bass/01_Sub_Destroyer',
+        name: 'Sub Destroyer',
+        category: 'Bass',
+        author: 'Synthortion Core',
+        description: 'Heavy sub bass.',
+        tags: ['Bass', 'Sub'],
+        isFactory: true,
+        filePath: 'factory://Bass/01_Sub_Destroyer.synthortionpreset',
+        favorite: false,
+        createdAt: '2026-08-28T12:00:00Z',
+        modifiedAt: '2026-08-28T12:00:00Z',
+      },
+      {
+        id: 'factory://Bass/02_Acid_Crush',
+        name: 'Acid Crush',
+        category: 'Bass',
+        author: 'Synthortion Core',
+        description: 'Resonant 303-style bite with coupled downsampling and warm overdrive.',
+        tags: ['Bass', 'Acid', '303', 'Bitcrush'],
+        isFactory: true,
+        filePath: 'factory://Bass/02_Acid_Crush.synthortionpreset',
+        favorite: false,
+        createdAt: '2026-08-28T12:00:00Z',
+        modifiedAt: '2026-08-28T12:00:00Z',
+      },
+    ]
+
+    // 1. Render Full React App (mounts bridge listener and emits connect)
+    render(<App />)
+    expect(mockBackend.emitEvent).toHaveBeenCalledWith('connect', {})
+
+    // 2. Initial Handshake from backend carrying initial presets and parameters
+    const initPayload: InitPayload = {
+      schemaVersion: 1,
+      parameters: Object.values(DEFAULT_PARAMETER_DESCRIPTORS).map((d) => ({
+        ...d,
+        normalizedValue: d.normalizedDefault,
+      })),
+      uiPreferences: {
+        uiScale: 1.0,
+        spectrumDecay: 0.25,
+        skipBootSequence: true,
+      },
+      presets: initialPresets,
+      activePresetId: 'factory://Init/00_Default_Init',
+      activePresetName: 'Default Init',
+      activePresetCategory: 'Init',
+      isFactoryPreset: true,
+    }
+    act(() => {
+      mockBackend.trigger('init', initPayload)
+    })
+
+    // Verify Header shows Default Init without dirty asterisk
+    expect(screen.getByRole('button', { name: /Preset: INIT: DEFAULT INIT/i })).toBeInTheDocument()
+    // 3. Open PresetBrowserModal by clicking PRESETS button
+    const presetsBtn = screen.getByRole('button', { name: 'PRESETS' })
+    fireEvent.click(presetsBtn)
+
+    // Verify Modal is open
+    expect(screen.getByText('PRESET BROWSER')).toBeInTheDocument()
+
+    // 4. Search for "acid"
+    const searchInput = screen.getByPlaceholderText(/SEARCH PRESETS/i)
+    fireEvent.change(searchInput, { target: { value: 'acid' } })
+
+    // Verify table lists "Acid Crush"
+    const acidOption = screen.getByRole('option', { name: /Acid Crush/i })
+    expect(acidOption).toBeInTheDocument()
+
+    // 5. Select preset and click [ LOAD ]
+    fireEvent.click(acidOption)
+    const loadBtn = screen.getByRole('button', { name: /Load preset/i })
+    fireEvent.click(loadBtn)
+    // Verify loadPreset IPC event sent to backend
+    expect(mockBackend.emitEvent).toHaveBeenCalledWith('loadPreset', {
+      id: 'factory://Bass/02_Acid_Crush',
+    })
+    // Backend responds with parameter changes and presetLoaded confirmation for Acid Crush
+    act(() => {
+      mockBackend.trigger('parameterChange', { id: 'COLOR', value: 0.70 })
+      mockBackend.trigger('parameterChange', { id: 'BITCRUSH', value: 0.35 })
+      mockBackend.trigger('presetLoaded', {
+        id: 'factory://Bass/02_Acid_Crush',
+        name: 'Acid Crush',
+        category: 'Bass',
+        isFactory: true,
+        isDirty: false,
+      })
+    })
+    expect(screen.queryByText('PRESET BROWSER')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Preset: BASS: ACID CRUSH/i })).toBeInTheDocument()
+    expect(parameterStore.getActivePresetId()).toBe('factory://Bass/02_Acid_Crush')
+    expect(parameterStore.getIsPresetDirty()).toBe(false)
+
+    // 6. User modifies parameter -> dirty state '*' activates
+    act(() => {
+      mockBackend.trigger('parameterChange', { id: 'COLOR', value: 0.95 })
+    })
+    expect(parameterStore.getIsPresetDirty()).toBe(true)
+    expect(screen.getByRole('button', { name: /Preset: BASS: ACID CRUSH \*/i })).toBeInTheDocument()
+    // 7. Click SAVE button to open SavePresetModal
+    const saveBtn = screen.getByRole('button', { name: 'SAVE' })
+    fireEvent.click(saveBtn)
+    expect(screen.getByRole('heading', { name: 'SAVE PRESET' })).toBeInTheDocument()
+
+    // Enter preset details
+    const nameInput = screen.getByLabelText(/Preset Name/i)
+    fireEvent.change(nameInput, { target: { value: 'My Acid 303' } })
+
+    const descInput = screen.getByLabelText(/Description/i)
+    fireEvent.change(descInput, { target: { value: 'Custom resonant acid sound' } })
+
+    const tagsInput = screen.getByLabelText(/Tags/i)
+    fireEvent.change(tagsInput, { target: { value: 'Acid, 303, Custom' } })
+
+    // Submit Save
+    const submitSaveBtn = screen.getByRole('button', { name: 'Save Preset' })
+    fireEvent.click(submitSaveBtn)
+
+    expect(mockBackend.emitEvent).toHaveBeenCalledWith('savePreset', {
+      name: 'My Acid 303',
+      category: 'Bass',
+      author: 'User',
+      description: 'Custom resonant acid sound',
+      tags: ['Acid', '303', 'Custom'],
+      allowOverwrite: false,
+    })
+
+    // 8. Backend responds with save result, updated catalog, and preset loaded
+    const newPresetHeader = {
+      id: 'user://Bass/My Acid 303',
+      name: 'My Acid 303',
+      category: 'Bass',
+      author: 'User',
+      description: 'Custom resonant acid sound',
+      tags: ['Acid', '303', 'Custom'],
+      isFactory: false,
+      filePath: 'C:/Users/paolo/AppData/Roaming/Synthortion/Presets/Bass/My Acid 303.synthortionpreset',
+      favorite: false,
+      createdAt: '2026-08-29T12:00:00Z',
+      modifiedAt: '2026-08-29T12:00:00Z',
+    }
+    act(() => {
+      mockBackend.trigger('presetOperationResult', {
+        success: true,
+        operation: 'save',
+        message: 'Preset saved successfully',
+      })
+      mockBackend.trigger('presetListUpdated', {
+        presets: [...initialPresets, newPresetHeader],
+        activePresetId: 'user://Bass/My Acid 303',
+      })
+      mockBackend.trigger('presetLoaded', {
+        id: 'user://Bass/My Acid 303',
+        name: 'My Acid 303',
+        category: 'Bass',
+        isFactory: false,
+        isDirty: false,
+      })
+    })
+
+    // Verify Save modal is closed and Header displays new preset name without dirty asterisk
+    expect(screen.queryByRole('heading', { name: 'SAVE PRESET' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Preset: BASS: MY ACID 303/i })).toBeInTheDocument()
+    expect(parameterStore.getIsPresetDirty()).toBe(false)
+    // 9. Re-open PresetBrowserModal and verify new user preset is in catalog
+    fireEvent.click(screen.getByRole('button', { name: 'PRESETS' }))
+    expect(screen.getByRole('option', { name: /My Acid 303/i })).toBeInTheDocument()
+  })
+
+  it('handles disk permission failure gracefully and dispatches toast without UI crash', () => {
+    render(<App />)
+
+    // Simulate permission denied error event from C++ backend
+    mockBackend.trigger('presetOperationResult', {
+      success: false,
+      operation: 'save',
+      errorCode: 'PermissionDenied',
+      message: 'Access is denied: could not write preset to disk',
+    })
+
+    // Verify store has toast message
+    expect(parameterStore.getPresetOperationToast()).toBe('Access is denied: could not write preset to disk')
+
+    // App remains mounted and interactive
+    expect(screen.getByText('SYNTHORTION')).toBeInTheDocument()
+  })
+
+  it('cycles through category presets via Header stepper buttons', () => {
+    const presets = [
+      {
+        id: 'factory://Bass/01_Sub_Destroyer',
+        name: 'Sub Destroyer',
+        category: 'Bass',
+        author: 'Synthortion Core',
+        description: 'Sub bass.',
+        tags: ['Bass'],
+        isFactory: true,
+        filePath: '',
+        favorite: false,
+        createdAt: '',
+        modifiedAt: '',
+      },
+      {
+        id: 'factory://Bass/02_Acid_Crush',
+        name: 'Acid Crush',
+        category: 'Bass',
+        author: 'Synthortion Core',
+        description: 'Acid bass.',
+        tags: ['Bass'],
+        isFactory: true,
+        filePath: '',
+        favorite: false,
+        createdAt: '',
+        modifiedAt: '',
+      },
+    ]
+    render(<App />)
+
+    act(() => {
+      mockBackend.trigger('init', {
+        schemaVersion: 1,
+        parameters: Object.values(DEFAULT_PARAMETER_DESCRIPTORS).map((d) => ({
+          ...d,
+          normalizedValue: d.normalizedDefault,
+        })),
+        uiPreferences: {
+          uiScale: 1.0,
+          spectrumDecay: 0.25,
+          skipBootSequence: true,
+        },
+        presets,
+        activePresetId: 'factory://Bass/01_Sub_Destroyer',
+        activePresetName: 'Sub Destroyer',
+        activePresetCategory: 'Bass',
+        isFactoryPreset: true,
+        isPresetDirty: false,
+      })
+    })
+
+    expect(screen.getByRole('button', { name: /Preset: BASS: SUB DESTROYER/i })).toBeInTheDocument()
+    // Click Next preset stepper >
+    const nextBtn = screen.getByRole('button', { name: 'Next preset' })
+    fireEvent.click(nextBtn)
+
+    expect(mockBackend.emitEvent).toHaveBeenCalledWith('loadPreset', {
+      id: 'factory://Bass/02_Acid_Crush',
+    })
+
+    act(() => {
+      mockBackend.trigger('presetLoaded', {
+        id: 'factory://Bass/02_Acid_Crush',
+        name: 'Acid Crush',
+        category: 'Bass',
+        isFactory: true,
+        isDirty: false,
+      })
+    })
+
+    expect(screen.getByRole('button', { name: /Preset: BASS: ACID CRUSH/i })).toBeInTheDocument()
+    const prevBtn = screen.getByRole('button', { name: 'Previous preset' })
+    fireEvent.click(prevBtn)
+
+    expect(mockBackend.emitEvent).toHaveBeenCalledWith('loadPreset', {
+      id: 'factory://Bass/01_Sub_Destroyer',
+    })
   })
 })
