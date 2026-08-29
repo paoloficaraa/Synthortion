@@ -392,9 +392,6 @@ describe('Full-Stack Integration: Bridge Handshake, Parameter Automation, Teleme
       },
       presets: initialPresets,
       activePresetId: 'factory://Init/00_Default_Init',
-      activePresetName: 'Default Init',
-      activePresetCategory: 'Init',
-      isFactoryPreset: true,
     }
     act(() => {
       mockBackend.trigger('init', initPayload)
@@ -402,10 +399,9 @@ describe('Full-Stack Integration: Bridge Handshake, Parameter Automation, Teleme
 
     // Verify Header shows Default Init without dirty asterisk
     expect(screen.getByRole('button', { name: /Preset: INIT: DEFAULT INIT/i })).toBeInTheDocument()
-    // 3. Open PresetBrowserModal by clicking PRESETS button
-    const presetsBtn = screen.getByRole('button', { name: 'PRESETS' })
-    fireEvent.click(presetsBtn)
-
+    // 3. Open PresetBrowserModal by clicking BROWSE button
+    const browseBtn = screen.getByRole('button', { name: 'BROWSE' })
+    fireEvent.click(browseBtn)
     // Verify Modal is open
     expect(screen.getByText('PRESET BROWSER')).toBeInTheDocument()
 
@@ -514,7 +510,7 @@ describe('Full-Stack Integration: Bridge Handshake, Parameter Automation, Teleme
     expect(screen.getByRole('button', { name: /Preset: BASS: MY ACID 303/i })).toBeInTheDocument()
     expect(parameterStore.getIsPresetDirty()).toBe(false)
     // 9. Re-open PresetBrowserModal and verify new user preset is in catalog
-    fireEvent.click(screen.getByRole('button', { name: 'PRESETS' }))
+    fireEvent.click(screen.getByRole('button', { name: 'BROWSE' }))
     expect(screen.getByRole('option', { name: /My Acid 303/i })).toBeInTheDocument()
   })
 

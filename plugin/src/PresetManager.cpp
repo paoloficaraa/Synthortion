@@ -147,10 +147,25 @@ namespace synthortion
             nameStr = nameStr.substring(0, 32);
 
         outPreset.metadata.name = nameStr;
-        outPreset.metadata.category = metaObj->getProperty("category").toString().trim();
-        if (outPreset.metadata.category.isEmpty())
-            outPreset.metadata.category = "User";
+        juce::String catStr = metaObj->getProperty("category").toString().trim();
+        if (catStr.isEmpty())
+            catStr = "User";
 
+        bool isCanonicalCat = false;
+        for (const auto& canonCat : kCanonicalCategories)
+        {
+            if (canonCat.equalsIgnoreCase(catStr))
+            {
+                catStr = canonCat;
+                isCanonicalCat = true;
+                break;
+            }
+        }
+
+        if (!isCanonicalCat)
+            return PresetResult::fail(PresetErrorCode::InvalidJson, "Invalid category in metadata: '" + catStr + "'. Must be one of canonical categories.");
+
+        outPreset.metadata.category = catStr;
         outPreset.metadata.author = metaObj->hasProperty("author") ? metaObj->getProperty("author").toString() : "User";
         outPreset.metadata.description = metaObj->hasProperty("description") ? metaObj->getProperty("description").toString() : "";
 
@@ -359,8 +374,7 @@ namespace synthortion
 
     juce::String PresetManager::makePresetId(bool isFactory, const juce::String& category, const juce::String& name)
     {
-        const juce::String prefix = isFactory ? "factory://" : "user://";
-        return prefix + category + "/" + name;
+        return PresetId{ isFactory, category, name }.toString();
     }
 
     void PresetManager::scanUserPresets()
@@ -433,6 +447,19 @@ namespace synthortion
         if (category.isEmpty())
             category = "User";
 
+        bool isCanonical = false;
+        for (const auto& canonCat : kCanonicalCategories)
+        {
+            if (canonCat.equalsIgnoreCase(category))
+            {
+                category = canonCat;
+                isCanonical = true;
+                break;
+            }
+        }
+
+        if (!isCanonical)
+            return PresetResult::fail(PresetErrorCode::InvalidJson, "Invalid category: '" + category + "'. Must match a canonical category.");
         auto targetDir = userPresetsDirectory.getChildFile(category);
         if (!targetDir.isDirectory())
         {
@@ -479,6 +506,14 @@ namespace synthortion
         return PresetResult::ok();
     }
 
+    PresetResult PresetManager::saveUserPreset(const PresetMetadata& meta,
+                                               const juce::AudioProcessorValueTreeState& apvts,
+                                               bool allowOverwrite)
+    {
+        PresetData data = PresetData::fromAPVTS(apvts, meta);
+        return saveUserPreset(data, allowOverwrite);
+    }
+
     PresetResult PresetManager::saveUserPreset(const juce::String& category,
                                                const juce::String& name,
                                                const juce::String& author,
@@ -494,8 +529,7 @@ namespace synthortion
         meta.description = description;
         meta.tags = tags;
 
-        PresetData data = PresetData::fromAPVTS(apvts, meta);
-        return saveUserPreset(data, allowOverwrite);
+        return saveUserPreset(meta, apvts, allowOverwrite);
     }
 
     PresetResult PresetManager::loadPresetData(const juce::String& id, PresetData& outData) const

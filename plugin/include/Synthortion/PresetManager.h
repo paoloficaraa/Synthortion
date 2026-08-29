@@ -37,6 +37,58 @@ namespace synthortion
             return { false, c, msg };
         }
     };
+    struct PresetId
+    {
+        bool isFactory = false;
+        juce::String category;
+        juce::String name;
+
+        juce::String toString() const
+        {
+            const juce::String prefix = isFactory ? "factory://" : "user://";
+            return prefix + category + "/" + name;
+        }
+
+        static PresetId parse(const juce::String& idString)
+        {
+            PresetId pid;
+            if (idString.startsWith("factory://"))
+            {
+                pid.isFactory = true;
+                auto rest = idString.substring(10);
+                auto slashIdx = rest.indexOfChar('/');
+                if (slashIdx >= 0)
+                {
+                    pid.category = rest.substring(0, slashIdx);
+                    pid.name = rest.substring(slashIdx + 1);
+                }
+                else
+                {
+                    pid.name = rest;
+                }
+            }
+            else if (idString.startsWith("user://"))
+            {
+                pid.isFactory = false;
+                auto rest = idString.substring(7);
+                auto slashIdx = rest.indexOfChar('/');
+                if (slashIdx >= 0)
+                {
+                    pid.category = rest.substring(0, slashIdx);
+                    pid.name = rest.substring(slashIdx + 1);
+                }
+                else
+                {
+                    pid.name = rest;
+                }
+            }
+            else
+            {
+                pid.name = idString;
+            }
+            return pid;
+        }
+    };
 
     struct PresetMetadata
     {
@@ -49,7 +101,6 @@ namespace synthortion
         juce::String createdAt;
         juce::String modifiedAt;
     };
-
     struct PresetHeader
     {
         juce::String id;
@@ -103,6 +154,9 @@ namespace synthortion
         static juce::String makePresetId(bool isFactory, const juce::String& category, const juce::String& name);
 
         PresetResult saveUserPreset(const PresetData& data, bool allowOverwrite = false);
+        PresetResult saveUserPreset(const PresetMetadata& meta,
+                                   const juce::AudioProcessorValueTreeState& apvts,
+                                   bool allowOverwrite = false);
         PresetResult saveUserPreset(const juce::String& category,
                                    const juce::String& name,
                                    const juce::String& author,
@@ -110,7 +164,6 @@ namespace synthortion
                                    const juce::StringArray& tags,
                                    const juce::AudioProcessorValueTreeState& apvts,
                                    bool allowOverwrite = false);
-
         PresetResult loadPresetData(const juce::String& id, PresetData& outData) const;
         PresetResult loadPreset(const juce::String& id, juce::AudioProcessorValueTreeState& apvts);
         PresetResult deleteUserPreset(const juce::String& id);

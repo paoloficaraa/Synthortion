@@ -5,6 +5,8 @@ import {
   type SavePresetData,
   type PresetHeader,
 } from '../lib/parameterStore'
+import { useModalEscape } from '../hooks/useModalEscape'
+import { CartesianCornerMarks } from './CartesianCornerMarks'
 
 export interface SavePresetModalProps {
   /** Whether the modal dialog is open. */
@@ -144,16 +146,7 @@ export function SavePresetModal({
   }
 
   // Global Escape key handler
-  useEffect(() => {
-    if (!isOpen) return
-    const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', handleGlobalKeyDown)
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [isOpen, onClose])
+  useModalEscape(isOpen, onClose)
 
   if (!isOpen) return null
 
@@ -172,30 +165,7 @@ export function SavePresetModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cartesian Coordinate Corner Marks */}
-        <div
-          className="absolute top-0 left-0 -mt-[4px] -ml-[3px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none"
-          aria-hidden="true"
-        >
-          +
-        </div>
-        <div
-          className="absolute top-0 right-0 -mt-[4px] -mr-[3px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none"
-          aria-hidden="true"
-        >
-          +
-        </div>
-        <div
-          className="absolute bottom-0 left-0 -mb-[4px] -ml-[3px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none"
-          aria-hidden="true"
-        >
-          +
-        </div>
-        <div
-          className="absolute bottom-0 right-0 -mb-[4px] -mr-[3px] font-ascii text-[8px] text-ink-3 leading-none pointer-events-none select-none"
-          aria-hidden="true"
-        >
-          +
-        </div>
+        <CartesianCornerMarks />
 
         {/* Modal Header */}
         <header className="h-[44px] bg-elev-0 border-b border-grid-rule px-4 flex items-center justify-between shrink-0 relative">

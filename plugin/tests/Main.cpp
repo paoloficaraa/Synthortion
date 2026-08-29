@@ -557,6 +557,50 @@ public:
             expectWithinAbsoluteError(static_cast<double>(restoredUiPrefs.getProperty(synthortion::UIPreferences::kUiScale)), 1.33, 0.001);
             expectWithinAbsoluteError(static_cast<double>(restoredUiPrefs.getProperty(synthortion::UIPreferences::kSpectrumDecay)), 0.45, 0.001);
             expect(static_cast<bool>(restoredUiPrefs.getProperty(synthortion::UIPreferences::kSkipBootSequence)));
+            tempDir.deleteRecursively();
+        }
+
+        beginTest("Category validation rejects non-canonical categories and PresetId parses correctly");
+        {
+            juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                                    .getChildFile("Synthortion_Cat_Tests_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt64()));
+            tempDir.createDirectory();
+
+            synthortion::AudioPluginAudioProcessor processor;
+            processor.prepareToPlay(44100.0, 256);
+            auto& apvts = processor.getAPVTS();
+
+            synthortion::PresetManager pm(tempDir);
+            pm.ensureDirectoryHierarchy();
+
+            // 1. Valid canonical category with PresetMetadata overload
+            synthortion::PresetMetadata validMeta;
+            validMeta.name = "My Valid Bass";
+            validMeta.category = "Bass";
+            validMeta.author = "Producer";
+            auto validSave = pm.saveUserPreset(validMeta, apvts, false);
+            expect(validSave.success, "Saving with valid canonical category must succeed");
+
+            // 2. Invalid non-canonical category
+            synthortion::PresetMetadata invalidMeta;
+            invalidMeta.name = "Invalid Cat Preset";
+            invalidMeta.category = "CustomUnknownCategory123";
+            auto invalidSave = pm.saveUserPreset(invalidMeta, apvts, false);
+            expect(!invalidSave.success, "Saving with non-canonical category must fail");
+            expectEquals(static_cast<int>(invalidSave.code), static_cast<int>(synthortion::PresetErrorCode::InvalidJson));
+
+            // 3. PresetId domain type parsing
+            auto parsedFactoryId = synthortion::PresetId::parse("factory://Lead/03_Cyber_Neon");
+            expect(parsedFactoryId.isFactory, "PresetId must detect factory:// prefix");
+            expectEquals(parsedFactoryId.category, juce::String("Lead"));
+            expectEquals(parsedFactoryId.name, juce::String("03_Cyber_Neon"));
+            expectEquals(parsedFactoryId.toString(), juce::String("factory://Lead/03_Cyber_Neon"));
+
+            auto parsedUserId = synthortion::PresetId::parse("user://Bass/My_Patch");
+            expect(!parsedUserId.isFactory, "PresetId must detect user:// prefix");
+            expectEquals(parsedUserId.category, juce::String("Bass"));
+            expectEquals(parsedUserId.name, juce::String("My_Patch"));
+            expectEquals(parsedUserId.toString(), juce::String("user://Bass/My_Patch"));
 
             tempDir.deleteRecursively();
         }
@@ -1172,7 +1216,7 @@ public:
             juce::AudioBuffer<float> buffer(2, 256);
             juce::MidiBuffer midi;
 
-            // A. WarmDistortion active, other modules bypassed
+            // A. Drive active, other modules bypassed
             if (auto* p = apvts.getParameter("DRIVE_ON")) p->setValueNotifyingHost(1.0f);
             if (auto* p = apvts.getParameter("BITCRUSH_ON")) p->setValueNotifyingHost(0.0f);
             if (auto* p = apvts.getParameter("DELAY_ON")) p->setValueNotifyingHost(0.0f);
@@ -1184,7 +1228,7 @@ public:
                     buffer.setSample(ch, s, 0.4f * std::sin(static_cast<float>(s) * 0.1f));
 
             processor.processBlock(buffer, midi);
-            expect(buffer.getMagnitude(0, 256) > 0.0f, "WarmDistortion output must have non-zero magnitude");
+            expect(buffer.getMagnitude(0, 256) > 0.0f, "Drive output must have non-zero magnitude");
 
             // B. BitCrusher active
             if (auto* p = apvts.getParameter("DRIVE_ON")) p->setValueNotifyingHost(0.0f);

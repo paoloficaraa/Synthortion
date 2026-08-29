@@ -370,16 +370,15 @@ describe('App', () => {
     expect(drive).toHaveAttribute('aria-valuetext', '40%')
   })
 
-  it('renders the T07 status bar chrome: brand, VGA preset readout, steppers and PRESETS/SAVE', () => {
+  it('renders the T07 status bar chrome: brand, VGA preset readout, steppers and BROWSE/SAVE', () => {
     const { container } = render(<App />)
 
     expect(screen.getByRole('heading', { name: 'SYNTHORTION' })).toBeInTheDocument()
     expect(screen.getByText(/INIT: INIT STATE/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'SAVE' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'PRESETS' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'BROWSE' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Previous preset' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Next preset' })).toBeInTheDocument()
-
     // The preset readout is a VGA ASCII surface with a blinking block cursor.
     const lcd = container.querySelector('header .bg-elev-0') as HTMLElement
     expect(lcd).toHaveClass('font-ascii')
@@ -450,8 +449,8 @@ describe('App', () => {
     // Initially closed
     expect(screen.queryByRole('dialog', { name: 'Preset Browser' })).not.toBeInTheDocument()
 
-    // Click PRESETS button in Header
-    fireEvent.click(screen.getByRole('button', { name: 'PRESETS' }))
+    // Click BROWSE button in Header
+    fireEvent.click(screen.getByRole('button', { name: 'BROWSE' }))
     expect(screen.getByRole('dialog', { name: 'Preset Browser' })).toBeInTheDocument()
 
     // Close via Escape key

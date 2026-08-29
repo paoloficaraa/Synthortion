@@ -18,7 +18,7 @@ export interface HeaderProps {
 
 /** Terminal bracket-button labels for modal actions. */
 const ACTIONS = [
-  { label: 'PRESETS', key: 'presets' },
+  { label: 'BROWSE', key: 'presets' },
   { label: 'SAVE', key: 'save' },
 ] as const
 
@@ -26,7 +26,7 @@ const ACTIONS = [
  * Header — the terminal status bar with ASCII preset readout and category steppers.
  *
  * Brand on the left beside the engine LED, the VGA preset readout with `<` and `>`
- * category-aware steppers in the middle, and `[ PRESETS ] [ SAVE ]` bracket buttons
+ * category-aware steppers in the middle, and `[ BROWSE ] [ SAVE ]` bracket buttons
  * on the right. Hover inverts the bracket buttons; the bypass LED behavior is unchanged.
  */
 export function Header({

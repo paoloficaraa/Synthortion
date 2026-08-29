@@ -8,11 +8,11 @@ describe('Header', () => {
     parameterStore.reset()
   })
 
-  it('renders the brand, bypass LED, preset readout and PRESETS/SAVE actions', () => {
+  it('renders the brand, bypass LED, preset readout and BROWSE/SAVE actions', () => {
     render(<Header engineActive onToggleBypass={() => {}} />)
 
     expect(screen.getByRole('heading', { name: 'SYNTHORTION' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'PRESETS' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'BROWSE' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'SAVE' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Previous preset' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Next preset' })).toBeInTheDocument()
@@ -203,7 +203,7 @@ describe('Header', () => {
     fireEvent.click(prevButton)
     expect(mockLoadPreset).toHaveBeenLastCalledWith('factory://Lead/04_Vintage_Lead')
   })
-  it('clicking [ PRESETS ] and [ SAVE ] buttons invokes respective modal callbacks', () => {
+  it('clicking [ BROWSE ] and [ SAVE ] buttons invokes respective modal callbacks', () => {
     const onOpenPresets = vi.fn()
     const onOpenSave = vi.fn()
 
@@ -216,7 +216,7 @@ describe('Header', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'PRESETS' }))
+    fireEvent.click(screen.getByRole('button', { name: 'BROWSE' }))
     expect(onOpenPresets).toHaveBeenCalledTimes(1)
 
     fireEvent.click(screen.getByRole('button', { name: 'SAVE' }))
@@ -259,10 +259,10 @@ describe('Header', () => {
     expect(onOpenPresets).toHaveBeenCalledTimes(2)
   })
 
-  it('renders [ PRESETS ] [ SAVE ] bracket buttons with hover inversion', () => {
+  it('renders [ BROWSE ] [ SAVE ] bracket buttons with hover inversion', () => {
     render(<Header engineActive onToggleBypass={() => {}} />)
 
-    for (const label of ['PRESETS', 'SAVE']) {
+    for (const label of ['BROWSE', 'SAVE']) {
       const button = screen.getByRole('button', { name: label })
       expect(button.textContent).toContain(`[ ${label} ]`)
       expect(button.querySelectorAll('[aria-hidden="true"]')).toHaveLength(2)
